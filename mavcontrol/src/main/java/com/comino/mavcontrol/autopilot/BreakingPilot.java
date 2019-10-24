@@ -62,6 +62,7 @@ public class BreakingPilot extends AutoPilotBase {
 
 	final private Polar3D_F32   obstacle      = new Polar3D_F32();
 	final private Polar3D_F32   plannedPath   = new Polar3D_F32();
+	final private Polar3D_F32   currentSpeed  = new Polar3D_F32();
 
 
 	protected BreakingPilot(IMAVController control, MSPConfig config) {
@@ -73,6 +74,7 @@ public class BreakingPilot extends AutoPilotBase {
 		offboard.registerExternalConstraintsListener((delta_sec, speed, path, ctl) -> {
 
 			plannedPath.set(path);
+			currentSpeed.set(speed);
 
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
 
@@ -118,7 +120,9 @@ public class BreakingPilot extends AutoPilotBase {
 //			System.out.println("PATH: "+MSPMathUtils.fromRad(plannedPath.angle_xy)+"°  OBSTACLE:"+MSPMathUtils.fromRad(obstacle.angle_xy)+"° Difference: "+
 //					MSPMathUtils.fromRad(relAngle)+"°  rel.Distance: "+obstacle.value);
 
-			if(obstacle.value < OBSTACLE_MINDISTANCE_1MS  && !tooClose && Math.abs(Math.cos(relAngle)) > 0.2f ) {
+			if(obstacle.value < OBSTACLE_MINDISTANCE_1MS
+					&& !tooClose && Math.abs(Math.cos(relAngle)) > 0.2f
+				    && currentSpeed.value > 0.3f ) {
 				tooClose = true;
 				logger.writeLocalMsg("[msp] Collision warning. Breaking.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			}
