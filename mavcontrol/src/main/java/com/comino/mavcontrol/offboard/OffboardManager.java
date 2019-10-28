@@ -313,9 +313,9 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 				ctl.set(target.x, target.y, target.z);
 				path.angle_xy = ctl.angle_xy;
 
-				// check external constraints
-				if(ext_constraints_listener!=null)
-					ext_constraints_listener.get(delta_sec, spd, path, ctl);
+//				// check external constraints
+//				if(ext_constraints_listener!=null)
+//					ext_constraints_listener.get(delta_sec, spd, path, ctl);
 
 				ctl.get(cmd);
 
@@ -323,11 +323,11 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 				cmd.w = target.w;
 
 
-				if(cmd.z==0) {
-
-					//  simple P controller for altitude
-					cmd.z = (model.target_state.l_z - current.z) / (UPDATE_RATE / 1000f) * Z_PV;
-				}
+//				if(cmd.z==0) {
+//
+//					//  simple P controller for altitude
+//					cmd.z = (model.target_state.l_z - current.z) / (UPDATE_RATE / 1000f) * Z_PV;
+//				}
 
 
 				sendSpeedControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);

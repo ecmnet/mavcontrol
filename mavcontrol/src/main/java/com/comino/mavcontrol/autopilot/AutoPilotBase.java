@@ -234,9 +234,10 @@ public abstract class AutoPilotBase implements Runnable {
 	public void setSpeed(boolean enable, float p, float r, float h, float y) {
 
 		if(enable) {
-			body_speed.set(p*2f,r*2f,h,y);
+			body_speed.set(p,r,h,y);
 			MSP3DUtils.rotateXY(body_speed, ned_speed, -model.attitude.y);
-			offboard.setTarget(ned_speed,OffboardManager.MODE_LOCAL_SPEED);
+			offboard.setTarget(ned_speed);
+			offboard.start(OffboardManager.MODE_LOCAL_SPEED);
 		}
 		else
 			offboard.setCurrentAsTarget();
