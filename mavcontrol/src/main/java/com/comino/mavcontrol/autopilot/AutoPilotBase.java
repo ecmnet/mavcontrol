@@ -254,12 +254,12 @@ public abstract class AutoPilotBase implements Runnable {
 	public void moveto(float x, float y, float z, float yaw) {
 		final Vector4D_F32 target = new Vector4D_F32(x,y,z,yaw);
 		if(flowCheck && !model.sys.isSensorAvailable(Status.MSP_PIX4FLOW_AVAILABILITY)) {
-			logger.writeLocalMsg("[msp] Autopilot: Aborting. No Flow available.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+			logger.writeLocalMsg("[msp] Aborting. No Flow available.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			return;
 		}
 		offboard.registerActionListener( (m,d) -> {
 			offboard.finalize();
-			logger.writeLocalMsg("[msp] Autopilot: Target reached.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+			logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 		});
 		offboard.setTarget(target);
 		offboard.start(OffboardManager.MODE_SPEED_POSITION);
@@ -311,12 +311,12 @@ public abstract class AutoPilotBase implements Runnable {
 
 	public void returnToLand() {
 
-		logger.writeLocalMsg("[msp] Autopilot: Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
 
 		offboard.registerActionListener((m,d) -> {
-			logger.writeLocalMsg("[msp] Autopilot: Home reached.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+			logger.writeLocalMsg("[msp] Home reached.Landing now.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1.0f, 0, 0, 0.05f );
 		});
 

@@ -283,7 +283,7 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 				valid_setpoint = false; mode = MODE_LOITER;
 
 				if(model.sys.nav_state == Status.NAVIGATION_STATE_OFFBOARD)
-					logger.writeLocalMsg("[msp] Offboard: Setpoint not reached. Loitering.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+					logger.writeLocalMsg("[msp] Setpoint not reached. Loitering.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			}
 
 			spd.set(model.state.l_vx, model.state.l_vy, model.state.l_vz );

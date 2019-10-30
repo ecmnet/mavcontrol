@@ -192,7 +192,7 @@ public class BreakingPilot extends AutoPilotBase {
 	public void stop_at_position() {
 		offboard.setCurrentAsTarget();
 		offboard.start(OffboardManager.MODE_LOITER);
-		logger.writeLocalMsg("[msp] Autopilot: Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
+		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 	}
 
 
