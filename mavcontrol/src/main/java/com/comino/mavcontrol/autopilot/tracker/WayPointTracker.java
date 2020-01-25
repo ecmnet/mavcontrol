@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
-import com.comino.mavmap.utils.MSP3DUtils;
+import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavutils.legacy.ExecutorService;
 
 import georegression.struct.point.Vector4D_F32;

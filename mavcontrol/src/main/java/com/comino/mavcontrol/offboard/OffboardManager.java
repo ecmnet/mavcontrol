@@ -47,9 +47,9 @@ import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
+import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard.control.DefaultControlListener;
 import com.comino.mavmap.struct.Polar3D_F32;
-import com.comino.mavmap.utils.MSP3DUtils;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.point.Vector4D_F32;

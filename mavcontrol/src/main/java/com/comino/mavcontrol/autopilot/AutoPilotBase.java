@@ -49,6 +49,7 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
+import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavmap.map.map2D.ILocalMap;
 import com.comino.mavmap.map.map2D.filter.ILocalMapFilter;
@@ -56,7 +57,6 @@ import com.comino.mavmap.map.map2D.filter.impl.DenoiseMapFilter;
 import com.comino.mavmap.map.map2D.impl.LocalMap2DArray;
 import com.comino.mavmap.map.map2D.impl.LocalMap2DRaycast;
 import com.comino.mavmap.map.map2D.store.LocaMap2DStorage;
-import com.comino.mavmap.utils.MSP3DUtils;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.point.Vector3D_F32;
