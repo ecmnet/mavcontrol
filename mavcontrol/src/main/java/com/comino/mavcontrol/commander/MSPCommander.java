@@ -167,6 +167,10 @@ public class MSPCommander {
 		});
 	}
 
+	public ILocalMap getMap() {
+		return map;
+	}
+
 
 	private void restartCompanion(msg_msp_command cmd) {
 		MSPLogger.getInstance().writeLocalMsg("Companion rebooted",
