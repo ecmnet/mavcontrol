@@ -311,13 +311,15 @@ public abstract class AutoPilotBase implements Runnable {
 
 	public void returnToLand() {
 
+		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
+
 		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
 
 		offboard.registerActionListener((m,d) -> {
 			logger.writeLocalMsg("[msp] Home reached.Landing now.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1.0f, 0, 0, 0.05f );
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
 		});
 
 		offboard.setTarget(takeoff);
