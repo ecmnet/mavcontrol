@@ -123,33 +123,11 @@ public class LVH2DPilot extends AutoPilotBase {
 				}
 			}
 
-			// Publish SLAM data to GC
-			slam.px = model.slam.px;
-			slam.py = model.slam.py;
-			slam.pz = model.slam.pz;
-			slam.pd = model.slam.pd;
-			slam.pv = model.slam.pv;
-			slam.md = model.slam.di;
+			if(obstacle.value < OBSTACLE_FAILDISTANCE)
+				publishSLAMData(obstacle);
+			 else
+				publishSLAMData();
 
-
-			if(obstacle.value < OBSTACLE_FAILDISTANCE) {
-
-				slam.ox = obstacle.getX()+model.state.l_x;
-				slam.oy = obstacle.getY()+model.state.l_y;
-				slam.oz = obstacle.getZ()+model.state.l_z;
-				if(control.isSimulation())
-					model.slam.dm = obstacle.value;
-
-			} else {
-
-				slam.ox = 0; slam.oy = 0; slam.oz = 0;
-				if(control.isSimulation())
-					model.slam.dm = Float.NaN;
-			}
-
-			slam.dm = model.slam.dm;
-			slam.tms = model.sys.getSynchronizedPX4Time_us();
-			control.sendMAVLinkMessage(slam);
 
 			if(mapForget && mapFilter != null)
 				map.applyMapFilter(mapFilter);

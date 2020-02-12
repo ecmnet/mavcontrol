@@ -105,9 +105,6 @@ public class BreakingPilot extends AutoPilotBase {
 
 	public void run() {
 
-		msg_msp_micro_slam slam = new msg_msp_micro_slam(2,1);
-		final float maxAngle = (float)Math.PI/2;
-
 		while(isRunning) {
 
 			try { Thread.sleep(CYCLE_MS); } catch(Exception s) { }
@@ -141,33 +138,10 @@ public class BreakingPilot extends AutoPilotBase {
 			}
 
 
-			// Publish SLAM data to GC
-			slam.px = model.slam.px;
-			slam.py = model.slam.py;
-			slam.pz = model.slam.pz;
-			slam.pd = model.slam.pd;
-			slam.pv = model.slam.pv;
-			slam.md = model.slam.di;
-
-
-			if(tooClose) {
-
-				slam.ox = obstacle.getX()+model.state.l_x;
-				slam.oy = obstacle.getY()+model.state.l_y;
-				slam.oz = obstacle.getZ()+model.state.l_z;
-				if(control.isSimulation())
-					model.slam.dm = obstacle.value;
-
-			} else {
-
-				slam.ox = 0; slam.oy = 0; slam.oz = 0;
-				if(control.isSimulation())
-					model.slam.dm = Float.NaN;
-			}
-
-			slam.dm = model.slam.dm;
-			slam.tms = model.sys.getSynchronizedPX4Time_us();
-			control.sendMAVLinkMessage(slam);
+			if(tooClose)
+				publishSLAMData(obstacle);
+			else
+				publishSLAMData();
 
 			if(mapForget && mapFilter != null)
 				map.applyMapFilter(mapFilter);

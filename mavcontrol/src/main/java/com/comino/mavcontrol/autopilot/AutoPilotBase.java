@@ -57,6 +57,7 @@ import com.comino.mavmap.map.map2D.filter.impl.DenoiseMapFilter;
 import com.comino.mavmap.map.map2D.impl.LocalMap2DArray;
 import com.comino.mavmap.map.map2D.impl.LocalMap2DRaycast;
 import com.comino.mavmap.map.map2D.store.LocaMap2DStorage;
+import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.point.Vector3D_F32;
@@ -88,6 +89,8 @@ public abstract class AutoPilotBase implements Runnable {
 	private final Vector4D_F32       body_speed = new Vector4D_F32();
 	private final Vector4D_F32       ned_speed  = new Vector4D_F32();
 
+	private final msg_msp_micro_slam slam = new msg_msp_micro_slam(2,1);
+
 
 
 	public static AutoPilotBase getInstance(Class<?> clazz, IMAVController control,MSPConfig config) {
@@ -115,9 +118,9 @@ public abstract class AutoPilotBase implements Runnable {
 		this.logger   = MSPLogger.getInstance();
 		this.offboard = new OffboardManager(control);
 
-		if(control.isSimulation())
-			this.map      = new LocalMap2DArray(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
-		else
+//		if(control.isSimulation())
+//			this.map      = new LocalMap2DArray(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
+//		else
 			this.map      = new LocalMap2DRaycast(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
 
 		this.mapForget = config.getBoolProperty("autopilot_forget_map", "false");
@@ -183,6 +186,39 @@ public abstract class AutoPilotBase implements Runnable {
 
 	protected void stop() {
 		isRunning = false;
+	}
+
+	protected void publishSLAMData() {
+		publishSLAMData(null);
+	}
+
+	protected void publishSLAMData(Polar3D_F32 obstacle) {
+
+		slam.px = model.slam.px;
+		slam.py = model.slam.py;
+		slam.pz = model.slam.pz;
+		slam.pd = model.slam.pd;
+		slam.pv = model.slam.pv;
+		slam.md = model.slam.di;
+		slam.quality = model.slam.quality;
+
+		if(obstacle!=null) {
+
+			slam.ox = obstacle.getX()+model.state.l_x;
+			slam.oy = obstacle.getY()+model.state.l_y;
+			slam.oz = obstacle.getZ()+model.state.l_z;
+			if(control.isSimulation())
+				model.slam.dm = obstacle.value;
+		} else {
+			slam.ox = 0; slam.oy = 0; slam.oz = 0;
+			if(control.isSimulation())
+				model.slam.dm = Float.NaN;
+		}
+
+		slam.dm = model.slam.dm;
+		slam.tms = model.slam.tms;
+		control.sendMAVLinkMessage(slam);
+
 	}
 
 
