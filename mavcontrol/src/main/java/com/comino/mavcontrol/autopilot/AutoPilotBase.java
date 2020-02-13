@@ -194,6 +194,9 @@ public abstract class AutoPilotBase implements Runnable {
 
 	protected void publishSLAMData(Polar3D_F32 obstacle) {
 
+		if(model.slam.quality < 1)
+			return;
+
 		slam.px = model.slam.px;
 		slam.py = model.slam.py;
 		slam.pz = model.slam.pz;

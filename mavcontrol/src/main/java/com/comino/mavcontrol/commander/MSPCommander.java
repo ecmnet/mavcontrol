@@ -80,7 +80,7 @@ public class MSPCommander {
 		if(control.isSimulation())
 			autopilot = AutoPilotBase.getInstance(BreakingPilot.class,control,config);
 		else
-            autopilot = AutoPilotBase.getInstance(NoPilot.class,control,config);
+            autopilot = AutoPilotBase.getInstance(BreakingPilot.class,control,config);
 
 		this.map = autopilot.getMap2D();
 	}
