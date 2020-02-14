@@ -204,6 +204,7 @@ public abstract class AutoPilotBase implements Runnable {
 		slam.pv = model.slam.pv;
 		slam.md = model.slam.di;
 		slam.quality = model.slam.quality;
+		slam.fps = model.slam.fps;
 
 		if(obstacle!=null) {
 
