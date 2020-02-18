@@ -38,12 +38,4 @@ public class NoPilot extends AutoPilotBase {
 
 	}
 
-	public void stop_at_position() {
-
-	}
-
-
-
-
-
 }

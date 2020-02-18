@@ -367,6 +367,18 @@ public abstract class AutoPilotBase implements Runnable {
 		offboard.start(OffboardManager.MODE_SPEED_POSITION);
 	}
 
+	public void emergency_stop_and_turn(float targetAngle) {
+		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
+		final Vector4D_F32 target = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,targetAngle);
+		offboard.registerActionListener( (m,d) -> {
+			offboard.finalize();
+			logger.writeLocalMsg("[msp] Turning to target yaw finalized.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+			offboard.start(OffboardManager.MODE_LOITER);
+		});
+		offboard.setTarget(target);
+		offboard.start(OffboardManager.MODE_SPEED_POSITION);
+	}
+
 
 
 	protected void clearAutopilotActions() {
