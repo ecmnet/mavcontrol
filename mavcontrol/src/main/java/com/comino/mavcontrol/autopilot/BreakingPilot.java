@@ -43,6 +43,8 @@ import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavutils.MSPMathUtils;
 
+import georegression.struct.point.Vector4D_F32;
+
 
 public class BreakingPilot extends AutoPilotBase {
 
@@ -127,7 +129,7 @@ public class BreakingPilot extends AutoPilotBase {
 
 			if(obstacle.value < OBSTACLE_MINDISTANCE_0MS && !isStopped && Math.abs(Math.cos(relAngle)) > 0.2f) {
 				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP))
-					stop_at_position();
+					stop_and_turn(obstacle.angle_xy);
 				isStopped = true;
 			}
 
@@ -163,10 +165,16 @@ public class BreakingPilot extends AutoPilotBase {
 		super.moveto(x, y, z, yaw);
 	}
 
-	public void stop_at_position() {
-		offboard.setCurrentAsTarget();
-		offboard.start(OffboardManager.MODE_LOITER);
+	public void stop_and_turn(float targetAngle) {
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
+		final Vector4D_F32 target = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,targetAngle);
+		offboard.registerActionListener( (m,d) -> {
+			offboard.finalize();
+			logger.writeLocalMsg("[msp] Turned to nearest obstacle.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+			offboard.start(OffboardManager.MODE_LOITER);
+		});
+		offboard.setTarget(target);
+		offboard.start(OffboardManager.MODE_SPEED_POSITION);
 	}
 
 

@@ -66,7 +66,7 @@ import georegression.struct.point.Vector4D_F32;
 
 public abstract class AutoPilotBase implements Runnable {
 
-	protected static final int   CERTAINITY_THRESHOLD      	= 3;
+	protected static final int   CERTAINITY_THRESHOLD      	= 10;
 	protected static final float WINDOWSIZE       			= 3.0f;
 
 	private static AutoPilotBase  autopilot    = null;
@@ -255,7 +255,8 @@ public abstract class AutoPilotBase implements Runnable {
 			setXObstacleForSITL();
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
-			setYObstacleForSITL();
+		//	setYObstacleForSITL();
+			rotate180();
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
 			offboardPosHold(enable);
@@ -407,6 +408,19 @@ public abstract class AutoPilotBase implements Runnable {
 
 	/*******************************************************************************/
 	// SITL testing
+
+
+	public void rotate180() {
+
+		final Vector4D_F32 target = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,model.attitude.y+MSPMathUtils.toRad(180));
+		offboard.registerActionListener( (m,d) -> {
+			offboard.finalize();
+			logger.writeLocalMsg("[msp] Rotation finalized.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+		});
+		offboard.setTarget(target);
+		offboard.start(OffboardManager.MODE_SPEED_POSITION);
+
+	}
 
 	public void setCircleObstacleForSITL() {
 		if(map==null)
