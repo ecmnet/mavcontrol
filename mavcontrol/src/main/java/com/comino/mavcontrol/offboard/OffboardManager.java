@@ -262,6 +262,8 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 		Polar3D_F32 spd  = new Polar3D_F32(); // current speed
 		Polar3D_F32 ctl  = new Polar3D_F32(); // speed control
 
+		float d_yaw;
+
 		already_fired = false; if(!new_setpoint) valid_setpoint = false;
 
 		logger.writeLocalMsg("[msp] OffboardUpdater started",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
@@ -423,11 +425,12 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 				}
 
 			    //  simple P controller for yaw;
-				cmd.w = MSPMathUtils.normAngle(target.w - current.w) * YAW_P;
-				checkAbsoluteSpeeds(cmd);
+				d_yaw = MSPMathUtils.normAngle(target.w - current.w) * YAW_P;
 
+				if(d_yaw >   MAX_YAW_SPEED )  d_yaw =   MAX_YAW_SPEED;
+				if(d_yaw <  -MAX_YAW_SPEED )  d_yaw =  -MAX_YAW_SPEED;
 
-				cmd.set(target.x,target.y,target.z,current.w + cmd.w);
+				cmd.set(target.x,target.y,target.z,current.w + d_yaw);
 
 				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 				toModel(0,target,current);
