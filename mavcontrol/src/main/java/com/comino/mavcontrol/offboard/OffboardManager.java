@@ -58,7 +58,7 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 
 	private static final int UPDATE_RATE                 			= 50;					  // offboard update rate in ms
 
-	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(30); // Max YawSpeed rad/s
+	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(20); // Max YawSpeed rad/s
 	private static final float MAX_TURN_SPEED               		= 0.2f;   	              // Max speed that allow turning before start in m/s
 
 
@@ -422,7 +422,12 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 					continue;
 				}
 
-				cmd.set(target.x,target.y,target.z,current.w + MSPMathUtils.normAngle(target.w - current.w) * YAW_P);
+			    //  simple P controller for yaw;
+				cmd.w = MSPMathUtils.normAngle(target.w - current.w) * YAW_P;
+				checkAbsoluteSpeeds(cmd);
+
+
+				cmd.set(target.x,target.y,target.z,current.w + cmd.w);
 
 				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 				toModel(0,target,current);
@@ -498,6 +503,7 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 
 		if(s.w >   MAX_YAW_SPEED )  s.w =   MAX_YAW_SPEED;
 		if(s.w <  -MAX_YAW_SPEED )  s.w =  -MAX_YAW_SPEED;
+
 	}
 
 	private void fireAction(DataModel model,float delta) {
@@ -516,10 +522,15 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 			model.slam.pd = MSP3DUtils.getXYDirection(target, current);
 			model.slam.pv = speed;
 			model.slam.di = MSP3DUtils.distance2D(target,current);
-		} else
-			model.slam.clear();
+		} else {
+			model.slam.px = Float.NaN;
+			model.slam.py = Float.NaN;
+			model.slam.pz = Float.NaN;
+			model.slam.pd = Float.NaN;
+			model.slam.pv = speed;
+			model.slam.di = Float.NaN;
+		}
 
-		model.slam.tms = model.sys.getSynchronizedPX4Time_us();
 	}
 
 	private boolean safety_check() {
