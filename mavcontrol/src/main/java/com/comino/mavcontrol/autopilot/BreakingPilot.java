@@ -35,15 +35,12 @@ package com.comino.mavcontrol.autopilot;
 
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
-import org.mavlink.messages.lquac.msg_msp_micro_slam;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
-import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavutils.MSPMathUtils;
 
-import georegression.struct.point.Vector4D_F32;
 
 
 public class BreakingPilot extends AutoPilotBase {

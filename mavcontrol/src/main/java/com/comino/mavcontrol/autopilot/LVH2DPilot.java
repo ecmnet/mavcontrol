@@ -37,7 +37,6 @@ import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_MODE_FLAG;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
-import org.mavlink.messages.lquac.msg_msp_micro_slam;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
@@ -84,7 +83,6 @@ public class LVH2DPilot extends AutoPilotBase {
 	public void run() {
 
 		Vector3D_F32 current = new Vector3D_F32(); boolean tooClose = false; float min_distance;
-		msg_msp_micro_slam slam = new msg_msp_micro_slam(2,1);
 
 		while(isRunning) {
 
