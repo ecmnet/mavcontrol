@@ -232,6 +232,10 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 //		this.ext_control_listener = null;
 //	}
 
+	public int getMode() {
+		return mode;
+	}
+
 	public void registerActionListener(IOffboardTargetAction listener) {
 		this.action_listener = listener;
 	}

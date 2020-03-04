@@ -66,6 +66,9 @@ import georegression.struct.point.Vector4D_F32;
 
 public abstract class AutoPilotBase implements Runnable {
 
+	public static final int   AUTOPILOT_MODE_NONE      	= 0;
+	public static final int   AUTOPILOT_MODE_ENABLED    = 1;
+
 	protected static final int   CERTAINITY_THRESHOLD      	= 10;
 	protected static final float WINDOWSIZE       			= 3.0f;
 
@@ -91,7 +94,7 @@ public abstract class AutoPilotBase implements Runnable {
 
 	private final msg_msp_micro_slam slam = new msg_msp_micro_slam(2,1);
 
-
+    private int autopilot_mode = AUTOPILOT_MODE_NONE;
 
 	public static AutoPilotBase getInstance(Class<?> clazz, IMAVController control,MSPConfig config) {
 		if(autopilot == null)
@@ -106,6 +109,7 @@ public abstract class AutoPilotBase implements Runnable {
 	public static AutoPilotBase getInstance() {
 		return autopilot;
 	}
+
 
 	public AutoPilotBase(IMAVController control, MSPConfig config) {
 
@@ -159,7 +163,8 @@ public abstract class AutoPilotBase implements Runnable {
 		// takeoff completed action
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_OFFBOARD, StatusManager.EDGE_RISING, (n) -> {
 			this.takeoffCompleted();
-			this.takeoff.set(model.target_state.l_x,model.target_state.l_y,model.target_state.l_z,0);
+			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
+			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 		});
 
 		// Stop offboard updater as soon as landed and set in manual mode
@@ -168,7 +173,12 @@ public abstract class AutoPilotBase implements Runnable {
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
+			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 		});
+	}
+
+	public int getAutopilotMode() {
+		return autopilot_mode;
 	}
 
 	protected void takeoffCompleted() {
@@ -275,10 +285,12 @@ public abstract class AutoPilotBase implements Runnable {
 	public void setSpeed(boolean enable, float p, float r, float h, float y) {
 
 		if(enable) {
-			body_speed.set(p,r,h,y);
-			MSP3DUtils.rotateXY(body_speed, ned_speed, -model.attitude.y);
-			offboard.setTarget(ned_speed);
-			offboard.start(OffboardManager.MODE_LOCAL_SPEED);
+			 if(autopilot_mode == AUTOPILOT_MODE_NONE) {
+				body_speed.set(p,r,h,y);
+				MSP3DUtils.rotateXY(body_speed, ned_speed, -model.attitude.y);
+				offboard.setTarget(ned_speed);
+				offboard.start(OffboardManager.MODE_LOCAL_SPEED);
+			 }
 		}
 		else
 			offboard.setCurrentAsTarget();
@@ -354,6 +366,7 @@ public abstract class AutoPilotBase implements Runnable {
 
 		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
 
+		autopilot_mode = AUTOPILOT_MODE_ENABLED;
 		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
@@ -368,9 +381,11 @@ public abstract class AutoPilotBase implements Runnable {
 	}
 
 	public void emergency_stop_and_turn(float targetAngle) {
+		autopilot_mode = AUTOPILOT_MODE_ENABLED;
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 		final Vector4D_F32 target = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,targetAngle);
 		offboard.registerActionListener( (m,d) -> {
+			autopilot_mode = AUTOPILOT_MODE_NONE;
 			offboard.finalize();
 			logger.writeLocalMsg("[msp] Turning to target yaw finalized.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 			offboard.start(OffboardManager.MODE_LOITER);
