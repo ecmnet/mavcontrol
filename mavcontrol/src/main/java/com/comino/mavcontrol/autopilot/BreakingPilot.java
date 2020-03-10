@@ -48,8 +48,8 @@ public class BreakingPilot extends AutoPilotBase {
 	private static final int              CYCLE_MS	        = 50;
 	private static final float            ROBOT_RADIUS      = 0.25f;
 
-	private static final float OBSTACLE_MINDISTANCE_0MS  	= 0.5f;
-	private static final float OBSTACLE_MINDISTANCE_1MS  	= 1.5f;
+	private static final float OBSTACLE_MINDISTANCE_0MS  	= 0.25f;
+	private static final float OBSTACLE_MINDISTANCE_1MS  	= 1.0f;
 	private static final float MIN_BREAKING_SPEED           = 0.2f;
 	private static final float BREAKING_ACCELERATION       	= 0.5f;
 
@@ -127,6 +127,7 @@ public class BreakingPilot extends AutoPilotBase {
 			if(obstacle.value < OBSTACLE_MINDISTANCE_0MS && !isStopped && Math.abs(Math.cos(relAngle)) > 0.2f) {
 				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP))
 					emergency_stop_and_turn(obstacle.angle_xy);
+				tooClose = true;
 				isStopped = true;
 			}
 
@@ -137,8 +138,10 @@ public class BreakingPilot extends AutoPilotBase {
 			}
 
 
-			if(tooClose)
+			if(tooClose) {
 				publishSLAMData(obstacle);
+				System.out.println(MSPMathUtils.fromRad(obstacle.angle_xy));
+			}
 			else
 				publishSLAMData();
 

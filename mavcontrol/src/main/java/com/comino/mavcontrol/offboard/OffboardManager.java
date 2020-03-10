@@ -153,6 +153,7 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 			worker.setPriority(Thread.MIN_PRIORITY);
 			worker.setName("OffboardManager");
 			worker.start();
+			System.out.println("Offboard updater started..");
 			try { Thread.sleep(5); } catch (InterruptedException e) { }
 		}
 
@@ -319,9 +320,11 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 				ctl.set(target.x, target.y, target.z);
 				path.angle_xy = ctl.angle_xy;
 
+				//TODO: check external constraints,
+
 //				// check external constraints
-//				if(ext_constraints_listener!=null)
-//					ext_constraints_listener.get(delta_sec, spd, path, ctl);
+				if(ext_constraints_listener!=null)
+					ext_constraints_listener.get(delta_sec, spd, path, ctl);
 
 				ctl.get(cmd);
 
@@ -337,6 +340,7 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 
 
 				sendSpeedControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
+				toModel(spd.value,target,current);
 
 				if((System.currentTimeMillis()- setpoint_tms) > 1000)
 					valid_setpoint = false;
@@ -521,7 +525,6 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 	}
 
 	private void toModel(float speed, Vector4D_F32 target, Vector4D_F32 current) {
-
 		if(mode!=MODE_LOITER) {
 			model.slam.px = target.getX();
 			model.slam.py = target.getY();
@@ -537,6 +540,7 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 			model.slam.pv = speed;
 			model.slam.di = Float.NaN;
 		}
+		model.slam.tms = model.sys.getSynchronizedPX4Time_us();
 
 	}
 

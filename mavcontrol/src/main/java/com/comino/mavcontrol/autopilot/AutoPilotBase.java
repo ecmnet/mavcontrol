@@ -94,7 +94,7 @@ public abstract class AutoPilotBase implements Runnable {
 
 	private final msg_msp_micro_slam slam = new msg_msp_micro_slam(2,1);
 
-    private int autopilot_mode = AUTOPILOT_MODE_NONE;
+    protected int autopilot_mode = AUTOPILOT_MODE_NONE;
 
 	public static AutoPilotBase getInstance(Class<?> clazz, IMAVController control,MSPConfig config) {
 		if(autopilot == null)
@@ -203,9 +203,10 @@ public abstract class AutoPilotBase implements Runnable {
 	}
 
 	protected void publishSLAMData(Polar3D_F32 obstacle) {
+//
+//		if(model.slam.quality < 1)
+//			return;
 
-		if(model.slam.quality < 1)
-			return;
 
 		slam.px = model.slam.px;
 		slam.py = model.slam.py;
@@ -230,7 +231,7 @@ public abstract class AutoPilotBase implements Runnable {
 		}
 
 		slam.dm = model.slam.dm;
-		slam.tms = model.slam.tms;
+		slam.tms = model.sys.getSynchronizedPX4Time_us();
 		control.sendMAVLinkMessage(slam);
 
 	}
@@ -286,7 +287,7 @@ public abstract class AutoPilotBase implements Runnable {
 
 		if(enable) {
 			 if(autopilot_mode == AUTOPILOT_MODE_NONE) {
-				body_speed.set(p,r,h,y);
+				body_speed.set(p * 2f,r * 2f,h ,y);
 				MSP3DUtils.rotateXY(body_speed, ned_speed, -model.attitude.y);
 				offboard.setTarget(ned_speed);
 				offboard.start(OffboardManager.MODE_LOCAL_SPEED);
@@ -387,7 +388,7 @@ public abstract class AutoPilotBase implements Runnable {
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 		final Vector4D_F32 target = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,targetAngle);
 		offboard.registerActionListener( (m,d) -> {
-			autopilot_mode = AUTOPILOT_MODE_NONE;
+			autopilot_mode = AUTOPILOT_MODE_ENABLED;
 			offboard.finalize();
 			logger.writeLocalMsg("[msp] Turning to target yaw finalized.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 			offboard.start(OffboardManager.MODE_LOITER);
