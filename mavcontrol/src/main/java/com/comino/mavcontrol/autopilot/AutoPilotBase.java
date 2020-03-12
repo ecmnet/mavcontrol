@@ -1,37 +1,37 @@
 package com.comino.mavcontrol.autopilot;
 
 /****************************************************************************
-*
-*   Copyright (c) 2017,2020 Eike Mansfeld ecm@gmx.de. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions
-* are met:
-*
-* 1. Redistributions of source code must retain the above copyright
-*    notice, this list of conditions and the following disclaimer.
-* 2. Redistributions in binary form must reproduce the above copyright
-*    notice, this list of conditions and the following disclaimer in
-*    the documentation and/or other materials provided with the
-*    distribution.
-* 3. Neither the name of the copyright holder nor the names of its
-*    contributors may be used to endorse or promote products derived
-*    from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-* "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-* LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-* FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-* COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-* INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-* BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
-* OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
-* AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-* LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-* ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-* POSSIBILITY OF SUCH DAMAGE.
-*
-****************************************************************************/
+ *
+ *   Copyright (c) 2017,2020 Eike Mansfeld ecm@gmx.de. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ ****************************************************************************/
 
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_MODE_FLAG;
@@ -94,7 +94,7 @@ public abstract class AutoPilotBase implements Runnable {
 
 	private final msg_msp_micro_slam slam = new msg_msp_micro_slam(2,1);
 
-    protected int autopilot_mode = AUTOPILOT_MODE_NONE;
+	protected int autopilot_mode = AUTOPILOT_MODE_NONE;
 
 	public static AutoPilotBase getInstance(Class<?> clazz, IMAVController control,MSPConfig config) {
 		if(autopilot == null)
@@ -122,10 +122,10 @@ public abstract class AutoPilotBase implements Runnable {
 		this.logger   = MSPLogger.getInstance();
 		this.offboard = new OffboardManager(control);
 
-//		if(control.isSimulation())
-//			this.map      = new LocalMap2DArray(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
-//		else
-			this.map      = new LocalMap2DRaycast(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
+		//		if(control.isSimulation())
+		//			this.map      = new LocalMap2DArray(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
+		//		else
+		this.map      = new LocalMap2DRaycast(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
 
 		this.mapForget = config.getBoolProperty("autopilot_forget_map", "false");
 		System.out.println(instanceName+": Map forget enabled: "+mapForget);
@@ -154,7 +154,7 @@ public abstract class AutoPilotBase implements Runnable {
 					control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+").", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				}
 			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-			   MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
+					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
 
 			control.writeLogMessage(new LogMessage("[msp] Auto-takeoff completed.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
 
@@ -203,9 +203,9 @@ public abstract class AutoPilotBase implements Runnable {
 	}
 
 	protected void publishSLAMData(Polar3D_F32 obstacle) {
-//
-//		if(model.slam.quality < 1)
-//			return;
+		//
+		//		if(model.slam.quality < 1)
+		//			return;
 
 
 		slam.px = model.slam.px;
@@ -254,7 +254,7 @@ public abstract class AutoPilotBase implements Runnable {
 			abort();
 			break;
 		case MSP_AUTOCONTROL_ACTION.RTL:
-			returnToLand();
+			returnToLand(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.SAVE_MAP2D:
 			saveMap2D();
@@ -266,7 +266,7 @@ public abstract class AutoPilotBase implements Runnable {
 			setXObstacleForSITL();
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
-		//	setYObstacleForSITL();
+			//	setYObstacleForSITL();
 			rotate180();
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
@@ -286,12 +286,12 @@ public abstract class AutoPilotBase implements Runnable {
 	public void setSpeed(boolean enable, float p, float r, float h, float y) {
 
 		if(enable) {
-			 if(autopilot_mode == AUTOPILOT_MODE_NONE) {
+			if(autopilot_mode == AUTOPILOT_MODE_NONE) {
 				body_speed.set(p * 2f,r * 2f,h ,y);
 				MSP3DUtils.rotateXY(body_speed, ned_speed, -model.attitude.y);
 				offboard.setTarget(ned_speed);
 				offboard.start(OffboardManager.MODE_LOCAL_SPEED);
-			 }
+			}
 		}
 		else
 			offboard.setCurrentAsTarget();
@@ -365,22 +365,30 @@ public abstract class AutoPilotBase implements Runnable {
 		}
 	}
 
-	public void returnToLand() {
+	public void returnToLand(boolean enable) {
 
 		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
 
 		autopilot_mode = AUTOPILOT_MODE_ENABLED;
-		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 
-		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
+		if(enable) {
+			logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 
-		offboard.registerActionListener((m,d) -> {
-			logger.writeLocalMsg("[msp] Home reached.Landing now.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
-		});
+			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
 
-		offboard.setTarget(takeoff);
-		offboard.start(OffboardManager.MODE_SPEED_POSITION);
+			offboard.registerActionListener((m,d) -> {
+				logger.writeLocalMsg("[msp] Home reached.Landing now.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
+			});
+
+			offboard.setTarget(takeoff);
+			offboard.start(OffboardManager.MODE_SPEED_POSITION);
+		} else {
+			logger.writeLocalMsg("[msp] Return to launch aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+			offboard.setCurrentAsTarget();
+			offboard.start(OffboardManager.MODE_LOITER);
+			this.autopilot_mode = AUTOPILOT_MODE_NONE;
+		}
 	}
 
 	public void emergency_stop_and_turn(float targetAngle) {
