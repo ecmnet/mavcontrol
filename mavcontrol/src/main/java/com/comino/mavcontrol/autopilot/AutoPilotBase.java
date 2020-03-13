@@ -156,7 +156,7 @@ public abstract class AutoPilotBase implements Runnable {
 			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
 
-			control.writeLogMessage(new LogMessage("[msp] Auto-takeoff completed.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
+			control.writeLogMessage(new LogMessage("[msp] Auto-takeoff completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 
 		});
 
@@ -169,12 +169,22 @@ public abstract class AutoPilotBase implements Runnable {
 
 		// Stop offboard updater as soon as landed and set in manual mode
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_LANDED, StatusManager.EDGE_RISING, (n) -> {
-			offboard.stop();
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
+			control.writeLogMessage(new LogMessage("[msp] Landing detected.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+
+		});
+
+		// Switch off offboard after disarmed
+		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
+			if(offboard.isEnabled()) {
+				offboard.stop();
+				control.writeLogMessage(new LogMessage("[msp] Switched to manual mode.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
+			}
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 		});
+
 	}
 
 	public int getAutopilotMode() {
@@ -380,7 +390,6 @@ public abstract class AutoPilotBase implements Runnable {
 				logger.writeLocalMsg("[msp] Home reached.Landing now.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
 			});
-
 			offboard.setTarget(takeoff);
 			offboard.start(OffboardManager.MODE_SPEED_POSITION);
 		} else {

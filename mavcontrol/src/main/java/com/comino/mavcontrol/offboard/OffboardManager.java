@@ -271,7 +271,7 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 
 		already_fired = false; if(!new_setpoint) valid_setpoint = false;
 
-		logger.writeLocalMsg("[msp] OffboardUpdater started",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+		logger.writeLocalMsg("[msp] Offboard manager started",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER, true);
 
 		last_update_tms = System.currentTimeMillis();
@@ -450,7 +450,7 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 		}
 
 		action_listener = null; model.sys.autopilot = 0;
-		logger.writeLocalMsg("[msp] OffboardUpdater stopped",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+		logger.writeLocalMsg("[msp] Offboard manager stopped",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 		already_fired = false; valid_setpoint = false;
 	}
 
