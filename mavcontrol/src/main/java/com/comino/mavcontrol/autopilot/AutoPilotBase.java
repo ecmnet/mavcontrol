@@ -40,6 +40,7 @@ import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import org.mavlink.messages.lquac.msg_msp_micro_slam;
+import org.mavlink.messages.lquac.msg_trajectory_representation_bezier;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
@@ -50,6 +51,7 @@ import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.autopilot.tests.PlannerTest;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavmap.map.map2D.ILocalMap;
 import com.comino.mavmap.map.map2D.filter.ILocalMapFilter;
@@ -65,6 +67,9 @@ import georegression.struct.point.Vector4D_F32;
 
 
 public abstract class AutoPilotBase implements Runnable {
+
+	/* TEST ONLY */
+	private PlannerTest planner = null;
 
 	public static final int   AUTOPILOT_MODE_NONE      	= 0;
 	public static final int   AUTOPILOT_MODE_ENABLED    = 1;
@@ -113,6 +118,9 @@ public abstract class AutoPilotBase implements Runnable {
 
 	public AutoPilotBase(IMAVController control, MSPConfig config) {
 
+		/* TEST ONLY */
+		this.planner = new PlannerTest(control,config);
+
 		String instanceName = this.getClass().getSimpleName();
 
 		System.out.println(instanceName+" instantiated");
@@ -155,19 +163,18 @@ public abstract class AutoPilotBase implements Runnable {
 				}
 			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
-
-			control.writeLogMessage(new LogMessage("[msp] Auto-takeoff completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-
 		});
 
-		// takeoff completed action
+		// offboard mode enabled action
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_OFFBOARD, StatusManager.EDGE_RISING, (n) -> {
 			this.takeoffCompleted();
 			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
+			control.writeLogMessage(new LogMessage("[msp] Auto-takeoff completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+
 		});
 
-		// Stop offboard updater as soon as landed and set in manual mode
+		// Landing action
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_LANDED, StatusManager.EDGE_RISING, (n) -> {
 			control.writeLogMessage(new LogMessage("[msp] Landing detected.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
@@ -175,9 +182,9 @@ public abstract class AutoPilotBase implements Runnable {
 
 		// Switch off offboard after disarmed
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
-			if(offboard.isEnabled()) {
+			if(offboard.isEnabled() && !model.sys.isStatus(Status.MSP_JOY_ATTACHED)) {
 				offboard.stop();
-				control.writeLogMessage(new LogMessage("[msp] Switched to manual mode.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+				control.writeLogMessage(new LogMessage("[msp] Switched to manual mode.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
@@ -279,6 +286,12 @@ public abstract class AutoPilotBase implements Runnable {
 			//	setYObstacleForSITL();
 			rotate180();
 			break;
+		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
+			planner.enable(enable);
+			break;
+		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
+			logger.writeLocalMsg("[msp] Not implemented",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
 			offboardPosHold(enable);
 			break;
@@ -294,17 +307,19 @@ public abstract class AutoPilotBase implements Runnable {
 
 
 	public void setSpeed(boolean enable, float p, float r, float h, float y) {
-
 		if(enable) {
 			if(autopilot_mode == AUTOPILOT_MODE_NONE) {
+				model.sys.setStatus(Status.MSP_JOY_ATTACHED,true);
 				body_speed.set(p * 2f,r * 2f,h ,y);
 				MSP3DUtils.rotateXY(body_speed, ned_speed, -model.attitude.y);
 				offboard.setTarget(ned_speed);
 				offboard.start(OffboardManager.MODE_LOCAL_SPEED);
 			}
 		}
-		else
+		else {
+			model.sys.setStatus(Status.MSP_JOY_ATTACHED,false);
 			offboard.setCurrentAsTarget();
+		}
 	}
 
 
@@ -407,7 +422,7 @@ public abstract class AutoPilotBase implements Runnable {
 		offboard.registerActionListener( (m,d) -> {
 			autopilot_mode = AUTOPILOT_MODE_ENABLED;
 			offboard.finalize();
-			logger.writeLocalMsg("[msp] Turning to target yaw finalized.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+			logger.writeLocalMsg("[msp] Turning to target yaw finalized.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 			offboard.start(OffboardManager.MODE_LOITER);
 		});
 		offboard.setTarget(target);
@@ -435,13 +450,13 @@ public abstract class AutoPilotBase implements Runnable {
 	public void saveMap2D() {
 		LocaMap2DStorage store = new LocaMap2DStorage(map,model.state.g_lat, model.state.g_lon);
 		store.write();
-		logger.writeLocalMsg("[msp] Map for this home position stored.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+		logger.writeLocalMsg("[msp] Map for this home position stored.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 	}
 
 	public void loadMap2D() {
 		LocaMap2DStorage store = new LocaMap2DStorage(map, model.state.g_lat, model.state.g_lon);
 		if(store.locateAndRead()) {
-			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 			map.setDataModel(control.getCurrentModel()); map.toDataModel(false); map.setIsLoaded(true);
 		}
 		else
