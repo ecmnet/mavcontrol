@@ -51,6 +51,7 @@ import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.autopilot.tests.PlannerTest;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavmap.map.map2D.ILocalMap;
 import com.comino.mavmap.map.map2D.filter.ILocalMapFilter;
@@ -66,6 +67,9 @@ import georegression.struct.point.Vector4D_F32;
 
 
 public abstract class AutoPilotBase implements Runnable {
+
+	/* TEST ONLY */
+	private PlannerTest planner = null;
 
 	public static final int   AUTOPILOT_MODE_NONE      	= 0;
 	public static final int   AUTOPILOT_MODE_ENABLED    = 1;
@@ -114,6 +118,9 @@ public abstract class AutoPilotBase implements Runnable {
 
 	public AutoPilotBase(IMAVController control, MSPConfig config) {
 
+		/* TEST ONLY */
+		this.planner = new PlannerTest(control,config);
+
 		String instanceName = this.getClass().getSimpleName();
 
 		System.out.println(instanceName+" instantiated");
@@ -160,6 +167,7 @@ public abstract class AutoPilotBase implements Runnable {
 
 		// offboard mode enabled action
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_OFFBOARD, StatusManager.EDGE_RISING, (n) -> {
+			this.planner.enable(false);
 			this.takeoffCompleted();
 			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
@@ -280,7 +288,7 @@ public abstract class AutoPilotBase implements Runnable {
 			rotate180();
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
-			logger.writeLocalMsg("[msp] Not implemented",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+			planner.enable(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
 			logger.writeLocalMsg("[msp] Not implemented",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
