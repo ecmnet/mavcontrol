@@ -51,7 +51,6 @@ import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.utils.MSP3DUtils;
-import com.comino.mavcontrol.autopilot.tests.PlannerTest;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavmap.map.map2D.ILocalMap;
 import com.comino.mavmap.map.map2D.filter.ILocalMapFilter;
@@ -67,9 +66,6 @@ import georegression.struct.point.Vector4D_F32;
 
 
 public abstract class AutoPilotBase implements Runnable {
-
-	/* TEST ONLY */
-	private PlannerTest planner = null;
 
 	public static final int   AUTOPILOT_MODE_NONE      	= 0;
 	public static final int   AUTOPILOT_MODE_ENABLED    = 1;
@@ -117,9 +113,6 @@ public abstract class AutoPilotBase implements Runnable {
 
 
 	public AutoPilotBase(IMAVController control, MSPConfig config) {
-
-		/* TEST ONLY */
-		this.planner = new PlannerTest(control,config);
 
 		String instanceName = this.getClass().getSimpleName();
 
@@ -287,7 +280,7 @@ public abstract class AutoPilotBase implements Runnable {
 			rotate180();
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
-			planner.enable(enable);
+			logger.writeLocalMsg("[msp] Not implemented",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
 			logger.writeLocalMsg("[msp] Not implemented",MAV_SEVERITY.MAV_SEVERITY_DEBUG);

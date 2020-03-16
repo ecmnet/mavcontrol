@@ -58,7 +58,7 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 
 	private static final int UPDATE_RATE                 			= 50;					  // offboard update rate in ms
 
-	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(20); // Max YawSpeed rad/s
+	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(15); // Max YawSpeed rad/s
 	private static final float MAX_TURN_SPEED               		= 0.2f;   	              // Max speed that allow turning before start in m/s
 
 
@@ -314,7 +314,9 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 
 				if(!valid_setpoint) {
 					watch_tms = System.currentTimeMillis();
+					logger.writeLocalMsg("[msp] No valid Setpoint. Loitering.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 					setCurrentAsTarget();
+					mode = MODE_LOITER;
 				}
 
 				ctl.set(target.x, target.y, target.z);
@@ -340,7 +342,7 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 
 
 				sendSpeedControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
-				toModel(spd.value,target,current);
+				//toModel(spd.value,target,current);
 
 				if((System.currentTimeMillis()- setpoint_tms) > 1000)
 					valid_setpoint = false;
