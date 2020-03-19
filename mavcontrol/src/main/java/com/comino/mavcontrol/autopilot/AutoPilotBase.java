@@ -153,6 +153,9 @@ public abstract class AutoPilotBase implements Runnable {
 			if(n.nav_state == Status.NAVIGATION_STATE_AUTO_LAND)
 				return;
 
+			if(planner.isStarted())
+				return;
+
 			offboard.setCurrentSetPointAsTarget();
 			offboard.start(OffboardManager.MODE_LOITER);
 
@@ -167,7 +170,7 @@ public abstract class AutoPilotBase implements Runnable {
 
 		// offboard mode enabled action
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_OFFBOARD, StatusManager.EDGE_RISING, (n) -> {
-			this.planner.enable(false);
+
 			this.takeoffCompleted();
 			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
@@ -291,7 +294,7 @@ public abstract class AutoPilotBase implements Runnable {
 			planner.enable(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
-			logger.writeLocalMsg("[msp] Not implemented",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+			test_seq1(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
 			offboardPosHold(enable);
@@ -326,6 +329,13 @@ public abstract class AutoPilotBase implements Runnable {
 
 	public void setTarget(float x, float y, float z, float yaw) {
 		Vector4D_F32 target = new Vector4D_F32(x,y,z,yaw);
+		offboard.setTarget(target);
+		offboard.start(OffboardManager.MODE_SPEED_POSITION);
+
+	}
+
+	public void setTarget(float x, float y, float z) {
+		Vector4D_F32 target = new Vector4D_F32(x,y,z,Float.NaN);
 		offboard.setTarget(target);
 		offboard.start(OffboardManager.MODE_SPEED_POSITION);
 
@@ -367,7 +377,9 @@ public abstract class AutoPilotBase implements Runnable {
 			}
 		} else {
 			if(model.sys.nav_state==Status.NAVIGATION_STATE_OFFBOARD) {
-				model.sys.autopilot = 0;
+				model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.INTERACTIVE, false);
+				model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_AVOIDANCE, false);
+				model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, false);
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
@@ -378,6 +390,7 @@ public abstract class AutoPilotBase implements Runnable {
 
 
 	public void abort() {
+		System.out.println("Autopilot abort");
 		clearAutopilotActions();
 		model.sys.autopilot &= 0b11000000000000000000000000000001;
 		if(model.sys.isStatus(Status.MSP_RC_ATTACHED)) {
@@ -472,6 +485,18 @@ public abstract class AutoPilotBase implements Runnable {
 	/*******************************************************************************/
 	// SITL testing
 
+
+	public void test_seq1(boolean enable) {
+
+		planner.send();
+
+//		offboard.registerActionListener((m,d) -> {
+//			logger.writeLocalMsg("[msp] End of sequence reached .",MAV_SEVERITY.MAV_SEVERITY_INFO);
+//			offboard.finalize();
+//		});
+//		offboard.setTarget(1, 1, model.state.l_z-0.5f, 0, OffboardManager.MODE_SPEED_POSITION);
+//		offboard.start(OffboardManager.MODE_SPEED_POSITION);
+	}
 
 	public void rotate180() {
 

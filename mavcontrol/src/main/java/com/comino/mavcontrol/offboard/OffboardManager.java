@@ -33,6 +33,8 @@
 
 package com.comino.mavcontrol.offboard;
 
+import java.util.Arrays;
+
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_FRAME;
 import org.mavlink.messages.MAV_MODE_FLAG;
@@ -81,6 +83,7 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 	public static final int MODE_LOCAL_SPEED                		= 1;
 	public static final int MODE_SPEED_POSITION	 	    			= 2;
 	public static final int MODE_POSITION	 		            	= 3;
+	public static final int MODE_BEZIER                             = 4;
 
 	//
 
@@ -397,9 +400,10 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 				// check external constraints
 				ext_constraints_listener.get(delta_sec, spd, path, ctl);
 
-
 				// if vehicle is not moving or close to target and turn angle > 60° => turn before moving
-				if( Math.abs(MSPMathUtils.normAngle(ctl.angle_xy - current.w)) > Math.PI/3 && ( ctl.value < MAX_TURN_SPEED || eta_sec < 2.0f ) ) {
+				if( Math.abs(MSPMathUtils.normAngle(ctl.angle_xy - current.w)) > Math.PI/3 &&
+				  ( ctl.value < MAX_TURN_SPEED || eta_sec < 2.0f ) &&
+				     MSP3DUtils.distance2D(target, current) > acceptance_radius_pos) {
 					ctl.value = 0.01f;
 				}
 
@@ -407,8 +411,11 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 					trajectory_start_tms = System.currentTimeMillis();
 
 
-				//  simple P controller for yaw;
-				cmd.w = MSPMathUtils.normAngle(path.angle_xy - current.w) / delta_sec * YAW_PV;
+				//  simple P controller for yaw - do not consider path direction if slope steeper than 45°
+				if(( path.angle_xz >  0.78f || path.angle_xz < -0.78 ) && !Float.isNaN(target.w))
+				  cmd.w = MSPMathUtils.normAngle(target.w - current.w) / delta_sec * YAW_PV;
+				else
+				  cmd.w = MSPMathUtils.normAngle(path.angle_xy - current.w) / delta_sec * YAW_PV;
 
 				// get Cartesian speeds from polar
 				ctl.get(cmd);
@@ -447,11 +454,22 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 
 				break;
 
+			case MODE_BEZIER:
+
+
+
+				logger.writeLocalMsg("[msp] Offboard manager bezier mode not supported",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+				mode = MODE_LOITER;
+
+				break;
+
 			}
 			try { Thread.sleep(UPDATE_RATE); 	} catch (InterruptedException e) { }
 		}
 
-		action_listener = null; model.sys.autopilot = 0;
+		System.out.println("Offboard updater stopped");
+		action_listener = null;
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER, false);
 		logger.writeLocalMsg("[msp] Offboard manager stopped",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 		already_fired = false; valid_setpoint = false;
 	}
@@ -527,7 +545,7 @@ public class OffboardManager implements Runnable, IOffboardExternalConstraints {
 	}
 
 	private void toModel(float speed, Vector4D_F32 target, Vector4D_F32 current) {
-		if(mode!=MODE_LOITER) {
+		if(mode!=MODE_LOITER && MSP3DUtils.distance2D(target, current) > 0.2f) {
 			model.slam.px = target.getX();
 			model.slam.py = target.getY();
 			model.slam.pz = target.getZ();
