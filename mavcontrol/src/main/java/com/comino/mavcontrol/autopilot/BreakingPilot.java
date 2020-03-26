@@ -38,7 +38,11 @@ import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcontrol.offboard.OffboardManager;
+import com.comino.mavmap.map.map2D.impl.LocalMap2DBase;
+import com.comino.mavmap.map.map2D.impl.LocalMap2DRaycast;
 import com.comino.mavmap.struct.Polar3D_F32;
+import com.comino.mavmap.trajectory.vfh.LocalVFH2D;
 import com.comino.mavutils.MSPMathUtils;
 
 
@@ -48,13 +52,13 @@ public class BreakingPilot extends AutoPilotBase {
 	private static final int              CYCLE_MS	        = 50;
 	private static final float            ROBOT_RADIUS      = 0.25f;
 
-	private static final float OBSTACLE_MINDISTANCE_0MS  	= 0.25f;
+	private static final float OBSTACLE_MINDISTANCE_0MS  	= 0.4f;
 	private static final float OBSTACLE_MINDISTANCE_1MS  	= 1.0f;
-	private static final float MIN_BREAKING_SPEED           = 0.2f;
-	private static final float BREAKING_ACCELERATION       	= 0.5f;
+	private static final float MIN_BREAKING_SPEED           = 0.1f;
+	private static final float BREAKING_ACCELERATION       	= 1.5f;
+	private static final float MIN_REL_ANGLE                = MSPMathUtils.toRad(45);
 
 	private boolean             tooClose      = false;
-	private boolean             isStopped     = false;
 
 	private float				max_speed_obstacle = 0;
 	private float               relAngle = 0;
@@ -67,13 +71,12 @@ public class BreakingPilot extends AutoPilotBase {
 	protected BreakingPilot(IMAVController control, MSPConfig config) {
 		super(control,config);
 
-		obstacle.value = Float.POSITIVE_INFINITY;
+		this.obstacle.value = Float.POSITIVE_INFINITY;
 
 		// calculate speed constraints considering the distance to obstacles
 		offboard.registerExternalConstraintsListener((delta_sec, speed, path, ctl) -> {
 
-			plannedPath.set(path);
-			currentSpeed.set(speed);
+			plannedPath.set(path); currentSpeed.set(speed);
 
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
 
@@ -81,18 +84,19 @@ public class BreakingPilot extends AutoPilotBase {
 					return false;
 				}
 
-				float obs_sec = (float)Math.cos(relAngle) * obstacle.value / speed.value;
+				float obs_sec = relAngle * obstacle.value / speed.value;
                 if(obs_sec < 0)
                 	return false;
 
 
 
 				max_speed_obstacle = ( 0.5f - 0.3f) / ( OBSTACLE_MINDISTANCE_1MS - OBSTACLE_MINDISTANCE_0MS) * obstacle.value;
-				if(ctl.value > max_speed_obstacle && tooClose )
+				if(ctl.value > max_speed_obstacle && tooClose ) {
 					ctl.value = ctl.value - BREAKING_ACCELERATION * delta_sec;
+					if(ctl.value < MIN_BREAKING_SPEED) ctl.value = MIN_BREAKING_SPEED;
+					//System.out.println("Breaking: "+ctl.value+" Delta: "+delta_sec + " ETA.Obs: " + obs_sec);
+				}
 
-
-				if(ctl.value < MIN_BREAKING_SPEED || ( tooClose && isStopped)) ctl.value = MIN_BREAKING_SPEED;
 				return true;
 
 			}
@@ -104,43 +108,49 @@ public class BreakingPilot extends AutoPilotBase {
 
 	public void run() {
 
+		int mode = 0;
+
 		while(isRunning) {
 
 			try { Thread.sleep(CYCLE_MS); } catch(Exception s) { }
+
+			mode = offboard.getMode();
 
 			map.processWindow(model.state.l_x, model.state.l_y);
 	        map.nearestObstacle(obstacle);
 
 			relAngle = MSPMathUtils.normAngleDiff(obstacle.angle_xy, plannedPath.angle_xy);
 
-//			System.out.println("PATH: "+MSPMathUtils.fromRad(plannedPath.angle_xy)+"°  OBSTACLE:"+MSPMathUtils.fromRad(obstacle.angle_xy)+"° Difference: "+
-//					MSPMathUtils.fromRad(relAngle)+"°  rel.Distance: "+obstacle.value);
+//			  System.out.println("PATH: "+MSPMathUtils.fromRad(plannedPath.angle_xy)+"°  OBSTACLE:"+MSPMathUtils.fromRad(obstacle.angle_xy)+"° Difference: "+
+//					MSPMathUtils.fromRad(relAngle)+"°  rel.DistanceToObstacle: "+obstacle.value+" re.DistanceToTarget: "+plannedPath.value);
+
+
 
 			if(obstacle.value < OBSTACLE_MINDISTANCE_1MS
-					&& !tooClose && Math.abs(Math.cos(relAngle)) > 0.2f
-				    && currentSpeed.value > 0.3f ) {
+					&& !tooClose && relAngle < MIN_REL_ANGLE
+				    && currentSpeed.value > 0.3f && mode == OffboardManager.MODE_SPEED_POSITION) {
 				tooClose = true;
 				logger.writeLocalMsg("[msp] Collision warning. Breaking.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			}
 
 
-			if(obstacle.value < OBSTACLE_MINDISTANCE_0MS && !isStopped && Math.abs(Math.cos(relAngle)) > 0.2f) {
-				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP))
+			if(obstacle.value < OBSTACLE_MINDISTANCE_0MS && relAngle < MIN_REL_ANGLE && mode == OffboardManager.MODE_SPEED_POSITION ) {
+//				  System.out.println("PATH: "+MSPMathUtils.fromRad(plannedPath.angle_xy)+"°  OBSTACLE:"+MSPMathUtils.fromRad(obstacle.angle_xy)+"° Difference: "+
+//							MSPMathUtils.fromRad(relAngle)+"°  rel.DistanceToObstacle: "+obstacle.value+" re.DistanceToTarget: "+plannedPath.value);
+
+				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP )) {
 					emergency_stop_and_turn(obstacle.angle_xy);
+				}
 				tooClose = true;
-				isStopped = true;
 			}
 
 
-			if(obstacle.value > OBSTACLE_MINDISTANCE_1MS+ROBOT_RADIUS || Math.abs(Math.cos(relAngle)) < 0.2f) {
+			if(obstacle.value > OBSTACLE_MINDISTANCE_1MS+2*ROBOT_RADIUS || ( relAngle > MIN_REL_ANGLE  && mode == OffboardManager.MODE_SPEED_POSITION) ) {
 				tooClose = false;
-				isStopped = false;
 			}
-
 
 			if(tooClose) {
 				publishSLAMData(obstacle);
-				System.out.println(MSPMathUtils.fromRad(obstacle.angle_xy));
 			}
 			else
 				publishSLAMData();
@@ -161,7 +171,6 @@ public class BreakingPilot extends AutoPilotBase {
 
 	@Override
 	public void moveto(float x, float y, float z, float yaw) {
-		isStopped = false;
 		super.moveto(x, y, z, yaw);
 	}
 

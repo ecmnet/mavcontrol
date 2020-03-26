@@ -40,7 +40,6 @@ import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import org.mavlink.messages.lquac.msg_msp_micro_slam;
-import org.mavlink.messages.lquac.msg_trajectory_representation_bezier;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
@@ -56,7 +55,6 @@ import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavmap.map.map2D.ILocalMap;
 import com.comino.mavmap.map.map2D.filter.ILocalMapFilter;
 import com.comino.mavmap.map.map2D.filter.impl.DenoiseMapFilter;
-import com.comino.mavmap.map.map2D.impl.LocalMap2DArray;
 import com.comino.mavmap.map.map2D.impl.LocalMap2DRaycast;
 import com.comino.mavmap.map.map2D.store.LocaMap2DStorage;
 import com.comino.mavmap.struct.Polar3D_F32;
@@ -192,6 +190,7 @@ public abstract class AutoPilotBase implements Runnable {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
+				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
 			}
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 		});
@@ -336,6 +335,7 @@ public abstract class AutoPilotBase implements Runnable {
 
 	public void setTarget(float x, float y, float z) {
 		Vector4D_F32 target = new Vector4D_F32(x,y,z,Float.NaN);
+		offboard.finalize();
 		offboard.setTarget(target);
 		offboard.start(OffboardManager.MODE_SPEED_POSITION);
 
@@ -347,6 +347,12 @@ public abstract class AutoPilotBase implements Runnable {
 			logger.writeLocalMsg("[msp] Aborting. No Flow available.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			return;
 		}
+
+		if(planner.isStarted()) {
+			planner.setTarget(target);
+			return;
+		}
+
 		offboard.registerActionListener( (m,d) -> {
 			offboard.finalize();
 			logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_INFO);
@@ -380,6 +386,7 @@ public abstract class AutoPilotBase implements Runnable {
 				model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.INTERACTIVE, false);
 				model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_AVOIDANCE, false);
 				model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, false);
+				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
@@ -432,15 +439,9 @@ public abstract class AutoPilotBase implements Runnable {
 	public void emergency_stop_and_turn(float targetAngle) {
 		autopilot_mode = AUTOPILOT_MODE_ENABLED;
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
-		final Vector4D_F32 target = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,targetAngle);
-		offboard.registerActionListener( (m,d) -> {
-			autopilot_mode = AUTOPILOT_MODE_ENABLED;
-			offboard.finalize();
-			logger.writeLocalMsg("[msp] Turning to target yaw finalized.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-			offboard.start(OffboardManager.MODE_LOITER);
-		});
-		offboard.setTarget(target);
-		offboard.start(OffboardManager.MODE_SPEED_POSITION);
+		offboard.finalize();
+		offboard.setCurrentAsTarget(targetAngle);
+		offboard.start(OffboardManager.MODE_POSITION);
 	}
 
 
@@ -488,14 +489,17 @@ public abstract class AutoPilotBase implements Runnable {
 
 	public void test_seq1(boolean enable) {
 
-		planner.send();
 
-//		offboard.registerActionListener((m,d) -> {
-//			logger.writeLocalMsg("[msp] End of sequence reached .",MAV_SEVERITY.MAV_SEVERITY_INFO);
-//			offboard.finalize();
-//		});
-//		offboard.setTarget(1, 1, model.state.l_z-0.5f, 0, OffboardManager.MODE_SPEED_POSITION);
-//		offboard.start(OffboardManager.MODE_SPEED_POSITION);
+		if(planner.isStarted())
+			planner.send();
+		else {
+			offboard.registerActionListener((m,d) -> {
+				logger.writeLocalMsg("[msp] End of sequence reached .",MAV_SEVERITY.MAV_SEVERITY_INFO);
+				offboard.finalize();
+			});
+			offboard.setTarget(1, 1, -1, 0, OffboardManager.MODE_SPEED_POSITION);
+			offboard.start(OffboardManager.MODE_SPEED_POSITION);
+		}
 	}
 
 	public void rotate180() {
