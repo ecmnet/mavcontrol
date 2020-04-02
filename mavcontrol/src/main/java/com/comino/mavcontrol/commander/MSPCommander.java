@@ -52,10 +52,13 @@ import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavcontrol.autopilot.BreakingPilot;
 import com.comino.mavcontrol.autopilot.NoPilot;
 import com.comino.mavmap.map.map2D.ILocalMap;
+import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.legacy.ExecutorService;
 
+import georegression.struct.point.Point3D_F64;
+
 @SuppressWarnings("unused")
-public class MSPCommander {
+public class MSPCommander  implements ITargetListener {
 
 	private IMAVMSPController        control 	= null;
 	private AutoPilotBase           autopilot 	= null;
@@ -63,6 +66,7 @@ public class MSPCommander {
 	private ILocalMap                	map  	= null;
 
 	public MSPCommander(IMAVMSPController control, MSPConfig config) {
+
 
 		this.control = control;
 		this.model   = control.getCurrentModel();
@@ -199,6 +203,21 @@ public class MSPCommander {
 			MSPLogger.getInstance().writeLocalMsg("LINUX command '"+command+"' failed: "+e.getMessage(),
 					MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 		}
+	}
+
+	private Point3D_F64 smooth_target = new Point3D_F64();
+
+	@Override
+	public boolean update(Point3D_F64 point) {
+
+		smooth_target.x = smooth_target.x * 0.8 + point.x * 0.2;
+		smooth_target.y = smooth_target.y * 0.8 + point.y * 0.2;
+		smooth_target.z = smooth_target.z * 0.8 + point.z * 0.2;
+
+		autopilot.followObject(smooth_target);
+
+ //       System.out.println(point);
+		return false;
 	}
 
 

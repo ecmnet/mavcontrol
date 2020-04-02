@@ -33,8 +33,6 @@
 
 package com.comino.mavcontrol.offboard;
 
-import java.util.Arrays;
-
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_FRAME;
 import org.mavlink.messages.MAV_MODE_FLAG;
@@ -173,6 +171,8 @@ public class OffboardManager implements Runnable {
 
 	public void stop() {
 		enabled = false;
+		valid_setpoint = false;
+		new_setpoint = false;
 	}
 
 
@@ -194,6 +194,13 @@ public class OffboardManager implements Runnable {
 		target.set(x,y,z,yaw);
 		valid_setpoint = true;
 		new_setpoint = true;
+		already_fired = false;
+		setpoint_tms = System.currentTimeMillis();
+	}
+
+	public void updateTarget(float x, float y, float z, float w) {
+		target.set(x,y,z,w);
+		valid_setpoint = true;
 		already_fired = false;
 		setpoint_tms = System.currentTimeMillis();
 	}
@@ -262,6 +269,10 @@ public class OffboardManager implements Runnable {
 
 	public IOffboardTargetAction getActionListener() {
 		return action_listener;
+	}
+
+	public boolean hasTarget() {
+		return valid_setpoint;
 	}
 
 	@Override
@@ -394,6 +405,7 @@ public class OffboardManager implements Runnable {
 					trajectory_start_tms = 0;
 
 					if(Float.isNaN(target.w)) {
+						valid_setpoint = false;
 						path.clear();
 						ctl.clear();
 						fireAction(model, path.value);
@@ -422,15 +434,21 @@ public class OffboardManager implements Runnable {
 				if(ctl.value > 0 && trajectory_start_tms == 0)
 					trajectory_start_tms = System.currentTimeMillis();
 
+				// No yaw control for simulation
+				if(control.isSimulation())
+					cmd.w = 0;
+				else {
 
-				//  simple P controller for yaw - do not consider path direction if slope steeper than 45°
-				if(( path.angle_xz >  0.78f || path.angle_xz < -0.78 ) && !Float.isNaN(target.w))
-					cmd.w = MSPMathUtils.normAngle(target.w - current.w) / delta_sec * YAW_PV;
-				else
-					cmd.w = MSPMathUtils.normAngle(path.angle_xy - current.w) / delta_sec * YAW_PV;
+					//  simple P controller for yaw - do not consider path direction if slope steeper than 45°
+					if(( path.angle_xz >  0.78f || path.angle_xz < -0.78 ) && !Float.isNaN(target.w))
+						cmd.w = MSPMathUtils.normAngle(target.w - current.w) / delta_sec * YAW_PV;
+					else
+						cmd.w = MSPMathUtils.normAngle(path.angle_xy - current.w) / delta_sec * YAW_PV;
 
-				// Limit min yaw speed
-				if(Math.abs(cmd.w)< MIN_YAW_SPEED) cmd.w = MIN_YAW_SPEED * Math.signum(cmd.w);
+					// Limit min yaw speed
+					if(Math.abs(cmd.w)< MIN_YAW_SPEED) cmd.w = MIN_YAW_SPEED * Math.signum(cmd.w);
+
+				}
 
 				// get Cartesian speeds from polar
 				ctl.get(cmd);
@@ -444,7 +462,7 @@ public class OffboardManager implements Runnable {
 			case MODE_POSITION:
 
 				if(!valid_setpoint) {
-				   setCurrentAsTarget();
+					setCurrentAsTarget();
 				}
 
 				path.set(target, current);
@@ -452,7 +470,7 @@ public class OffboardManager implements Runnable {
 					path.setValidity(true);
 
 				if(path.value < acceptance_radius_pos && valid_setpoint && Math.abs(MSPMathUtils.normAngle(target.w - current.w)) < YAW_ACCEPT) {
-					path.clear();
+					path.clear(); valid_setpoint = false;
 					ctl.clear();
 					fireAction(model, path.value);
 					mode = MODE_LOITER;
@@ -476,8 +494,6 @@ public class OffboardManager implements Runnable {
 				break;
 
 			case MODE_BEZIER:
-
-
 
 				logger.writeLocalMsg("[msp] Offboard manager bezier mode not supported",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				mode = MODE_LOITER;
@@ -570,7 +586,7 @@ public class OffboardManager implements Runnable {
 	}
 
 	private void toModel(Vector4D_F32 target, Polar3D_F32 path ) {
-		if(path.isValid) {
+		if(valid_setpoint) {
 			model.slam.px = target.getX();
 			model.slam.py = target.getY();
 			model.slam.pz = target.getZ();

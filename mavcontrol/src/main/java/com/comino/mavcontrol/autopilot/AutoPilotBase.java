@@ -61,6 +61,7 @@ import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavutils.MSPMathUtils;
 import com.sun.jna.ptr.PointerByReference;
 
+import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector3D_F32;
 import georegression.struct.point.Vector4D_F32;
 
@@ -139,7 +140,7 @@ public abstract class AutoPilotBase implements Runnable {
 		if(mapForget)
 			registerMapFilter(new DenoiseMapFilter(800,800));
 
-		this.flowCheck = config.getBoolProperty("autopilot_flow_check", "true") & !model.sys.isStatus(Status.MSP_SITL);
+		this.flowCheck = config.getBoolProperty("autopilot_flow_check", "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
 
 		// Auto-Takeoff: Switch to Offboard and enable ObstacleAvoidance as soon as takeoff completed
@@ -210,7 +211,7 @@ public abstract class AutoPilotBase implements Runnable {
 	protected void start() {
 		isRunning = true;
 		Thread worker = new Thread(this);
-		worker.setPriority(Thread.MIN_PRIORITY);
+		//worker.setPriority(Thread.MIN_PRIORITY);
 		worker.setName("AutoPilot");
 		worker.start();
 	}
@@ -252,7 +253,7 @@ public abstract class AutoPilotBase implements Runnable {
 		}
 
 		slam.dm = model.slam.dm;
-		slam.tms = model.sys.getSynchronizedPX4Time_us();
+		slam.tms = model.slam.tms;
 		control.sendMAVLinkMessage(slam);
 
 	}
@@ -274,6 +275,12 @@ public abstract class AutoPilotBase implements Runnable {
 		case MSP_AUTOCONTROL_MODE.ABORT:
 			abort();
 			break;
+		case MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT:
+			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.INTERACTIVE, false);
+			break;
+		case MSP_AUTOCONTROL_MODE.INTERACTIVE:
+			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT, false);
+			break;
 		case MSP_AUTOCONTROL_ACTION.RTL:
 			returnToLand(enable);
 			break;
@@ -288,7 +295,7 @@ public abstract class AutoPilotBase implements Runnable {
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
 			//	setYObstacleForSITL();
-			rotate180();
+
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
 			planner.enable(enable);
@@ -512,6 +519,17 @@ public abstract class AutoPilotBase implements Runnable {
 		});
 		offboard.setTarget(target);
 		offboard.start(OffboardManager.MODE_SPEED_POSITION);
+
+	}
+
+	public void followObject(Point3D_F64 target) {
+		if(offboard.isEnabled() && model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT)) {
+			if(!offboard.hasTarget()) {
+				offboard.setTarget((float)target.x, (float)target.y, (float)target.z-2.0f, 0, OffboardManager.MODE_SPEED_POSITION);
+				offboard.start(OffboardManager.MODE_SPEED_POSITION);
+			} else
+				offboard.updateTarget((float)target.x, (float)target.y, (float)target.z-2.0f, 0);
+		}
 
 	}
 
