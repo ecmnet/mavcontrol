@@ -50,15 +50,11 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavcontrol.autopilot.BreakingPilot;
-import com.comino.mavcontrol.autopilot.NoPilot;
 import com.comino.mavmap.map.map2D.ILocalMap;
-import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.legacy.ExecutorService;
 
-import georegression.struct.point.Point3D_F64;
-
 @SuppressWarnings("unused")
-public class MSPCommander  implements ITargetListener {
+public class MSPCommander  {
 
 	private IMAVMSPController        control 	= null;
 	private AutoPilotBase           autopilot 	= null;
@@ -75,16 +71,16 @@ public class MSPCommander  implements ITargetListener {
 
 		System.out.println("Commander initialized");
 
-//		autopilot = AutoPilotBase.getInstance(CollisonPreventionPilot.class,control,config);
-//		autopilot = AutoPilotBase.getInstance(LVH2DPilot.class,control,config);
+		//		autopilot = AutoPilotBase.getInstance(CollisonPreventionPilot.class,control,config);
+		//		autopilot = AutoPilotBase.getInstance(LVH2DPilot.class,control,config);
 
 		//TODO: High perfomrmance impact of autopilot
-//		autopilot = AutoPilotBase.getInstance(BreakingPilot.class,control,config);
+		//		autopilot = AutoPilotBase.getInstance(BreakingPilot.class,control,config);
 
 		if(control.isSimulation())
 			autopilot = AutoPilotBase.getInstance(BreakingPilot.class,control,config);
 		else
-            autopilot = AutoPilotBase.getInstance(BreakingPilot.class,control,config);
+			autopilot = AutoPilotBase.getInstance(BreakingPilot.class,control,config);
 
 		this.map = autopilot.getMap2D();
 	}
@@ -186,9 +182,9 @@ public class MSPCommander  implements ITargetListener {
 
 	private void setOffboardPosition(msg_msp_command cmd) {
 		if(cmd.param3 == 0 || cmd.param3 == Float.NaN)
-		  autopilot.moveto(cmd.param1, cmd.param2, model.state.l_z, cmd.param4);
+			autopilot.moveto(cmd.param1, cmd.param2, model.state.l_z, cmd.param4);
 		else
-		  autopilot.moveto(cmd.param1, cmd.param2, cmd.param3, cmd.param4);
+			autopilot.moveto(cmd.param1, cmd.param2, cmd.param3, cmd.param4);
 	}
 
 
@@ -204,22 +200,4 @@ public class MSPCommander  implements ITargetListener {
 					MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 		}
 	}
-
-	private Point3D_F64 smooth_target = new Point3D_F64();
-
-	@Override
-	public boolean update(Point3D_F64 point) {
-
-		smooth_target.x = smooth_target.x * 0.8 + point.x * 0.2;
-		smooth_target.y = smooth_target.y * 0.8 + point.y * 0.2;
-		smooth_target.z = smooth_target.z * 0.8 + point.z * 0.2;
-
-		autopilot.followObject(smooth_target);
-
- //       System.out.println(point);
-		return false;
-	}
-
-
-
 }

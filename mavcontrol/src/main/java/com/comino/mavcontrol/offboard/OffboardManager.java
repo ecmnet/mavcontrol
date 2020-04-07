@@ -199,6 +199,11 @@ public class OffboardManager implements Runnable {
 	}
 
 	public void updateTarget(float x, float y, float z, float w) {
+
+		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT))
+				return;
+
+		this.mode = MODE_SPEED_POSITION;
 		target.set(x,y,z,w);
 		valid_setpoint = true;
 		already_fired = false;
@@ -322,7 +327,6 @@ public class OffboardManager implements Runnable {
 			spd.set(model.state.l_vx, model.state.l_vy, model.state.l_vz );
 
 			delta_sec = (System.currentTimeMillis() - last_update_tms ) / 1000.0f;
-
 			last_update_tms = System.currentTimeMillis();
 
 			switch(mode) {
@@ -400,6 +404,10 @@ public class OffboardManager implements Runnable {
 
 				eta_sec = (path.value - acceptance_radius_pos ) / spd.value;
 
+//				System.out.println(target);
+//				System.out.println(current);
+//				System.out.println(path.value);
+
 				// target reached?
 				if(path.value < acceptance_radius_pos && valid_setpoint ) {
 					trajectory_start_tms = 0;
@@ -464,6 +472,8 @@ public class OffboardManager implements Runnable {
 				if(!valid_setpoint) {
 					setCurrentAsTarget();
 				}
+
+//				System.out.println("P");
 
 				path.set(target, current);
 				if(path.value > acceptance_radius_pos)

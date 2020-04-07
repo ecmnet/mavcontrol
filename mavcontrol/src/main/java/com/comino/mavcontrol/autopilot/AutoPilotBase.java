@@ -58,15 +58,15 @@ import com.comino.mavmap.map.map2D.filter.impl.DenoiseMapFilter;
 import com.comino.mavmap.map.map2D.impl.LocalMap2DRaycast;
 import com.comino.mavmap.map.map2D.store.LocaMap2DStorage;
 import com.comino.mavmap.struct.Polar3D_F32;
+import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
-import com.sun.jna.ptr.PointerByReference;
 
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector3D_F32;
 import georegression.struct.point.Vector4D_F32;
 
 
-public abstract class AutoPilotBase implements Runnable {
+public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	/* TEST ONLY */
 	private PlannerTest planner = null;
@@ -269,8 +269,6 @@ public abstract class AutoPilotBase implements Runnable {
 
 	public void setMode(boolean enable, int mode, float param) {
 
-		model.sys.setAutopilotMode(mode, enable);
-
 		switch(mode) {
 		case MSP_AUTOCONTROL_MODE.ABORT:
 			abort();
@@ -310,6 +308,8 @@ public abstract class AutoPilotBase implements Runnable {
 			//	applyMapFilter();
 			break;
 		}
+
+		model.sys.setAutopilotMode(mode, enable);
 	}
 
 
@@ -371,6 +371,11 @@ public abstract class AutoPilotBase implements Runnable {
 
 	}
 
+	@Override
+	public boolean update(Point3D_F64 point, Point3D_F64 body) {
+		return false;
+	}
+
 	/*******************************************************************************/
 	// Standard actions
 
@@ -429,6 +434,7 @@ public abstract class AutoPilotBase implements Runnable {
 			logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
+			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT, false);
 
 			offboard.registerActionListener((m,d) -> {
 				logger.writeLocalMsg("[msp] Home reached.Landing now.",MAV_SEVERITY.MAV_SEVERITY_INFO);
@@ -522,16 +528,7 @@ public abstract class AutoPilotBase implements Runnable {
 
 	}
 
-	public void followObject(Point3D_F64 target) {
-		if(offboard.isEnabled() && model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT)) {
-			if(!offboard.hasTarget()) {
-				offboard.setTarget((float)target.x, (float)target.y, (float)target.z-2.0f, 0, OffboardManager.MODE_SPEED_POSITION);
-				offboard.start(OffboardManager.MODE_SPEED_POSITION);
-			} else
-				offboard.updateTarget((float)target.x, (float)target.y, (float)target.z-2.0f, 0);
-		}
-
-	}
+	//**********
 
 	public void setCircleObstacleForSITL() {
 		if(map==null)

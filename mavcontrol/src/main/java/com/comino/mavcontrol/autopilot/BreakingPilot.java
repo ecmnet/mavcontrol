@@ -1,53 +1,55 @@
 package com.comino.mavcontrol.autopilot;
 
 /****************************************************************************
-*
-*   Copyright (c) 2017,2020 Eike Mansfeld ecm@gmx.de. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions
-* are met:
-*
-* 1. Redistributions of source code must retain the above copyright
-*    notice, this list of conditions and the following disclaimer.
-* 2. Redistributions in binary form must reproduce the above copyright
-*    notice, this list of conditions and the following disclaimer in
-*    the documentation and/or other materials provided with the
-*    distribution.
-* 3. Neither the name of the copyright holder nor the names of its
-*    contributors may be used to endorse or promote products derived
-*    from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-* "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-* LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-* FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-* COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-* INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-* BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
-* OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
-* AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-* LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-* ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-* POSSIBILITY OF SUCH DAMAGE.
-*
-****************************************************************************/
+ *
+ *   Copyright (c) 2017,2020 Eike Mansfeld ecm@gmx.de. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ ****************************************************************************/
 
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcontrol.offboard.OffboardManager;
-import com.comino.mavmap.map.map2D.impl.LocalMap2DBase;
-import com.comino.mavmap.map.map2D.impl.LocalMap2DRaycast;
 import com.comino.mavmap.struct.Polar3D_F32;
-import com.comino.mavmap.trajectory.vfh.LocalVFH2D;
 import com.comino.mavutils.MSPMathUtils;
+
+import georegression.struct.point.Point3D_F64;
 
 
 
 public class BreakingPilot extends AutoPilotBase {
+
+	private static float SMOOTH_TARGET_FILTER               = 0.1f;
 
 	private static final int              CYCLE_MS	        = 50;
 	private static final float            ROBOT_RADIUS      = 0.25f;
@@ -67,11 +69,31 @@ public class BreakingPilot extends AutoPilotBase {
 	final private Polar3D_F32   plannedPath   = new Polar3D_F32();
 	final private Polar3D_F32   currentSpeed  = new Polar3D_F32();
 
+	private final Point3D_F64   smooth_target = new Point3D_F64(Double.NaN, Double.NaN, Double.NaN);
+	private boolean             smooth_target_enabled     = false;
+	private boolean             smooth_target_initialized = false;
+
 
 	protected BreakingPilot(IMAVController control, MSPConfig config) {
 		super(control,config);
 
 		this.obstacle.value = Float.POSITIVE_INFINITY;
+
+		// TODO: EDGE_FALLING does not work for AUTOPILOT_MODE
+		control.getStatusManager().addListener(StatusManager.TYPE_MSP_AUTOPILOT, MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT, StatusManager.EDGE_BOTH, (n) -> {
+			if(n.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT)) {
+				smooth_target_initialized = false;
+				smooth_target.set(model.state.l_x, model.state.l_y, model.state.l_z);
+				offboard.setTarget((float)smooth_target.x, (float)smooth_target.y, (float)smooth_target.z, 0, OffboardManager.MODE_SPEED_POSITION);
+				logger.writeLocalMsg("[msp] Follow object mode enabled.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+				offboard.start(OffboardManager.MODE_SPEED_POSITION);
+				smooth_target_enabled = true;
+			} else {
+				smooth_target_enabled = false;
+				smooth_target_initialized = false;
+				logger.writeLocalMsg("[msp] Follow object mode disabled.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+			}
+		});
 
 		// calculate speed constraints considering the distance to obstacles
 		offboard.registerExternalConstraintsListener((delta_sec, speed, path, ctl) -> {
@@ -85,8 +107,8 @@ public class BreakingPilot extends AutoPilotBase {
 				}
 
 				float obs_sec = relAngle * obstacle.value / speed.value;
-                if(obs_sec < 0)
-                	return false;
+				if(obs_sec < 0)
+					return false;
 
 
 
@@ -114,29 +136,30 @@ public class BreakingPilot extends AutoPilotBase {
 
 			try { Thread.sleep(CYCLE_MS); } catch(Exception s) { }
 
+
 			mode = offboard.getMode();
 
 			map.processWindow(model.state.l_x, model.state.l_y);
-	        map.nearestObstacle(obstacle);
+			map.nearestObstacle(obstacle);
 
 			relAngle = MSPMathUtils.normAngleDiff(obstacle.angle_xy, plannedPath.angle_xy);
 
-//			  System.out.println("PATH: "+MSPMathUtils.fromRad(plannedPath.angle_xy)+"°  OBSTACLE:"+MSPMathUtils.fromRad(obstacle.angle_xy)+"° Difference: "+
-//					MSPMathUtils.fromRad(relAngle)+"°  rel.DistanceToObstacle: "+obstacle.value+" re.DistanceToTarget: "+plannedPath.value);
+			//			  System.out.println("PATH: "+MSPMathUtils.fromRad(plannedPath.angle_xy)+"°  OBSTACLE:"+MSPMathUtils.fromRad(obstacle.angle_xy)+"° Difference: "+
+			//					MSPMathUtils.fromRad(relAngle)+"°  rel.DistanceToObstacle: "+obstacle.value+" re.DistanceToTarget: "+plannedPath.value);
 
 
 
 			if(obstacle.value < OBSTACLE_MINDISTANCE_1MS
 					&& !tooClose && relAngle < MIN_REL_ANGLE
-				    && currentSpeed.value > 0.3f && mode == OffboardManager.MODE_SPEED_POSITION) {
+					&& currentSpeed.value > 0.3f && mode == OffboardManager.MODE_SPEED_POSITION) {
 				tooClose = true;
 				logger.writeLocalMsg("[msp] Collision warning. Breaking.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			}
 
 
 			if(obstacle.value < OBSTACLE_MINDISTANCE_0MS && relAngle < MIN_REL_ANGLE && mode == OffboardManager.MODE_SPEED_POSITION ) {
-//				  System.out.println("PATH: "+MSPMathUtils.fromRad(plannedPath.angle_xy)+"°  OBSTACLE:"+MSPMathUtils.fromRad(obstacle.angle_xy)+"° Difference: "+
-//							MSPMathUtils.fromRad(relAngle)+"°  rel.DistanceToObstacle: "+obstacle.value+" re.DistanceToTarget: "+plannedPath.value);
+				//				  System.out.println("PATH: "+MSPMathUtils.fromRad(plannedPath.angle_xy)+"°  OBSTACLE:"+MSPMathUtils.fromRad(obstacle.angle_xy)+"° Difference: "+
+				//							MSPMathUtils.fromRad(relAngle)+"°  rel.DistanceToObstacle: "+obstacle.value+" re.DistanceToTarget: "+plannedPath.value);
 
 				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP )) {
 					emergency_stop_and_turn(obstacle.angle_xy);
@@ -166,6 +189,27 @@ public class BreakingPilot extends AutoPilotBase {
 		super.takeoffCompleted();
 	}
 
+
+	@Override
+	public boolean update(Point3D_F64 point, Point3D_F64 body) {
+
+		if(!smooth_target_initialized) {
+			smooth_target_initialized = true;
+			smooth_target.x = point.x;
+			smooth_target.y = point.y;
+			smooth_target.z = model.target_state.l_z;
+			return false;
+
+		}
+
+		smooth_target.x = smooth_target.x * (1- SMOOTH_TARGET_FILTER) + point.x * SMOOTH_TARGET_FILTER;
+		smooth_target.y = smooth_target.y * (1- SMOOTH_TARGET_FILTER) + point.y * SMOOTH_TARGET_FILTER;
+		smooth_target.z = model.target_state.l_z;
+
+		offboard.updateTarget((float)smooth_target.x, (float)smooth_target.y, (float)smooth_target.z,0);
+
+		return true;
+	}
 
 
 
