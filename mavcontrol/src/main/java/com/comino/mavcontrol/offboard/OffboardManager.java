@@ -72,8 +72,8 @@ public class OffboardManager implements Runnable {
 
 	private static final int SETPOINT_TIMEOUT_MS         			= 15000;
 
-	private static final float YAW_PV								= 0.15f;                  // P factor for yaw speed control
-	private static final float YAW_P								= 0.45f;                  // P factor for yaw position control
+	private static final float YAW_PV								= 0.10f;                  // P factor for yaw speed control
+	private static final float YAW_P								= 0.25f;                  // P factor for yaw position control
 	private static final float Z_PV						    		= 0.05f;                  // P factor for Z speed control
 
 	private static final float YAW_ACCEPT                	    	= MSPMathUtils.toRad(2);  // Acceptance yaw deviation
@@ -402,11 +402,7 @@ public class OffboardManager implements Runnable {
 
 				path.set(target, current);
 
-				eta_sec = (path.value - acceptance_radius_pos ) / spd.value;
-
-				//				System.out.println(target);
-				//				System.out.println(current);
-				//				System.out.println(path.value);
+				eta_sec = (path.value - acceptance_radius_pos / 2f ) / spd.value;
 
 				// target reached?
 				if(path.value < acceptance_radius_pos && valid_setpoint ) {
@@ -435,25 +431,20 @@ public class OffboardManager implements Runnable {
 
 
 				// if vehicle is not moving or close to target and turn angle > 60° => turn before moving
-				if( Math.abs(MSPMathUtils.normAngle(ctl.angle_xy - current.w)) > Math.PI/3 &&
+				if( Math.abs(MSPMathUtils.normAngle2(ctl.angle_xy - current.w)) > Math.PI/3 &&
 						( ctl.value < MAX_TURN_SPEED || eta_sec < 1.0f ) &&
 						MSP3DUtils.distance2D(target, current) > acceptance_radius_pos) {
-					ctl.value = ctl.value /10f;
+					ctl.value = ctl.value / 10f;
 				}
 
 				if(ctl.value > 0 && trajectory_start_tms == 0)
 					trajectory_start_tms = System.currentTimeMillis();
 
-//				//  simple P controller for yaw - do not consider path direction if slope steeper than 45°
+				//  simple P controller for yaw - do not consider path direction if slope steeper than 45°
 				if(( path.angle_xz >  0.78f || path.angle_xz < -0.78 ) && !Float.isNaN(target.w))
 					cmd.w = MSPMathUtils.normAngle2(target.w - current.w) / delta_sec * YAW_PV;
 				else
 					cmd.w = MSPMathUtils.normAngle2(path.angle_xy - current.w) / delta_sec * YAW_PV;
-//
-//					System.out.println(MSPMathUtils.fromRad(MSPMathUtils.normAngle2(path.angle_xy - current.w)));
-//					System.out.println(MSPMathUtils.fromRad(path.angle_xy));
-//					System.out.println(MSPMathUtils.fromRad(current.w));
-//					System.out.println();
 
 				// Limit min yaw speed
 				if(Math.abs(cmd.w)< MIN_YAW_SPEED) cmd.w = MIN_YAW_SPEED * Math.signum(cmd.w);
@@ -501,7 +492,7 @@ public class OffboardManager implements Runnable {
 				cmd.set(target.x,target.y,target.z,current.w + d_yaw);
 
 				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
-				toModel(target,path);
+				toModel(target,null);
 
 				break;
 
