@@ -20,7 +20,7 @@ public class DefaultControlListener implements IOffboardExternalControl {
 
 		ctl.angle_xz =  path.angle_xz;
 
-		delta_angle = MSPMathUtils.normAngle(path.angle_xy - ctl.angle_xy);
+		delta_angle = MSPMathUtils.normAngle2(path.angle_xy - ctl.angle_xy);
 
 		// follow direction changes by a simple P controller
 		if(spd.value > 0.1) {

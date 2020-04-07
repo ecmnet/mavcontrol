@@ -60,8 +60,8 @@ public class OffboardManager implements Runnable {
 
 	private static final int UPDATE_RATE                 			= 50;					  // offboard update rate in ms
 
-	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(15); // Max YawSpeed rad/s
-	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(2);  // Min yawSpeed rad/s
+	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(45); // Max YawSpeed rad/s
+	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(5);  // Min yawSpeed rad/s
 	private static final float MAX_TURN_SPEED               		= 0.2f;   	              // Max speed that allow turning before start in m/s
 	private static final float MAX_SPEED							= 2.0f;					  // Max speed m/s
 
@@ -72,8 +72,8 @@ public class OffboardManager implements Runnable {
 
 	private static final int SETPOINT_TIMEOUT_MS         			= 15000;
 
-	private static final float YAW_PV								= 0.05f;                  // P factor for yaw speed control
-	private static final float YAW_P								= 0.25f;                  // P factor for yaw position control
+	private static final float YAW_PV								= 0.15f;                  // P factor for yaw speed control
+	private static final float YAW_P								= 0.45f;                  // P factor for yaw position control
 	private static final float Z_PV						    		= 0.05f;                  // P factor for Z speed control
 
 	private static final float YAW_ACCEPT                	    	= MSPMathUtils.toRad(2);  // Acceptance yaw deviation
@@ -109,7 +109,7 @@ public class OffboardManager implements Runnable {
 
 	private float      max_speed                                    = MAX_SPEED;
 
-	private float	 	acceptance_radius_pos						= 0.20f;
+	private float	 	acceptance_radius_pos						= 0.10f;
 	private boolean    	already_fired			    				= false;
 	private boolean    	valid_setpoint                   			= false;
 	private boolean    	new_setpoint                   	 			= false;
@@ -198,13 +198,13 @@ public class OffboardManager implements Runnable {
 		setpoint_tms = System.currentTimeMillis();
 	}
 
-	public void updateTarget(float x, float y, float z, float w) {
+	public void updateTarget(Vector4D_F32 t) {
 
 		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT))
-				return;
+			return;
 
 		this.mode = MODE_SPEED_POSITION;
-		target.set(x,y,z,w);
+		target.set(t);
 		valid_setpoint = true;
 		already_fired = false;
 		setpoint_tms = System.currentTimeMillis();
@@ -339,7 +339,7 @@ public class OffboardManager implements Runnable {
 				path.clear();
 				sendPositionControlToVehice(target, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 				watch_tms = System.currentTimeMillis();
-				toModel(target,path);
+				toModel(target,null);
 				break;
 
 			case MODE_LOCAL_SPEED:
@@ -404,23 +404,24 @@ public class OffboardManager implements Runnable {
 
 				eta_sec = (path.value - acceptance_radius_pos ) / spd.value;
 
-//				System.out.println(target);
-//				System.out.println(current);
-//				System.out.println(path.value);
+				//				System.out.println(target);
+				//				System.out.println(current);
+				//				System.out.println(path.value);
 
 				// target reached?
 				if(path.value < acceptance_radius_pos && valid_setpoint ) {
 					trajectory_start_tms = 0;
 
 					if(Float.isNaN(target.w)) {
-						valid_setpoint = false;
 						path.clear();
 						ctl.clear();
 						fireAction(model, path.value);
+						logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 						mode = MODE_LOITER;
-					} else
-						// If target yaw is given, use mode position to turn
+					} else {
+						logger.writeLocalMsg("[msp] Offboard: Switched to POSITION",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 						mode = MODE_POSITION;
+					}
 					continue;
 				}
 
@@ -432,31 +433,31 @@ public class OffboardManager implements Runnable {
 				// check external constraints
 				ext_constraints_listener.get(delta_sec, spd, path, ctl);
 
+
 				// if vehicle is not moving or close to target and turn angle > 60° => turn before moving
 				if( Math.abs(MSPMathUtils.normAngle(ctl.angle_xy - current.w)) > Math.PI/3 &&
 						( ctl.value < MAX_TURN_SPEED || eta_sec < 1.0f ) &&
 						MSP3DUtils.distance2D(target, current) > acceptance_radius_pos) {
-					ctl.value = 0.2f;
+					ctl.value = ctl.value /10f;
 				}
 
 				if(ctl.value > 0 && trajectory_start_tms == 0)
 					trajectory_start_tms = System.currentTimeMillis();
 
-				// No yaw control for simulation
-				if(control.isSimulation())
-					cmd.w = 0;
-				else {
+//				//  simple P controller for yaw - do not consider path direction if slope steeper than 45°
+				if(( path.angle_xz >  0.78f || path.angle_xz < -0.78 ) && !Float.isNaN(target.w))
+					cmd.w = MSPMathUtils.normAngle2(target.w - current.w) / delta_sec * YAW_PV;
+				else
+					cmd.w = MSPMathUtils.normAngle2(path.angle_xy - current.w) / delta_sec * YAW_PV;
+//
+//					System.out.println(MSPMathUtils.fromRad(MSPMathUtils.normAngle2(path.angle_xy - current.w)));
+//					System.out.println(MSPMathUtils.fromRad(path.angle_xy));
+//					System.out.println(MSPMathUtils.fromRad(current.w));
+//					System.out.println();
 
-					//  simple P controller for yaw - do not consider path direction if slope steeper than 45°
-					if(( path.angle_xz >  0.78f || path.angle_xz < -0.78 ) && !Float.isNaN(target.w))
-						cmd.w = MSPMathUtils.normAngle(target.w - current.w) / delta_sec * YAW_PV;
-					else
-						cmd.w = MSPMathUtils.normAngle(path.angle_xy - current.w) / delta_sec * YAW_PV;
+				// Limit min yaw speed
+				if(Math.abs(cmd.w)< MIN_YAW_SPEED) cmd.w = MIN_YAW_SPEED * Math.signum(cmd.w);
 
-					// Limit min yaw speed
-					if(Math.abs(cmd.w)< MIN_YAW_SPEED) cmd.w = MIN_YAW_SPEED * Math.signum(cmd.w);
-
-				}
 
 				// get Cartesian speeds from polar
 				ctl.get(cmd);
@@ -473,7 +474,7 @@ public class OffboardManager implements Runnable {
 					setCurrentAsTarget();
 				}
 
-//				System.out.println("P");
+				//				System.out.println("P");
 
 				path.set(target, current);
 				if(path.value > acceptance_radius_pos)
@@ -483,6 +484,7 @@ public class OffboardManager implements Runnable {
 					path.clear(); valid_setpoint = false;
 					ctl.clear();
 					fireAction(model, path.value);
+					logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 					mode = MODE_LOITER;
 					continue;
 				}
@@ -596,7 +598,7 @@ public class OffboardManager implements Runnable {
 	}
 
 	private void toModel(Vector4D_F32 target, Polar3D_F32 path ) {
-		if(valid_setpoint) {
+		if(valid_setpoint && path!=null) {
 			model.slam.px = target.getX();
 			model.slam.py = target.getY();
 			model.slam.pz = target.getZ();

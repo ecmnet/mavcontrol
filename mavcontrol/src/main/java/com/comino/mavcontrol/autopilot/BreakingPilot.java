@@ -39,11 +39,13 @@ import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.status.StatusManager;
+import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.point.Point3D_F64;
+import georegression.struct.point.Vector4D_F32;
 
 
 
@@ -70,7 +72,8 @@ public class BreakingPilot extends AutoPilotBase {
 	final private Polar3D_F32   currentSpeed  = new Polar3D_F32();
 
 	private final Point3D_F64   smooth_target = new Point3D_F64(Double.NaN, Double.NaN, Double.NaN);
-	private boolean             smooth_target_enabled     = false;
+	private final Vector4D_F32  target        = new Vector4D_F32();
+	private final Vector4D_F32  current       = new Vector4D_F32();
 	private boolean             smooth_target_initialized = false;
 
 
@@ -87,9 +90,7 @@ public class BreakingPilot extends AutoPilotBase {
 				offboard.setTarget((float)smooth_target.x, (float)smooth_target.y, (float)smooth_target.z, 0, OffboardManager.MODE_SPEED_POSITION);
 				logger.writeLocalMsg("[msp] Follow object mode enabled.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				offboard.start(OffboardManager.MODE_SPEED_POSITION);
-				smooth_target_enabled = true;
 			} else {
-				smooth_target_enabled = false;
 				smooth_target_initialized = false;
 				logger.writeLocalMsg("[msp] Follow object mode disabled.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 			}
@@ -206,7 +207,10 @@ public class BreakingPilot extends AutoPilotBase {
 		smooth_target.y = smooth_target.y * (1- SMOOTH_TARGET_FILTER) + point.y * SMOOTH_TARGET_FILTER;
 		smooth_target.z = model.target_state.l_z;
 
-		offboard.updateTarget((float)smooth_target.x, (float)smooth_target.y, (float)smooth_target.z,0);
+		current.set(model.state.l_x, model.state.l_y, model.state.l_z, model.attitude.y);
+		target.set((float)smooth_target.x, (float)smooth_target.y, (float)smooth_target.z,MSP3DUtils.angleXY(target, current));
+
+		offboard.updateTarget(target);
 
 		return true;
 	}
