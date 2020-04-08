@@ -179,6 +179,7 @@ public class BreakingPilot extends AutoPilotBase {
 			else
 				publishSLAMData();
 
+
 			if(mapForget && mapFilter != null)
 				map.applyMapFilter(mapFilter);
 

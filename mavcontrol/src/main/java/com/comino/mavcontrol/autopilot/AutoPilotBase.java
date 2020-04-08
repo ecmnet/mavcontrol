@@ -55,6 +55,7 @@ import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavmap.map.map2D.ILocalMap;
 import com.comino.mavmap.map.map2D.filter.ILocalMapFilter;
 import com.comino.mavmap.map.map2D.filter.impl.DenoiseMapFilter;
+import com.comino.mavmap.map.map2D.filter.impl.ForgetMapFilter;
 import com.comino.mavmap.map.map2D.impl.LocalMap2DRaycast;
 import com.comino.mavmap.map.map2D.store.LocaMap2DStorage;
 import com.comino.mavmap.struct.Polar3D_F32;
@@ -138,7 +139,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.mapForget = config.getBoolProperty("autopilot_forget_map", "false");
 		System.out.println(instanceName+": Map forget enabled: "+mapForget);
 		if(mapForget)
-			registerMapFilter(new DenoiseMapFilter(800,800));
+			registerMapFilter(new ForgetMapFilter());
 
 		this.flowCheck = config.getBoolProperty("autopilot_flow_check", "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
@@ -225,10 +226,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	protected void publishSLAMData(Polar3D_F32 obstacle) {
-		//
-		//		if(model.slam.quality < 1)
-		//			return;
-
 
 		slam.px = model.slam.px;
 		slam.py = model.slam.py;
