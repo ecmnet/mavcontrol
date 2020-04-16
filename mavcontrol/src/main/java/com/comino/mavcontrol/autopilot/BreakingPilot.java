@@ -53,18 +53,16 @@ public class BreakingPilot extends AutoPilotBase {
 
 	private static float SMOOTH_TARGET_FILTER               = 0.1f;
 
-	private static final int              CYCLE_MS	        = 50;
+	private static final int              CYCLE_MS	        = 20;
 	private static final float            ROBOT_RADIUS      = 0.25f;
 
-	private static final float OBSTACLE_MINDISTANCE_0MS  	= 0.4f;
-	private static final float OBSTACLE_MINDISTANCE_1MS  	= 1.0f;
-	private static final float MIN_BREAKING_SPEED           = 0.1f;
-	private static final float BREAKING_ACCELERATION       	= 1.5f;
-	private static final float MIN_REL_ANGLE                = MSPMathUtils.toRad(45);
+	private static final float OBSTACLE_MINDISTANCE_0MS  	= ROBOT_RADIUS + 0.25f;
+	private static final float OBSTACLE_MINDISTANCE_1MS  	= ROBOT_RADIUS + 1.25f;
+	private static final float MIN_BREAKING_SPEED           = 0.2f;
+	private static final float MIN_REL_ANGLE                = MSPMathUtils.toRad(90);
 
 	private boolean             tooClose      = false;
 
-	private float				max_speed_obstacle = 0;
 	private float               relAngle = 0;
 
 	final private Polar3D_F32   obstacle      = new Polar3D_F32();
@@ -75,6 +73,8 @@ public class BreakingPilot extends AutoPilotBase {
 	private final Vector4D_F32  target        = new Vector4D_F32();
 	private final Vector4D_F32  current       = new Vector4D_F32();
 	private boolean             smooth_target_initialized = false;
+
+	private float               obs_acc       = 0;
 
 
 	protected BreakingPilot(IMAVController control, MSPConfig config) {
@@ -101,21 +101,22 @@ public class BreakingPilot extends AutoPilotBase {
 
 			plannedPath.set(path); currentSpeed.set(speed);
 
+			relAngle = Math.abs(MSPMathUtils.normAngle2(Math.abs(obstacle.angle_xy-plannedPath.angle_xy)));
+
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
 
 				if(Float.isInfinite(obstacle.value) || ctl.value < MIN_BREAKING_SPEED ) {
 					return false;
 				}
 
-				float obs_sec = relAngle * obstacle.value / speed.value;
-				if(obs_sec < 0)
-					return false;
+				//				float obs_sec = relAngle * obstacle.value / speed.value;
+				//				if(obs_sec < 0)
+				//					return false;
 
+				obs_acc = currentSpeed.value / ( obstacle.value - OBSTACLE_MINDISTANCE_0MS) * (float)Math.cos(relAngle);
 
-
-				max_speed_obstacle = ( 0.5f - 0.3f) / ( OBSTACLE_MINDISTANCE_1MS - OBSTACLE_MINDISTANCE_0MS) * obstacle.value;
-				if(ctl.value > max_speed_obstacle && tooClose ) {
-					ctl.value = ctl.value - BREAKING_ACCELERATION * delta_sec;
+				if(obstacle.value <  OBSTACLE_MINDISTANCE_1MS && tooClose && obs_acc > 0 ) {
+					ctl.value = ctl.value - obs_acc * delta_sec;
 					if(ctl.value < MIN_BREAKING_SPEED) ctl.value = MIN_BREAKING_SPEED;
 					//System.out.println("Breaking: "+ctl.value+" Delta: "+delta_sec + " ETA.Obs: " + obs_sec);
 				}
@@ -131,45 +132,49 @@ public class BreakingPilot extends AutoPilotBase {
 
 	public void run() {
 
-		int mode = 0;
-
 		while(isRunning) {
 
 			try { Thread.sleep(CYCLE_MS); } catch(Exception s) { }
 
-
-			mode = offboard.getMode();
+			switch(offboard.getMode()) {
+			case OffboardManager.MODE_LOITER:
+				continue;
+			case OffboardManager.MODE_POSITION:
+				continue;
+			default:
+			}
 
 			map.processWindow(model.state.l_x, model.state.l_y);
 			map.nearestObstacle(obstacle);
 
-			relAngle = MSPMathUtils.normAngleDiff(obstacle.angle_xy, plannedPath.angle_xy);
-
-			//			  System.out.println("PATH: "+MSPMathUtils.fromRad(plannedPath.angle_xy)+"°  OBSTACLE:"+MSPMathUtils.fromRad(obstacle.angle_xy)+"° Difference: "+
-			//					MSPMathUtils.fromRad(relAngle)+"°  rel.DistanceToObstacle: "+obstacle.value+" re.DistanceToTarget: "+plannedPath.value);
-
-
+		//	relAngle = Math.abs(MSPMathUtils.normAngle2(Math.abs(obstacle.angle_xy-plannedPath.angle_xy)));
 
 			if(obstacle.value < OBSTACLE_MINDISTANCE_1MS
-					&& !tooClose && relAngle < MIN_REL_ANGLE
-					&& currentSpeed.value > 0.3f && mode == OffboardManager.MODE_SPEED_POSITION) {
+					&& !tooClose && relAngle < MIN_REL_ANGLE ) {
 				tooClose = true;
+				System.out.println("W"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
 				logger.writeLocalMsg("[msp] Collision warning. Breaking.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			}
 
 
-			if(obstacle.value < OBSTACLE_MINDISTANCE_0MS && relAngle < MIN_REL_ANGLE && mode == OffboardManager.MODE_SPEED_POSITION ) {
-				//				  System.out.println("PATH: "+MSPMathUtils.fromRad(plannedPath.angle_xy)+"°  OBSTACLE:"+MSPMathUtils.fromRad(obstacle.angle_xy)+"° Difference: "+
-				//							MSPMathUtils.fromRad(relAngle)+"°  rel.DistanceToObstacle: "+obstacle.value+" re.DistanceToTarget: "+plannedPath.value);
-
+			if(obstacle.value < OBSTACLE_MINDISTANCE_0MS && relAngle < MIN_REL_ANGLE ) {
+				System.out.println("S"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
+				System.out.println("S"+MIN_REL_ANGLE+" -> "+relAngle);
 				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP )) {
 					emergency_stop_and_turn(obstacle.angle_xy);
 				}
 				tooClose = true;
 			}
 
+			if(tooClose && obstacle.value > OBSTACLE_MINDISTANCE_1MS+ROBOT_RADIUS) {
+				logger.writeLocalMsg("[msp] Collision warning removed.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+				System.out.println("R"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
+				tooClose = false;
+			}
 
-			if(obstacle.value > OBSTACLE_MINDISTANCE_1MS+2*ROBOT_RADIUS || ( relAngle > MIN_REL_ANGLE  && mode == OffboardManager.MODE_SPEED_POSITION) ) {
+			if(tooClose && relAngle > MIN_REL_ANGLE) {
+				logger.writeLocalMsg("[msp] Collision warning removed (Angle).",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+				System.out.println("R"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
 				tooClose = false;
 			}
 
@@ -177,7 +182,7 @@ public class BreakingPilot extends AutoPilotBase {
 				publishSLAMData(obstacle);
 			}
 			else
-				publishSLAMData();
+				publishSLAMData(obstacle);
 
 
 			if(mapForget && mapFilter != null)
@@ -220,6 +225,7 @@ public class BreakingPilot extends AutoPilotBase {
 
 	@Override
 	public void moveto(float x, float y, float z, float yaw) {
+	//	System.out.println(MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +":"+ MSPMathUtils.fromRad(obstacle.angle_xy)+":"+MSPMathUtils.fromRad(plannedPath.angle_xy));
 		super.moveto(x, y, z, yaw);
 	}
 

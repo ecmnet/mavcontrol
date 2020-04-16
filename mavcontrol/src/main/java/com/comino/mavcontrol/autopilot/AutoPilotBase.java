@@ -62,6 +62,7 @@ import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
 
+import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector3D_F32;
 import georegression.struct.point.Vector4D_F32;
@@ -75,7 +76,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public static final int   AUTOPILOT_MODE_NONE      	= 0;
 	public static final int   AUTOPILOT_MODE_ENABLED    = 1;
 
-	protected static final int   CERTAINITY_THRESHOLD      	= 10;
+	protected static final int   CERTAINITY_THRESHOLD      	= 100;
 	protected static final float WINDOWSIZE       			= 3.0f;
 
 	private static AutoPilotBase  autopilot    = null;
@@ -136,7 +137,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		//		else
 		this.map      = new LocalMap2DRaycast(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
 
-		this.mapForget = config.getBoolProperty("autopilot_forget_map", "false");
+		this.mapForget = config.getBoolProperty("autopilot_forget_map", "true");
 		System.out.println(instanceName+": Map forget enabled: "+mapForget);
 		if(mapForget)
 			registerMapFilter(new ForgetMapFilter());
@@ -537,6 +538,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		pos.y = 0.4f + model.state.l_y;
 		pos.z = 1.0f + model.state.l_z;
 		map.update(pos); map.update(pos); map.update(pos);
+		map.update(pos); map.update(pos); map.update(pos);
+		map.update(pos); map.update(pos); map.update(pos);
+		map.update(pos); map.update(pos); map.update(pos);
 		pos.y = 0.45f + model.state.l_y;
 		map.update(pos); map.update(pos); map.update(pos);
 		pos.y = 0.50f + model.state.l_y;
@@ -555,32 +559,38 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		if(map==null)
 			return;
 		map.reset();
-		Vector3D_F32   pos          = new Vector3D_F32();
-		System.err.println("SITL -> set example obstacle map");
 
-		pos.y = 2.25f + model.state.l_y;
+		Point3D_F64   pos          = new Point3D_F64();
+		System.err.println("SITL -> set X example obstacle map");
+		this.mapForget = false;
+
+		pos.y = 2.25f;
 		pos.z =  model.state.l_z;
 		for(int i = 0; i < 40;i++) {
-			pos.x = -1.25f + i *0.05f + model.state.l_x;
-			map.update(pos); map.update(pos); map.update(pos);
+			pos.x = -1.25f + i *0.05f;
+			for(int z=0;z<100;z++)
+			map.update(model.state.l_x, model.state.l_y,pos);
 		}
 
-		pos.y = 3.75f + model.state.l_y;
+		pos.y = 3.75f ;
 		pos.z =  model.state.l_z;
 		for(int i = 0; i < 30;i++) {
-			pos.x = -1.25f + i *0.05f + model.state.l_x;
-			map.update(pos); map.update(pos); map.update(pos);
+			pos.x = -1.25f + i *0.05f ;
+			for(int z=0;z<100;z++)
+			map.update(model.state.l_x, model.state.l_y,pos);
 		}
 
 		for(int i = 0; i < 30;i++) {
-			pos.x = 1.25f + i *0.05f + model.state.l_x;
-			map.update(pos); map.update(pos); map.update(pos);
+			pos.x = 1.25f + i *0.05f ;
+			for(int z=0;z<100;z++)
+			map.update(model.state.l_x, model.state.l_y,pos);
 		}
 
-		pos.x = 2.0f + model.state.l_x;
+		pos.x = 2.0f ;
 		for(int i = 0; i < 25;i++) {
-			pos.y = -1 + i *0.05f + model.state.l_y;
-			map.update(pos); map.update(pos); map.update(pos);
+			pos.y = -1 + i *0.05f;
+			for(int z=0;z<100;z++)
+			map.update(model.state.l_x, model.state.l_y,pos);
 		}
 
 

@@ -51,6 +51,7 @@ import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard.control.DefaultConstraintListener;
 import com.comino.mavcontrol.offboard.control.DefaultControlListener;
+import com.comino.mavcontrol.offboard.control.TimebasedControlListener;
 import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavutils.MSPMathUtils;
 
@@ -58,7 +59,7 @@ import georegression.struct.point.Vector4D_F32;
 
 public class OffboardManager implements Runnable {
 
-	private static final int UPDATE_RATE                 			= 50;					  // offboard update rate in ms
+	private static final int UPDATE_RATE                 			= 100;					  // offboard update rate in ms
 
 	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(45); // Max YawSpeed rad/s
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(5);  // Min yawSpeed rad/s
@@ -125,7 +126,7 @@ public class OffboardManager implements Runnable {
 
 		this.ext_constraints_listener = new DefaultConstraintListener();
 		this.ext_control_listener  = new DefaultControlListener();
-		//	this.ext_control_listener  = new TimebasedControlListener();
+	//	this.ext_control_listener  = new TimebasedControlListener();
 
 		MSPConfig config	= MSPConfig.getInstance();
 
@@ -314,8 +315,6 @@ public class OffboardManager implements Runnable {
 				continue;
 			}
 
-			current.set(model.state.l_x, model.state.l_y, model.state.l_z,model.attitude.y);
-
 
 			if(valid_setpoint && (System.currentTimeMillis()-watch_tms ) > SETPOINT_TIMEOUT_MS ) {
 				valid_setpoint = false; mode = MODE_LOITER;
@@ -324,19 +323,24 @@ public class OffboardManager implements Runnable {
 					logger.writeLocalMsg("[msp] Setpoint not reached. Loitering.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			}
 
+			current.set(model.state.l_x, model.state.l_y, model.state.l_z,model.attitude.y);
+			path.set(target, current);
 			spd.set(model.state.l_vx, model.state.l_vy, model.state.l_vz );
 
 			delta_sec = (System.currentTimeMillis() - last_update_tms ) / 1000.0f;
 			last_update_tms = System.currentTimeMillis();
 
+
 			switch(mode) {
 
 			case MODE_LOITER:
 
-				if(!valid_setpoint)
+				if(!valid_setpoint) {
 					setCurrentAsTarget();
+					continue;
+				}
 				valid_setpoint = true;
-				path.clear();
+
 				sendPositionControlToVehice(target, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 				watch_tms = System.currentTimeMillis();
 				toModel(target,null);
@@ -386,12 +390,10 @@ public class OffboardManager implements Runnable {
 				// a new setpoint was provided
 				if(new_setpoint) {
 					valid_setpoint = true;
-					path.isValid = true;
-					path.set(target, current);
 					ext_control_listener.initialize(spd, path);
 					trajectory_start_tms = 0; ela_sec = 0;
 					new_setpoint = false;
-					start.set(model.state.l_x, model.state.l_y, model.state.l_z,model.attitude.y);
+					start.set(current);
 					ctl.set(spd);
 				}
 
@@ -400,9 +402,14 @@ public class OffboardManager implements Runnable {
 				if(trajectory_start_tms > 0)
 					ela_sec = (System.currentTimeMillis() - trajectory_start_tms) / 1000f;
 
-				path.set(target, current);
-
 				eta_sec = (path.value - acceptance_radius_pos / 2f ) / spd.value;
+
+				// external speed control via control callback ?
+				ext_control_listener.determineSpeedAnDirection(delta_sec, ela_sec, eta_sec, spd, path, ctl);
+
+
+				// check external constraints
+				ext_constraints_listener.get(delta_sec, spd, path, ctl);
 
 				// target reached?
 				if(path.value < acceptance_radius_pos && valid_setpoint ) {
@@ -420,14 +427,6 @@ public class OffboardManager implements Runnable {
 					}
 					continue;
 				}
-
-
-				// external speed control via control callback ?
-				ext_control_listener.determineSpeedAnDirection(delta_sec, ela_sec, eta_sec, spd, path, ctl);
-
-
-				// check external constraints
-				ext_constraints_listener.get(delta_sec, spd, path, ctl);
 
 
 				// if vehicle is not moving or close to target and turn angle > 60° => turn before moving
@@ -449,7 +448,6 @@ public class OffboardManager implements Runnable {
 				// Limit min yaw speed
 				if(Math.abs(cmd.w)< MIN_YAW_SPEED) cmd.w = MIN_YAW_SPEED * Math.signum(cmd.w);
 
-
 				// get Cartesian speeds from polar
 				ctl.get(cmd);
 
@@ -468,8 +466,6 @@ public class OffboardManager implements Runnable {
 				//				System.out.println("P");
 
 				path.set(target, current);
-				if(path.value > acceptance_radius_pos)
-					path.setValidity(true);
 
 				if(path.value < acceptance_radius_pos && valid_setpoint && Math.abs(MSPMathUtils.normAngle(target.w - current.w)) < YAW_ACCEPT) {
 					path.clear(); valid_setpoint = false;
@@ -483,7 +479,7 @@ public class OffboardManager implements Runnable {
 				ext_constraints_listener.get(delta_sec, spd, path, ctl);
 
 				//  simple P controller for yaw;
-				d_yaw = MSPMathUtils.normAngle(target.w - current.w) * YAW_P;
+				d_yaw = MSPMathUtils.normAngle2(target.w - current.w) * YAW_P;
 
 				if(Math.abs(d_yaw)< MIN_YAW_SPEED) d_yaw = MIN_YAW_SPEED * Math.signum(d_yaw);
 				if(Math.abs(d_yaw)> MAX_YAW_SPEED) d_yaw = MAX_YAW_SPEED * Math.signum(d_yaw);

@@ -8,7 +8,7 @@ public class DefaultControlListener implements IOffboardExternalControl {
 
 	private static final float MAX_ACCELERATION		                = 0.3f;                   // Max acceleration in m/s2
 	private static final float MAX_SPEED					        = 1.00f;          	      // Default Max speed in m/s
-	private static final float MIN_SPEED					        = 0.05f;          	      // Default Min speed in m/s
+	private static final float MIN_SPEED					        = 0.2f;          	      // Default Min speed in m/s
 
 	private boolean isBreaking  = false;
 	private float   speed_incr  = 0;
