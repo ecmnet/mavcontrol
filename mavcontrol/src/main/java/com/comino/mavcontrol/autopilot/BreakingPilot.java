@@ -136,6 +136,21 @@ public class BreakingPilot extends AutoPilotBase {
 
 			try { Thread.sleep(CYCLE_MS); } catch(Exception s) { }
 
+			// Apply filter first
+			if(mapForget && mapFilter != null)
+				map.applyMapFilter(mapFilter);
+
+			// Publish SLAM data
+			if(tooClose)
+				publishSLAMData(obstacle);
+			else
+				publishSLAMData();
+
+
+			map.processWindow(model.state.l_x, model.state.l_y);
+			map.nearestObstacle(obstacle);
+
+			// Control only in affected offboard modes
 			switch(offboard.getMode()) {
 			case OffboardManager.MODE_LOITER:
 				continue;
@@ -144,22 +159,20 @@ public class BreakingPilot extends AutoPilotBase {
 			default:
 			}
 
-			map.processWindow(model.state.l_x, model.state.l_y);
-			map.nearestObstacle(obstacle);
 
 		//	relAngle = Math.abs(MSPMathUtils.normAngle2(Math.abs(obstacle.angle_xy-plannedPath.angle_xy)));
 
 			if(obstacle.value < OBSTACLE_MINDISTANCE_1MS
 					&& !tooClose && relAngle < MIN_REL_ANGLE ) {
 				tooClose = true;
-				System.out.println("W"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
+//				System.out.println("W"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
 				logger.writeLocalMsg("[msp] Collision warning. Breaking.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			}
 
 
 			if(obstacle.value < OBSTACLE_MINDISTANCE_0MS && relAngle < MIN_REL_ANGLE ) {
-				System.out.println("S"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
-				System.out.println("S"+MIN_REL_ANGLE+" -> "+relAngle);
+//				System.out.println("S"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
+//				System.out.println("S"+MIN_REL_ANGLE+" -> "+relAngle);
 				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP )) {
 					emergency_stop_and_turn(obstacle.angle_xy);
 				}
@@ -168,25 +181,15 @@ public class BreakingPilot extends AutoPilotBase {
 
 			if(tooClose && obstacle.value > OBSTACLE_MINDISTANCE_1MS+ROBOT_RADIUS) {
 				logger.writeLocalMsg("[msp] Collision warning removed.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-				System.out.println("R"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
+//				System.out.println("R"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
 				tooClose = false;
 			}
 
 			if(tooClose && relAngle > MIN_REL_ANGLE) {
 				logger.writeLocalMsg("[msp] Collision warning removed (Angle).",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-				System.out.println("R"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
+//				System.out.println("R"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
 				tooClose = false;
 			}
-
-			if(tooClose) {
-				publishSLAMData(obstacle);
-			}
-			else
-				publishSLAMData(obstacle);
-
-
-			if(mapForget && mapFilter != null)
-				map.applyMapFilter(mapFilter);
 
 		}
 	}
@@ -225,6 +228,7 @@ public class BreakingPilot extends AutoPilotBase {
 
 	@Override
 	public void moveto(float x, float y, float z, float yaw) {
+		logger.writeLocalMsg("[msp] New setpoint "+String.format("(%.1f,%.1f)",x,y),MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 	//	System.out.println(MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +":"+ MSPMathUtils.fromRad(obstacle.angle_xy)+":"+MSPMathUtils.fromRad(plannedPath.angle_xy));
 		super.moveto(x, y, z, yaw);
 	}
