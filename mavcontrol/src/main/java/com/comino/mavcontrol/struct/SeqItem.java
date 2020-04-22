@@ -1,8 +1,6 @@
 package com.comino.mavcontrol.struct;
 
 import com.comino.mavcom.model.DataModel;
-import com.comino.mavcontrol.offboard.IOffboardTargetAction;
-
 import georegression.struct.point.Vector4D_F32;
 
 public class SeqItem {
@@ -13,27 +11,41 @@ public class SeqItem {
 	private Vector4D_F32          target = null;
 	private int                     mode = 0;
 	private ISeqAction            action = null;
+	private int                 delay_ms = 0;
 
 
 	public SeqItem(float x, float y, float z, float w) {
-		this(x,y,z,w,REL,null);
+		this(x,y,z,w,REL,null,0);
 	}
 
 	public SeqItem(float x, float y, float z, float w, int mode) {
-		this(x,y,z,w,mode,null);
+		this(x,y,z,w,mode,null,0);
 	}
 
-	public SeqItem(float x, float y, float z, float w, int mode, ISeqAction action) {
-		this.target = new Vector4D_F32(x,y,z,w);
-		this.mode   = mode;
-		this.action = action;
+	public SeqItem(float x, float y, float z, float w, int mode, ISeqAction action, int delay_ms) {
+		this.target    = new Vector4D_F32(x,y,z,w);
+		this.mode      = mode;
+		this.action    = action;
+		this.delay_ms  = delay_ms;
+	}
+
+	public SeqItem(Vector4D_F32 target, int mode, ISeqAction action, int delay_ms) {
+		this.target    = target.copy();
+		this.mode      = mode;
+		this.action    = action;
+		this.delay_ms  = delay_ms;
+	}
+
+	public SeqItem(ISeqAction action, int delay_ms) {
+		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,REL,action, delay_ms);
 	}
 
 	public SeqItem(ISeqAction action) {
-		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,REL,action);
+		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,REL,action, 0);
 	}
 
 	public Vector4D_F32 getTarget(DataModel model) {
+
 		if(mode == REL) {
 			target.x = Float.isNaN(target.x) ? Float.NaN : target.x + model.state.l_x;
 			target.y = Float.isNaN(target.y) ? Float.NaN : target.y + model.state.l_y;
@@ -43,11 +55,20 @@ public class SeqItem {
 		return target;
 	}
 
+	public boolean hasTarget() {
+		return !Float.isNaN(target.x) || !Float.isNaN(target.y)  || !Float.isNaN(target.z)  || !Float.isNaN(target.w);
+	}
+
 	public boolean isRelative() {
 		return mode == REL;
 	}
 
 	public boolean executeAction() {
+
+		if(delay_ms > 0) {
+			try { Thread.sleep(delay_ms); } catch(Exception e) { }
+		}
+
 		if(action!=null) {
 			return action.execute();
 		}

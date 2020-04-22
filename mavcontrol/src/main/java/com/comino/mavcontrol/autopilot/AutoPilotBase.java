@@ -280,7 +280,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected void executeSequence() {
 
 		if(model.sys.isStatus(Status.MSP_LANDED)) {
-			control.writeLogMessage(new LogMessage("[msp] Not executed. On ground.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
+			control.writeLogMessage(new LogMessage("[msp] Not executed. On ground/No offboard.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
 			return;
 		}
 
@@ -300,12 +300,16 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			while(i.hasNext() && model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
 				control.writeLogMessage(new LogMessage("[msp] Step "+(i.nextIndex()+1)+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				SeqItem item = i.next();
-				offboard.setTarget(item.getTarget(model));
-				offboard.start_wait(OffboardManager.MODE_SPEED_POSITION);
+
+				if(item.hasTarget()) {
+				  offboard.setTarget(item.getTarget(model));
+				  offboard.start_wait(OffboardManager.MODE_SPEED_POSITION);
+				}
 				if(!item.executeAction())
 					break;
 			}
 			sequence.clear();
+
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE))
 				control.writeLogMessage(new LogMessage("[msp] Sequence finished", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 			else
@@ -627,16 +631,25 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		}
 	}
 
-	public void rotate(int deg) {
+	public void rotate(float deg) {
+
+		if(!offboard.isEnabled()) {
+			logger.writeLocalMsg("[msp] Offboard not enabled.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+			return;
+		}
 
 		clearSequence();
-		addToSequence(new SeqItem(1f,1f,-2.75f,Float.NaN, SeqItem.ABS));
-		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,MSPMathUtils.toRad(deg)));
-		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,MSPMathUtils.toRad(-2* deg)));
-		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,MSPMathUtils.toRad(deg)));
 
+		float rad = MSPMathUtils.toRad(deg);
+		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
+		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,-2*rad));
+		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
+//		addToSequence(new SeqItem(() ->  {
+//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
+//			return true;
+//		},1000));
 
-		logger.writeLocalMsg("[msp] Start rotation sequence.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+		logger.writeLocalMsg("[msp] Start survey sequence.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 		executeSequence();
 
 
