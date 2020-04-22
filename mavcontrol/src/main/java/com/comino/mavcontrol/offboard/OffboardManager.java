@@ -126,7 +126,7 @@ public class OffboardManager implements Runnable {
 
 		this.ext_constraints_listener = new DefaultConstraintListener();
 		this.ext_control_listener  = new DefaultControlListener();
-	//	this.ext_control_listener  = new TimebasedControlListener();
+		//	this.ext_control_listener  = new TimebasedControlListener();
 
 		MSPConfig config	= MSPConfig.getInstance();
 
@@ -178,9 +178,11 @@ public class OffboardManager implements Runnable {
 			worker.setName("OffboardManager");
 			worker.start();
 			System.out.println("Offboard updater started..");
+			try { Thread.sleep( 5 * UPDATE_RATE); } catch (InterruptedException e) { }
 		}
+
 		synchronized(this) {
-			  if(!already_fired) {
+			if(!already_fired) {
 				try {
 					wait();
 				} catch (InterruptedException e) {
@@ -188,8 +190,18 @@ public class OffboardManager implements Runnable {
 					e.printStackTrace();
 				}
 				try { Thread.sleep( 2 * UPDATE_RATE); } catch (InterruptedException e) { }
-			  }
+			}
 		}
+	}
+
+	public void abort() {
+		already_fired = false;
+		if(action_listener!=null)
+			mode = MODE_LOITER;
+		else
+			synchronized(this) {
+				notify();
+			}
 	}
 
 
@@ -197,6 +209,7 @@ public class OffboardManager implements Runnable {
 		enabled = false;
 		valid_setpoint = false;
 		new_setpoint = false;
+		already_fired = false;
 	}
 
 
@@ -352,7 +365,6 @@ public class OffboardManager implements Runnable {
 
 			delta_sec = (System.currentTimeMillis() - last_update_tms ) / 1000.0f;
 			last_update_tms = System.currentTimeMillis();
-
 
 			switch(mode) {
 
@@ -605,8 +617,8 @@ public class OffboardManager implements Runnable {
 			action_listener.action(model, delta);
 		} else if(!already_fired) {
 			synchronized(this) {
-			already_fired = true;
-			notify();
+				already_fired = true;
+				notify();
 			}
 		}
 	}

@@ -183,10 +183,14 @@ public class MSPCommander  {
 
 
 	private void restartCompanion(msg_msp_command cmd) {
-		MSPLogger.getInstance().writeLocalMsg("[msp] Flioght control restarted",
+		MSPLogger.getInstance().writeLocalMsg("[msp] Flight control restarted",
 				MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 		if(model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_ARMED))
 			executeConsoleCommand("service flightcontrol restart");
+		else
+			MSPLogger.getInstance().writeLocalMsg("[msp] Linux command rejected.",
+					MAV_SEVERITY.MAV_SEVERITY_WARNING);
+
 	}
 
 
