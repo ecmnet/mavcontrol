@@ -61,7 +61,7 @@ public class OffboardManager implements Runnable {
 
 	private static final int UPDATE_RATE                 			= 100;					  // offboard update rate in ms
 
-	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(45); // Max YawSpeed rad/s
+	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(10); // Max YawSpeed rad/s
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(5);  // Min yawSpeed rad/s
 	private static final float MAX_TURN_SPEED               		= 0.2f;   	              // Max speed that allow turning before start in m/s
 	private static final float MAX_SPEED							= 2.0f;					  // Max speed m/s
@@ -74,7 +74,7 @@ public class OffboardManager implements Runnable {
 	private static final int SETPOINT_TIMEOUT_MS         			= 15000;
 
 	private static final float YAW_PV								= 0.10f;                  // P factor for yaw speed control
-	private static final float YAW_P								= 0.25f;                  // P factor for yaw position control
+	private static final float YAW_P								= 0.15f;                  // P factor for yaw position control
 	private static final float Z_PV						    		= 0.05f;                  // P factor for Z speed control
 
 	private static final float YAW_ACCEPT                	    	= MSPMathUtils.toRad(2);  // Acceptance yaw deviation
@@ -164,9 +164,32 @@ public class OffboardManager implements Runnable {
 			worker.setName("OffboardManager");
 			worker.start();
 			System.out.println("Offboard updater started..");
-			try { Thread.sleep(5); } catch (InterruptedException e) { }
+			try { Thread.sleep(UPDATE_RATE); } catch (InterruptedException e) { }
 		}
 
+	}
+
+	public void start_wait(int m) {
+		mode = m;
+		if(!enabled) {
+			enabled = true;
+			Thread worker = new Thread(this);
+			worker.setPriority(Thread.MIN_PRIORITY);
+			worker.setName("OffboardManager");
+			worker.start();
+			System.out.println("Offboard updater started..");
+		}
+		synchronized(this) {
+			  if(!already_fired) {
+				try {
+					wait();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				try { Thread.sleep( 2 * UPDATE_RATE); } catch (InterruptedException e) { }
+			  }
+		}
 	}
 
 
@@ -334,7 +357,7 @@ public class OffboardManager implements Runnable {
 			switch(mode) {
 
 			case MODE_LOITER:
-
+				watch_tms = System.currentTimeMillis();
 				if(!valid_setpoint) {
 					setCurrentAsTarget();
 					continue;
@@ -342,7 +365,6 @@ public class OffboardManager implements Runnable {
 				valid_setpoint = true;
 
 				sendPositionControlToVehice(target, MAV_FRAME.MAV_FRAME_LOCAL_NED);
-				watch_tms = System.currentTimeMillis();
 				toModel(target,null);
 				break;
 
@@ -581,6 +603,11 @@ public class OffboardManager implements Runnable {
 		if(action_listener!=null && !already_fired) {
 			already_fired = true;
 			action_listener.action(model, delta);
+		} else if(!already_fired) {
+			synchronized(this) {
+			already_fired = true;
+			notify();
+			}
 		}
 	}
 

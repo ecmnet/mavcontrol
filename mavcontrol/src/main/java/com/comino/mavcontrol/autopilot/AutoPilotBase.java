@@ -1,5 +1,7 @@
 package com.comino.mavcontrol.autopilot;
 
+import java.util.concurrent.TimeUnit;
+
 /****************************************************************************
  *
  *   Copyright (c) 2017,2020 Eike Mansfeld ecm@gmx.de. All rights reserved.
@@ -48,6 +50,8 @@ import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavcom.param.PX4Parameters;
+import com.comino.mavcom.param.ParameterAttributes;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.autopilot.tests.PlannerTest;
@@ -61,6 +65,7 @@ import com.comino.mavmap.map.map2D.store.LocaMap2DStorage;
 import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
+import com.comino.mavutils.legacy.ExecutorService;
 
 import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
@@ -95,6 +100,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected final Vector4D_F32       takeoff = new Vector4D_F32();
 
 	protected ILocalMapFilter        mapFilter = null;
+
+	protected ParameterAttributes  takeoff_alt_param = null;
 
 	private final Vector4D_F32       body_speed = new Vector4D_F32();
 	private final Vector4D_F32       ned_speed  = new Vector4D_F32();
@@ -150,41 +157,78 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		// TODO: Landing during takeoff switches to offboard mode here => should directly land instead
 		//       Update: 		After takeoff the mode is set to POSCTL, even if AUTOLAND was triggered
 
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_TAKEOFF, StatusManager.EDGE_FALLING, (n) -> {
 
-			if(n.nav_state == Status.NAVIGATION_STATE_AUTO_LAND)
-				return;
+		// Workaround as Takeoff does not finish: Switch to offboard after 10 secs
+		//**********
+		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_TAKEOFF, StatusManager.EDGE_RISING, (n) -> {
 
-			if(planner.isStarted())
-				return;
+			this.takeoff_alt_param = PX4Parameters.getInstance().getParam("MIS_TAKEOFF_ALT");
 
-			offboard.setCurrentSetPointAsTarget();
-			offboard.start(OffboardManager.MODE_LOITER);
+			ExecutorService.get().schedule(() -> {
 
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
-				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
-					offboard.stop();
-					control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+").", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				if(Math.abs(takeoff_alt_param.value - model.hud.al) > 0.2f) {
+					control.writeLogMessage(new LogMessage("[msp] Takeoff not completed.", MAV_SEVERITY.MAV_SEVERITY_CRITICAL));
+					return;
 				}
-			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
+
+				control.writeLogMessage(new LogMessage("[msp] Takeoff complete enforced.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				offboard.setCurrentSetPointAsTarget();
+				offboard.start(OffboardManager.MODE_LOITER);
+
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
+					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
+						offboard.stop();
+						control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+").", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					}
+				}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
+				this.takeoffCompleted();
+				this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
+				control.writeLogMessage(new LogMessage("[msp] Takeoff procedure completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			}, 10, TimeUnit.SECONDS);
+
 		});
+
+		//****************
+
+//		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_TAKEOFF, StatusManager.EDGE_FALLING, (n) -> {
+//
+//			if(n.nav_state == Status.NAVIGATION_STATE_AUTO_LAND || n.nav_state == Status.NAVIGATION_STATE_OFFBOARD)
+//				return;
+//
+//			control.writeLogMessage(new LogMessage("[msp] Takeoff completed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+//
+//			if(planner.isStarted())
+//				return;
+//
+//			offboard.setCurrentSetPointAsTarget();
+//			offboard.start(OffboardManager.MODE_LOITER);
+//
+//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
+//				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
+//					offboard.stop();
+//					control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+").", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+//				}
+//			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
+//			this.takeoffCompleted();
+//			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
+//			control.writeLogMessage(new LogMessage("[msp] Takeoff procedure completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+//		});
 
 		// offboard mode enabled action
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_OFFBOARD, StatusManager.EDGE_RISING, (n) -> {
 
-			this.takeoffCompleted();
-			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
-			control.writeLogMessage(new LogMessage("[msp] Auto-takeoff completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			control.writeLogMessage(new LogMessage("[msp] Offboard enabled.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
 		});
 
 		// Landing action
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_LANDED, StatusManager.EDGE_RISING, (n) -> {
-			control.writeLogMessage(new LogMessage("[msp] Landing detected.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-
-		});
+//		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_LANDED, StatusManager.EDGE_RISING, (n) -> {
+//			control.writeLogMessage(new LogMessage("[msp] Landing detected.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+//
+//		});
 
 		// Switch off offboard after disarmed
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
@@ -297,7 +341,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			planner.enable(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
-			test_seq1(enable);
+		//	test_seq1(enable);
+			rotate(45);
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
 			offboardPosHold(enable);
@@ -429,6 +474,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		autopilot_mode = AUTOPILOT_MODE_ENABLED;
 
 		if(enable) {
+
+			if((takeoff.x == 0 && takeoff.y == 0) || takeoff.isNaN()) {
+				logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
+				return;
+			}
+
 			logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
@@ -450,6 +502,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	public void emergency_stop_and_turn(float targetAngle) {
 		autopilot_mode = AUTOPILOT_MODE_ENABLED;
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 		offboard.finalize();
 		offboard.setCurrentAsTarget(targetAngle);
@@ -514,15 +567,23 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		}
 	}
 
-	public void rotate180() {
-
-		final Vector4D_F32 target = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,model.attitude.y+MSPMathUtils.toRad(180));
-		offboard.registerActionListener( (m,d) -> {
-			offboard.finalize();
-			logger.writeLocalMsg("[msp] Rotation finalized.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+	public void rotate(int deg) {
+		final Vector4D_F32 target = new Vector4D_F32();
+		ExecutorService.get().submit(() -> {
+		  target.set(Float.NaN,Float.NaN,Float.NaN,model.attitude.y+MSPMathUtils.toRad(deg));
+		  offboard.setTarget(target);
+		  offboard.start_wait(OffboardManager.MODE_SPEED_POSITION);
+		  logger.writeLocalMsg("[msp] Rotation step1.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+		  target.set(Float.NaN,Float.NaN,Float.NaN,model.attitude.y-MSPMathUtils.toRad(2* deg));
+		  offboard.setTarget(target);
+		  offboard.start_wait(OffboardManager.MODE_SPEED_POSITION);
+		  logger.writeLocalMsg("[msp] Rotation step2.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+		  target.set(Float.NaN,Float.NaN,Float.NaN,model.attitude.y+MSPMathUtils.toRad(deg));
+		  offboard.setTarget(target);
+		  offboard.start_wait(OffboardManager.MODE_SPEED_POSITION);
+		  logger.writeLocalMsg("[msp] Rotation step3.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+		  logger.writeLocalMsg("[msp] Rotation finalized (noCB).",MAV_SEVERITY.MAV_SEVERITY_INFO);
 		});
-		offboard.setTarget(target);
-		offboard.start(OffboardManager.MODE_SPEED_POSITION);
 
 	}
 

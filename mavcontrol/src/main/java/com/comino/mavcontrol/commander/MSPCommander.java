@@ -41,6 +41,7 @@ import org.mavlink.messages.MSP_CMD;
 import org.mavlink.messages.MSP_COMPONENT_CTRL;
 import org.mavlink.messages.lquac.msg_hil_gps;
 import org.mavlink.messages.lquac.msg_msp_command;
+import org.mavlink.messages.lquac.msg_set_gps_global_origin;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVMSPController;
@@ -101,32 +102,41 @@ public class MSPCommander  {
 
 			long tms = System.currentTimeMillis();
 
+			msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,1);
+			gor.latitude = (long)(lat * 1e7);
+			gor.longitude = (long)(lon * 1e7);
+			gor.altitude = (int)(altitude * 1000);
+			gor.target_system = 1;
+			gor.time_usec = model.sys.getSynchronizedPX4Time_us();
 
-			msg_hil_gps gps = new msg_hil_gps(1,1);
-			gps.lat = (long)(lat * 1e7);
-			gps.lon = (long)(lon * 1e7);
-			gps.alt = (int)(altitude * 1000);
-			gps.satellites_visible = 10;
-			gps.eph = 30;
-			gps.epv = 30;
-			gps.fix_type = 4;
-			gps.cog = 0;
+//
+//			msg_hil_gps gps = new msg_hil_gps(1,1);
+//			gps.lat = (long)(lat * 1e7);
+//			gps.lon = (long)(lon * 1e7);
+//			gps.alt = (int)(altitude * 1000);
+//			gps.satellites_visible = 10;
+//			gps.eph = 30;
+//			gps.epv = 30;
+//			gps.fix_type = 4;
+//			gps.cog = 0;
 
 			while(!model.sys.isStatus(Status.MSP_GPOS_VALID)
 					&& (System.currentTimeMillis() - tms) < MAX_GPOS_SET_MS) {
-				control.sendMAVLinkMessage(gps);
+//				control.sendMAVLinkMessage(gps);
+				control.sendMAVLinkMessage(gor);
 				try {
 					Thread.sleep(200);
 				} catch (InterruptedException e) { }
 			}
-			gps.eph = 0;
-			gps.epv = 0;
-			gps.satellites_visible = 0;
-			gps.fix_type = 0;
-			control.sendMAVLinkMessage(gps);
+//			gps.eph = 0;
+//			gps.epv = 0;
+//			gps.satellites_visible = 0;
+//			gps.fix_type = 0;
+//			control.sendMAVLinkMessage(gps);
 
-			MSPLogger.getInstance().writeLocalMsg("[msp] Reference position set from MAVGCL",
-					MAV_SEVERITY.MAV_SEVERITY_INFO);
+			if(model.sys.isStatus(Status.MSP_GPOS_VALID))
+			  MSPLogger.getInstance().writeLocalMsg("[msp] Reference position set from MAVGCL",
+					  MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 		}, ExecutorService.LOW );
 
