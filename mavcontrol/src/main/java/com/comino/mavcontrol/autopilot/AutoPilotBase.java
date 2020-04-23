@@ -2,6 +2,7 @@ package com.comino.mavcontrol.autopilot;
 
 import java.util.LinkedList;
 import java.util.ListIterator;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /****************************************************************************
@@ -114,6 +115,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	private final msg_msp_micro_slam            slam = new msg_msp_micro_slam(2,1);
 
 	protected int autopilot_mode = AUTOPILOT_MODE_NONE;
+
+	private Future<?> future;
 
 	public static AutoPilotBase getInstance(Class<?> clazz, IMAVController control,MSPConfig config) {
 		if(autopilot == null)
@@ -272,10 +275,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected void abortSequence() {
 		if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
-			if(sequence.size()>0)
-			  control.writeLogMessage(new LogMessage("[msp] Try to abort sequence", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+			sequence.clear();
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
 			offboard.abort();
+			while(!future.isDone());
 		}
 	}
 
@@ -311,7 +314,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, true);
 
-		ExecutorService.get().submit(() -> {
+		future = ExecutorService.get().submit(() -> {
 			ListIterator<SeqItem> i = sequence.listIterator();
 			while(i.hasNext() && model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
 				control.writeLogMessage(new LogMessage("[msp] Step "+(i.nextIndex()+1)+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -421,7 +424,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
 			//	setYObstacleForSITL();
-			abortSequence();
+
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
 			planner.enable(enable);
@@ -559,7 +562,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
 		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,-2*rad));
 		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
-		addToSequence(new SeqItem(Float.NaN,Float.NaN, Float.NaN,SeqItem.ABS, 0));
+		addToSequence(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, SeqItem.ABS));
 		executeSequence();
 	}
 
@@ -567,34 +570,58 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
 
-		autopilot_mode = AUTOPILOT_MODE_ENABLED;
 		abortSequence();
 
-		if(enable) {
-
-			if((takeoff.x == 0 && takeoff.y == 0) || takeoff.isNaN()) {
-				logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
-				return;
-			}
-
-			logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-
-			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
-			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT, false);
-
-			offboard.registerActionListener((m,d) -> {
-				logger.writeLocalMsg("[msp] Home reached.Landing now.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
-			});
-			offboard.setTarget(takeoff);
-			offboard.start(OffboardManager.MODE_SPEED_POSITION);
-		} else {
+		if(!enable) {
 			logger.writeLocalMsg("[msp] Return to launch aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-			offboard.setCurrentAsTarget();
-			offboard.start(OffboardManager.MODE_LOITER);
-			this.autopilot_mode = AUTOPILOT_MODE_NONE;
+			return;
 		}
+
+		if((takeoff.x == 0 && takeoff.y == 0) || takeoff.isNaN()) {
+			logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
+			return;
+		}
+
+		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+		addToSequence(new SeqItem(takeoff,SeqItem.ABS, null,0));
+		addToSequence(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, SeqItem.ABS, () -> {
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
+			return true;
+		},200));
+		executeSequence();
+
+
+		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
+
+//		autopilot_mode = AUTOPILOT_MODE_ENABLED;
+//		abortSequence();
+//
+//		if(enable) {
+//
+//			if((takeoff.x == 0 && takeoff.y == 0) || takeoff.isNaN()) {
+//				logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+//				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
+//				return;
+//			}
+//
+//			logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+//
+//			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
+//			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT, false);
+//
+//			offboard.registerActionListener((m,d) -> {
+//				logger.writeLocalMsg("[msp] Home reached.Landing now.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+//				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
+//			});
+//			offboard.setTarget(takeoff);
+//			offboard.start(OffboardManager.MODE_SPEED_POSITION);
+//		} else {
+//			logger.writeLocalMsg("[msp] Return to launch aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+//			offboard.setCurrentAsTarget();
+//			offboard.start(OffboardManager.MODE_LOITER);
+//			this.autopilot_mode = AUTOPILOT_MODE_NONE;
+//		}
 	}
 
 	public void emergency_stop_and_turn(float targetAngle) {
@@ -652,11 +679,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	public void square() {
 		clearSequence();
-		addToSequence(new SeqItem(Float.NaN,0.5f,Float.NaN,Float.NaN, SeqItem.REL,null,500));
-		addToSequence(new SeqItem(1f,Float.NaN,Float.NaN,Float.NaN, SeqItem.REL,null,500));
-		addToSequence(new SeqItem(Float.NaN,-1f,Float.NaN,Float.NaN, SeqItem.REL,null,500));
-		addToSequence(new SeqItem(-1f,Float.NaN,Float.NaN,Float.NaN, SeqItem.REL,null,500));
-		addToSequence(new SeqItem(Float.NaN,0.5f,Float.NaN,Float.NaN, SeqItem.REL,null,500));
+		addToSequence(new SeqItem(0.5f     , 0.5f     , Float.NaN, Float.NaN, SeqItem.REL));
+		addToSequence(new SeqItem(Float.NaN, -1f      , Float.NaN, Float.NaN, SeqItem.REL));
+		addToSequence(new SeqItem(-1f      , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL));
+		addToSequence(new SeqItem(Float.NaN, 1f       , Float.NaN, Float.NaN, SeqItem.REL));
+		addToSequence(new SeqItem(1f       , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL));
+		addToSequence(new SeqItem(-0.5f    , -0.5f    , Float.NaN, Float.NaN, SeqItem.REL));
+		addToSequence(new SeqItem(Float.NaN, Float.NaN, Float.NaN,0         , SeqItem.ABS));
 		executeSequence();
 	}
 

@@ -452,10 +452,12 @@ public class OffboardManager implements Runnable {
 						path.clear();
 						ctl.clear();
 						fireAction(model, path.value);
-						logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+					//	logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+						setTarget(target);
 						mode = MODE_LOITER;
 					} else {
-						logger.writeLocalMsg("[msp] Offboard: Switched to POSITION",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+					//	logger.writeLocalMsg("[msp] Offboard: Switched to POSITION",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+						setTarget(target);
 						mode = MODE_POSITION;
 					}
 					continue;
@@ -504,7 +506,7 @@ public class OffboardManager implements Runnable {
 					path.clear(); valid_setpoint = false;
 					ctl.clear();
 					fireAction(model, path.value);
-					logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+					//logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 					mode = MODE_LOITER;
 					continue;
 				}
