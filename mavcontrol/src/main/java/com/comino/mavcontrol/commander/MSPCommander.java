@@ -109,34 +109,34 @@ public class MSPCommander  {
 			gor.target_system = 1;
 			gor.time_usec = model.sys.getSynchronizedPX4Time_us();
 
-//
-//			msg_hil_gps gps = new msg_hil_gps(1,1);
-//			gps.lat = (long)(lat * 1e7);
-//			gps.lon = (long)(lon * 1e7);
-//			gps.alt = (int)(altitude * 1000);
-//			gps.satellites_visible = 10;
-//			gps.eph = 30;
-//			gps.epv = 30;
-//			gps.fix_type = 4;
-//			gps.cog = 0;
+			//
+			//			msg_hil_gps gps = new msg_hil_gps(1,1);
+			//			gps.lat = (long)(lat * 1e7);
+			//			gps.lon = (long)(lon * 1e7);
+			//			gps.alt = (int)(altitude * 1000);
+			//			gps.satellites_visible = 10;
+			//			gps.eph = 30;
+			//			gps.epv = 30;
+			//			gps.fix_type = 4;
+			//			gps.cog = 0;
 
 			while(!model.sys.isStatus(Status.MSP_GPOS_VALID)
 					&& (System.currentTimeMillis() - tms) < MAX_GPOS_SET_MS) {
-//				control.sendMAVLinkMessage(gps);
+				//				control.sendMAVLinkMessage(gps);
 				control.sendMAVLinkMessage(gor);
 				try {
 					Thread.sleep(200);
 				} catch (InterruptedException e) { }
 			}
-//			gps.eph = 0;
-//			gps.epv = 0;
-//			gps.satellites_visible = 0;
-//			gps.fix_type = 0;
-//			control.sendMAVLinkMessage(gps);
+			//			gps.eph = 0;
+			//			gps.epv = 0;
+			//			gps.satellites_visible = 0;
+			//			gps.fix_type = 0;
+			//			control.sendMAVLinkMessage(gps);
 
 			if(model.sys.isStatus(Status.MSP_GPOS_VALID))
-			  MSPLogger.getInstance().writeLocalMsg("[msp] Reference position set from MAVGCL",
-					  MAV_SEVERITY.MAV_SEVERITY_INFO);
+				MSPLogger.getInstance().writeLocalMsg("[msp] Reference position set from MAVGCL",
+						MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 		}, ExecutorService.LOW );
 
@@ -149,30 +149,32 @@ public class MSPCommander  {
 		control.registerListener(msg_msp_command.class, new IMAVLinkListener() {
 			@Override
 			public void received(Object o) {
-				msg_msp_command cmd = (msg_msp_command)o;
-				switch(cmd.command) {
-				case MSP_CMD.MSP_CMD_RESTART:
-					restartCompanion(cmd);
-					break;
-				case MSP_CMD.MSP_CMD_OFFBOARD_SETLOCALPOS:
-					setOffboardPosition(cmd);
-					break;
-				case MSP_CMD.MSP_CMD_SET_HOMEPOS:
-					setGlobalOrigin(cmd.param1 / 1e7f, cmd.param2 / 1e7f, cmd.param3 / 1e3f );
-					break;
-				case MSP_CMD.MSP_CMD_AUTOMODE:
-					autopilot.setMode((int)(cmd.param1)==MSP_COMPONENT_CTRL.ENABLE,(int)(cmd.param2),cmd.param3);
-					break;
-				case MSP_CMD.MSP_CMD_OFFBOARD_SETLOCALVEL:
-					autopilot.setSpeed((int)(cmd.param1)==MSP_COMPONENT_CTRL.ENABLE,cmd.param2, cmd.param3, cmd.param4, cmd.param5);
-					break;
-				case MSP_CMD.MSP_CMD_MICROSLAM:
-					switch((int)cmd.param1) {
-					case MSP_COMPONENT_CTRL.RESET:
-						autopilot.resetMap(); break;
+				ExecutorService.get().submit(() -> {
+					msg_msp_command cmd = (msg_msp_command)o;
+					switch(cmd.command) {
+					case MSP_CMD.MSP_CMD_RESTART:
+						restartCompanion(cmd);
+						break;
+					case MSP_CMD.MSP_CMD_OFFBOARD_SETLOCALPOS:
+						setOffboardPosition(cmd);
+						break;
+					case MSP_CMD.MSP_CMD_SET_HOMEPOS:
+						setGlobalOrigin(cmd.param1 / 1e7f, cmd.param2 / 1e7f, cmd.param3 / 1e3f );
+						break;
+					case MSP_CMD.MSP_CMD_AUTOMODE:
+						autopilot.setMode((int)(cmd.param1)==MSP_COMPONENT_CTRL.ENABLE,(int)(cmd.param2),cmd.param3);
+						break;
+					case MSP_CMD.MSP_CMD_OFFBOARD_SETLOCALVEL:
+						autopilot.setSpeed((int)(cmd.param1)==MSP_COMPONENT_CTRL.ENABLE,cmd.param2, cmd.param3, cmd.param4, cmd.param5);
+						break;
+					case MSP_CMD.MSP_CMD_MICROSLAM:
+						switch((int)cmd.param1) {
+						case MSP_COMPONENT_CTRL.RESET:
+							autopilot.resetMap(); break;
+						}
+						break;
 					}
-					break;
-				}
+				});
 			}
 		});
 	}

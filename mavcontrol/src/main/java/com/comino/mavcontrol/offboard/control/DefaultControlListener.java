@@ -8,7 +8,7 @@ public class DefaultControlListener implements IOffboardExternalControl {
 
 	private static final float MAX_ACCELERATION		                = 0.3f;                   // Max acceleration in m/s2
 	private static final float MAX_SPEED					        = 1.00f;          	      // Default Max speed in m/s
-	private static final float MIN_SPEED					        = 0.2f;          	      // Default Min speed in m/s
+	private static final float MIN_SPEED					        = 0.1f;          	      // Default Min speed in m/s
 
 	private boolean isBreaking  = false;
 	private float   speed_incr  = 0;
@@ -20,18 +20,17 @@ public class DefaultControlListener implements IOffboardExternalControl {
 
 		ctl.angle_xz =  path.angle_xz;
 
-		delta_angle = MSPMathUtils.normAngle2(path.angle_xy - ctl.angle_xy);
+		delta_angle = MSPMathUtils.normAngle(path.angle_xy - ctl.angle_xy);
 
 		// follow direction changes by a simple P controller
-		if(spd.value > 0.1) {
+		if(spd.value > 0.5) {
 		  ctl.angle_xy = ctl.angle_xy + delta_angle / delta_sec * 0.005f;
-
 		  // slow down according to the path angle difference
 	      speed_incr = - MAX_ACCELERATION * delta_angle * delta_sec;
 		}
 		else {
 		  ctl.angle_xy = path.angle_xy;
-		}
+    	}
 
 		// start breaking 1.5 secs before reaching the goal
 		if(eta_sec < 2 )  {

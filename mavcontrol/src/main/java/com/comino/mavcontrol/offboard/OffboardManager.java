@@ -61,7 +61,7 @@ public class OffboardManager implements Runnable {
 
 	private static final int UPDATE_RATE                 			= 100;					  // offboard update rate in ms
 
-	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(10); // Max YawSpeed rad/s
+	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(45); // Max YawSpeed rad/s
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(5);  // Min yawSpeed rad/s
 	private static final float MAX_TURN_SPEED               		= 0.2f;   	              // Max speed that allow turning before start in m/s
 	private static final float MAX_SPEED							= 2.0f;					  // Max speed m/s
@@ -72,10 +72,10 @@ public class OffboardManager implements Runnable {
 
 
 	private static final int SETPOINT_TIMEOUT_MS         			= 15000;
+	private static final int ITEM_TIMEOUT_MS         			    = 15000;
 
-	private static final float YAW_PV								= 0.10f;                  // P factor for yaw speed control
+	private static final float YAW_PV								= 0.05f;                  // P factor for yaw speed control
 	private static final float YAW_P								= 0.15f;                  // P factor for yaw position control
-	private static final float Z_PV						    		= 0.05f;                  // P factor for Z speed control
 
 	private static final float YAW_ACCEPT                	    	= MSPMathUtils.toRad(2);  // Acceptance yaw deviation
 
@@ -169,7 +169,7 @@ public class OffboardManager implements Runnable {
 
 	}
 
-	public void start_wait(int m) {
+	public boolean start_wait(int m) {
 		mode = m;
 		if(!enabled) {
 			enabled = true;
@@ -183,15 +183,14 @@ public class OffboardManager implements Runnable {
 
 		synchronized(this) {
 			if(!already_fired) {
-				try {
-					wait();
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+				long tstart = System.currentTimeMillis();
+				try { 	wait(ITEM_TIMEOUT_MS); } catch (InterruptedException e) { }
+				if((System.currentTimeMillis() - tstart) >= ITEM_TIMEOUT_MS)
+					return false;
 				try { Thread.sleep( 2 * UPDATE_RATE); } catch (InterruptedException e) { }
 			}
 		}
+		return true;
 	}
 
 	public void abort() {
@@ -465,8 +464,8 @@ public class OffboardManager implements Runnable {
 
 				// if vehicle is not moving or close to target and turn angle > 60° => turn before moving
 				if( Math.abs(MSPMathUtils.normAngle2(ctl.angle_xy - current.w)) > Math.PI/3 &&
-						( ctl.value < MAX_TURN_SPEED || eta_sec < 1.0f ) &&
-						MSP3DUtils.distance2D(target, current) > acceptance_radius_pos) {
+						( ctl.value < MAX_TURN_SPEED || path.value  < 2.0 ) &&
+						path.value > acceptance_radius_pos) {
 					ctl.value = ctl.value / 10f;
 				}
 

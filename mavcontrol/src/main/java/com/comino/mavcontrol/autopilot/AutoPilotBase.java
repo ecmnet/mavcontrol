@@ -256,7 +256,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	protected void takeoffCompleted() {
-
+		control.writeLogMessage(new LogMessage("[msp] Obstacle survey executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+		rotate(45);
 	}
 
 	protected void addToSequence(SeqItem item) {
@@ -271,21 +272,36 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected void abortSequence() {
 		if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
-			control.writeLogMessage(new LogMessage("[msp] Try to abort seqeunce", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+			if(sequence.size()>0)
+			  control.writeLogMessage(new LogMessage("[msp] Try to abort sequence", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
 			offboard.abort();
 		}
 	}
 
+	protected void executeSequence(SeqItem item) {
+		sequence.clear();
+		sequence.add(item);
+		executeSequence();
+	}
+
 	protected void executeSequence() {
+
+		if(!offboard.isEnabled()) {
+			logger.writeLocalMsg("[msp] Offboard not enabled.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+			sequence.clear();
+			return;
+		}
 
 		if(model.sys.isStatus(Status.MSP_LANDED)) {
 			control.writeLogMessage(new LogMessage("[msp] Not executed. On ground/No offboard.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
+			sequence.clear();
 			return;
 		}
 
 		if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
 			control.writeLogMessage(new LogMessage("[msp] Sequence already in execution.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+			sequence.clear();
 			return;
 		}
 		if(sequence.isEmpty()) {
@@ -302,18 +318,24 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				SeqItem item = i.next();
 
 				if(item.hasTarget()) {
-				  offboard.setTarget(item.getTarget(model));
-				  offboard.start_wait(OffboardManager.MODE_SPEED_POSITION);
+					offboard.setTarget(item.getTarget(model));
+					if(!offboard.start_wait(OffboardManager.MODE_SPEED_POSITION)) {
+						model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
+						control.writeLogMessage(new LogMessage("[msp] Sequence timeout occurred.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+						break;
+					}
 				}
-				if(!item.executeAction())
+				if(!item.executeAction()) {
+					control.writeLogMessage(new LogMessage("[msp] Sequence action request abort.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 					break;
+				}
 			}
 			sequence.clear();
 
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE))
-				control.writeLogMessage(new LogMessage("[msp] Sequence finished", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+				control.writeLogMessage(new LogMessage("[msp] Sequence finished.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 			else
-				control.writeLogMessage(new LogMessage("[msp] Sequence aborted", MAV_SEVERITY.MAV_SEVERITY_INFO));
+				control.writeLogMessage(new LogMessage("[msp] Sequence aborted.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
 		});
 	}
@@ -399,13 +421,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
 			//	setYObstacleForSITL();
-
+			abortSequence();
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
 			planner.enable(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
-				rotate(45);
+            square();
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
 			offboardPosHold(enable);
@@ -516,7 +538,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 	public void abort() {
-		System.out.println("Autopilot abort");
+		abortSequence();
 		clearAutopilotActions();
 		model.sys.autopilot &= 0b11000000000000000000000000000001;
 		if(model.sys.isStatus(Status.MSP_RC_ATTACHED)) {
@@ -525,9 +547,20 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
 			offboard.stop();
 		} else {
+			offboard.setCurrentAsTarget();
 			offboard.start(OffboardManager.MODE_LOITER);
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 		}
+	}
+
+	public void rotate(float deg) {
+		clearSequence();
+		float rad = MSPMathUtils.toRad(deg);
+		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
+		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,-2*rad));
+		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
+		addToSequence(new SeqItem(Float.NaN,Float.NaN, Float.NaN,SeqItem.ABS, 0));
+		executeSequence();
 	}
 
 	public void returnToLand(boolean enable) {
@@ -565,6 +598,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	public void emergency_stop_and_turn(float targetAngle) {
+		abortSequence();
 		autopilot_mode = AUTOPILOT_MODE_ENABLED;
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
@@ -616,44 +650,16 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	// SITL testing
 
 
-	public void test_seq1(boolean enable) {
-
-
-		if(planner.isStarted())
-			planner.send();
-		else {
-			offboard.registerActionListener((m,d) -> {
-				logger.writeLocalMsg("[msp] End of sequence reached .",MAV_SEVERITY.MAV_SEVERITY_INFO);
-				offboard.finalize();
-			});
-			offboard.setTarget(1, 1, -1, 0, OffboardManager.MODE_SPEED_POSITION);
-			offboard.start(OffboardManager.MODE_SPEED_POSITION);
-		}
-	}
-
-	public void rotate(float deg) {
-
-		if(!offboard.isEnabled()) {
-			logger.writeLocalMsg("[msp] Offboard not enabled.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-			return;
-		}
-
+	public void square() {
 		clearSequence();
-
-		float rad = MSPMathUtils.toRad(deg);
-		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
-		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,-2*rad));
-		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
-//		addToSequence(new SeqItem(() ->  {
-//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
-//			return true;
-//		},1000));
-
-		logger.writeLocalMsg("[msp] Start survey sequence.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+		addToSequence(new SeqItem(Float.NaN,0.5f,Float.NaN,Float.NaN, SeqItem.REL,null,500));
+		addToSequence(new SeqItem(1f,Float.NaN,Float.NaN,Float.NaN, SeqItem.REL,null,500));
+		addToSequence(new SeqItem(Float.NaN,-1f,Float.NaN,Float.NaN, SeqItem.REL,null,500));
+		addToSequence(new SeqItem(-1f,Float.NaN,Float.NaN,Float.NaN, SeqItem.REL,null,500));
+		addToSequence(new SeqItem(Float.NaN,0.5f,Float.NaN,Float.NaN, SeqItem.REL,null,500));
 		executeSequence();
-
-
 	}
+
 
 	//**********
 
