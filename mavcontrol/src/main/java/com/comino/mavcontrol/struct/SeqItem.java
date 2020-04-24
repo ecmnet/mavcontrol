@@ -5,8 +5,10 @@ import georegression.struct.point.Vector4D_F32;
 
 public class SeqItem {
 
-	public static final int       ABS    = 0;
-	public static final int       REL    = 1;
+	public static final int          ABS    = 0;
+	public static final int          REL    = 1;
+	public static final int ITEM_TIMEOUT_MS = 60000;
+
 
 	private Vector4D_F32          target = null;
 	private int                     mode = 0;
@@ -61,6 +63,10 @@ public class SeqItem {
 
 	public boolean isRelative() {
 		return mode == REL;
+	}
+
+	public long getTimeout_ms() {
+		return ITEM_TIMEOUT_MS + delay_ms;
 	}
 
 	public boolean executeAction() {

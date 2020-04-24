@@ -72,7 +72,6 @@ public class OffboardManager implements Runnable {
 
 
 	private static final int SETPOINT_TIMEOUT_MS         			= 15000;
-	private static final int ITEM_TIMEOUT_MS         			    = 15000;
 
 	private static final float YAW_PV								= 0.05f;                  // P factor for yaw speed control
 	private static final float YAW_P								= 0.15f;                  // P factor for yaw position control
@@ -169,7 +168,7 @@ public class OffboardManager implements Runnable {
 
 	}
 
-	public boolean start_wait(int m) {
+	public boolean start_wait(int m, long timeout) {
 		mode = m;
 		if(!enabled) {
 			enabled = true;
@@ -184,8 +183,8 @@ public class OffboardManager implements Runnable {
 		synchronized(this) {
 			if(!already_fired) {
 				long tstart = System.currentTimeMillis();
-				try { 	wait(ITEM_TIMEOUT_MS); } catch (InterruptedException e) { }
-				if((System.currentTimeMillis() - tstart) >= ITEM_TIMEOUT_MS)
+				try { 	wait(timeout); } catch (InterruptedException e) { }
+				if((System.currentTimeMillis() - tstart) >= timeout)
 					return false;
 				try { Thread.sleep( 2 * UPDATE_RATE); } catch (InterruptedException e) { }
 			}

@@ -3,7 +3,6 @@ package com.comino.mavcontrol.autopilot;
 import java.util.LinkedList;
 import java.util.ListIterator;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 /****************************************************************************
  *
@@ -59,10 +58,10 @@ import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.autopilot.tests.PlannerTest;
 import com.comino.mavcontrol.offboard.OffboardManager;
+import com.comino.mavcontrol.struct.ISeqAction;
 import com.comino.mavcontrol.struct.SeqItem;
 import com.comino.mavmap.map.map2D.ILocalMap;
 import com.comino.mavmap.map.map2D.filter.ILocalMapFilter;
-import com.comino.mavmap.map.map2D.filter.impl.DenoiseMapFilter;
 import com.comino.mavmap.map.map2D.filter.impl.ForgetMapFilter;
 import com.comino.mavmap.map.map2D.impl.LocalMap2DRaycast;
 import com.comino.mavmap.map.map2D.store.LocaMap2DStorage;
@@ -71,7 +70,6 @@ import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.legacy.ExecutorService;
 
-import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector3D_F32;
 import georegression.struct.point.Vector4D_F32;
@@ -82,11 +80,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	/* TEST ONLY */
 	private PlannerTest planner = null;
 
-	public static final int   AUTOPILOT_MODE_NONE      	= 0;
-	public static final int   AUTOPILOT_MODE_ENABLED    = 1;
+	public static final int   AUTOPILOT_MODE_NONE      = 0;
+	public static final int   AUTOPILOT_MODE_ENABLED   = 1;
 
-	protected static final int   CERTAINITY_THRESHOLD      	= 100;
-	protected static final float WINDOWSIZE       			= 3.0f;
+	protected static final int   CERTAINITY_THRESHOLD  = 100;
+	protected static final float WINDOWSIZE       	   = 3.0f;
+
+	private   static final float MAX_REL_DELTA_HEIGHT  = 0.05f;
 
 	private static AutoPilotBase  autopilot    = null;
 
@@ -106,8 +106,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected final Vector4D_F32             takeoff = new Vector4D_F32();
 
 	protected ILocalMapFilter              mapFilter = null;
-
-	protected ParameterAttributes  takeoff_alt_param = null;
 
 	private final Vector4D_F32            body_speed = new Vector4D_F32();
 	private final Vector4D_F32            ned_speed  = new Vector4D_F32();
@@ -171,16 +169,28 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		//**********
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_TAKEOFF, StatusManager.EDGE_RISING, (n) -> {
 
-			this.takeoff_alt_param = PX4Parameters.getInstance().getParam("MIS_TAKEOFF_ALT");
+			final ParameterAttributes  takeoff_alt_param   = PX4Parameters.getInstance().getParam("MIS_TAKEOFF_ALT");
+			final ParameterAttributes  takeoff_speed_param = PX4Parameters.getInstance().getParam("MPC_TKO_SPEED");
 
-			ExecutorService.get().schedule(() -> {
+			// calculate maximum takeofftime (increased by 5 secs)
+			final int max_tko_time_ms = (int)(takeoff_alt_param.value / takeoff_speed_param.value ) * 1000 + 5000;
 
-				if(Math.abs(takeoff_alt_param.value - model.hud.al) > 0.2f) {
-					control.writeLogMessage(new LogMessage("[msp] Takeoff not completed.", MAV_SEVERITY.MAV_SEVERITY_CRITICAL));
+			ExecutorService.get().submit(() -> {
+
+				long takeoff_start_tms = System.currentTimeMillis();
+				double delta_height = Math.abs(takeoff_alt_param.value - model.hud.al) / takeoff_alt_param.value;
+
+				while( delta_height > MAX_REL_DELTA_HEIGHT && (System.currentTimeMillis() - takeoff_start_tms) < max_tko_time_ms) {
+					try { Thread.sleep(100); } catch(Exception e) { }
+					delta_height = Math.abs(takeoff_alt_param.value - model.hud.al) / takeoff_alt_param.value;
+				}
+
+				if(delta_height > MAX_REL_DELTA_HEIGHT) {
+					control.writeLogMessage(new LogMessage("[msp] Takeoff not completed.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 					return;
 				}
 
-				control.writeLogMessage(new LogMessage("[msp] Takeoff complete enforced.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				control.writeLogMessage(new LogMessage("[msp] Takeoff complete enforced.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 				offboard.setCurrentSetPointAsTarget();
 				offboard.start(OffboardManager.MODE_LOITER);
 
@@ -191,10 +201,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 					}
 				}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
-				this.takeoffCompleted();
 				this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
-				control.writeLogMessage(new LogMessage("[msp] Takeoff procedure completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-			}, 10, TimeUnit.SECONDS);
+				this.takeoffCompleted();
+			});
 
 		});
 
@@ -229,15 +238,17 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_OFFBOARD, StatusManager.EDGE_RISING, (n) -> {
 
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
-			control.writeLogMessage(new LogMessage("[msp] Offboard enabled.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+			//control.writeLogMessage(new LogMessage("[msp] Offboard enabled.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
 		});
 
-		// Landing action
-		//		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_LANDED, StatusManager.EDGE_RISING, (n) -> {
-		//			control.writeLogMessage(new LogMessage("[msp] Landing detected.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-		//
-		//		});
+		// Abort any sequence if PX4 landing is triggered
+		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
+			this.autopilot_mode = AUTOPILOT_MODE_NONE;
+			abortSequence();
+
+		});
+
 
 		// Switch off offboard after disarmed
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
@@ -260,7 +271,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected void takeoffCompleted() {
 		control.writeLogMessage(new LogMessage("[msp] Obstacle survey executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-		rotate(45);
+		rotate(45,() -> {
+			control.writeLogMessage(new LogMessage("[msp] Takeoff procedure completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			return true;
+		});
 	}
 
 	protected void addToSequence(SeqItem item) {
@@ -282,13 +296,17 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		}
 	}
 
-	protected void executeSequence(SeqItem item) {
+	protected void executeSequence(SeqItem item, ISeqAction completedAction) {
 		sequence.clear();
 		sequence.add(item);
 		executeSequence();
 	}
 
 	protected void executeSequence() {
+		executeSequence((ISeqAction)null);
+	}
+
+	protected void executeSequence(ISeqAction completedAction) {
 
 		if(!offboard.isEnabled()) {
 			logger.writeLocalMsg("[msp] Offboard not enabled.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
@@ -317,12 +335,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		future = ExecutorService.get().submit(() -> {
 			ListIterator<SeqItem> i = sequence.listIterator();
 			while(i.hasNext() && model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
-				control.writeLogMessage(new LogMessage("[msp] Step "+(i.nextIndex()+1)+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+				model.slam.wpcount  = i.nextIndex()+1;
+			//	control.writeLogMessage(new LogMessage("[msp] Step "+(i.nextIndex()+1)+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				SeqItem item = i.next();
-
 				if(item.hasTarget()) {
 					offboard.setTarget(item.getTarget(model));
-					if(!offboard.start_wait(OffboardManager.MODE_SPEED_POSITION)) {
+					if(!offboard.start_wait(OffboardManager.MODE_SPEED_POSITION, item.getTimeout_ms())) {
 						model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
 						control.writeLogMessage(new LogMessage("[msp] Sequence timeout occurred.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 						break;
@@ -333,7 +351,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 					break;
 				}
 			}
+			model.slam.wpcount = 0;
 			sequence.clear();
+
+			if(completedAction!=null)
+				completedAction.execute();
 
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE))
 				control.writeLogMessage(new LogMessage("[msp] Sequence finished.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -383,6 +405,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				model.slam.dm = Float.NaN;
 		}
 
+		slam.wpcount = model.slam.wpcount;
 		slam.dm = model.slam.dm;
 		slam.tms = model.slam.tms;
 		control.sendMAVLinkMessage(slam);
@@ -481,6 +504,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	public void moveto(float x, float y, float z, float yaw) {
+
 		final Vector4D_F32 target = new Vector4D_F32(x,y,z,yaw);
 		if(flowCheck && !model.sys.isSensorAvailable(Status.MSP_PIX4FLOW_AVAILABILITY)) {
 			logger.writeLocalMsg("[msp] Aborting. No Flow available.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
@@ -491,6 +515,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			planner.setTarget(target);
 			return;
 		}
+
+		abortSequence();
 
 		offboard.registerActionListener( (m,d) -> {
 			offboard.finalize();
@@ -556,14 +582,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		}
 	}
 
-	public void rotate(float deg) {
+	public void rotate(float deg, ISeqAction completedAction) {
 		clearSequence();
 		float rad = MSPMathUtils.toRad(deg);
 		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
 		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,-2*rad));
 		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
-		addToSequence(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, SeqItem.ABS));
-		executeSequence();
+		executeSequence(completedAction);
 	}
 
 	public void returnToLand(boolean enable) {
