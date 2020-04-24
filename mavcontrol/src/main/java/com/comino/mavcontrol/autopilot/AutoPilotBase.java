@@ -188,7 +188,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			if(delta_height > MAX_REL_DELTA_HEIGHT) {
 				control.writeLogMessage(new LogMessage("[msp] Takeoff did not complete within "+(max_tko_time_ms/1000)+" secs",
 						MAV_SEVERITY.MAV_SEVERITY_WARNING));
-				return;
+			return;
 			}
 
 			control.writeLogMessage(new LogMessage("[msp] Takeoff complete enforced.", MAV_SEVERITY.MAV_SEVERITY_INFO));

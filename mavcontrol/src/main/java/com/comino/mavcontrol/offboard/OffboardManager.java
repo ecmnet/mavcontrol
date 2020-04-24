@@ -71,7 +71,7 @@ public class OffboardManager implements Runnable {
 	private static final int   RC_LAND_THRESHOLD            		= 1600;		              // RC channel 8 landing threshold
 
 
-	private static final int SETPOINT_TIMEOUT_MS         			= 15000;
+	private static final int SETPOINT_TIMEOUT_MS         			= 75000;
 
 	private static final float YAW_PV								= 0.05f;                  // P factor for yaw speed control
 	private static final float YAW_P								= 0.15f;                  // P factor for yaw position control
@@ -115,6 +115,7 @@ public class OffboardManager implements Runnable {
 	private boolean    	new_setpoint                   	 			= false;
 
 	private long        setpoint_tms                        		= 0;
+	private long        setpoint_timeout                       		= SETPOINT_TIMEOUT_MS;
 	private long        trajectory_start_tms                        = 0;
 	private long	    last_update_tms                             = 0;
 
@@ -156,6 +157,7 @@ public class OffboardManager implements Runnable {
 
 	public void start(int m) {
 		mode = m;
+		setpoint_timeout = SETPOINT_TIMEOUT_MS;
 		if(!enabled) {
 			enabled = true;
 			Thread worker = new Thread(this);
@@ -170,6 +172,7 @@ public class OffboardManager implements Runnable {
 
 	public boolean start_wait(int m, long timeout) {
 		mode = m;
+		setpoint_timeout = timeout;
 		if(!enabled) {
 			enabled = true;
 			Thread worker = new Thread(this);
@@ -350,7 +353,7 @@ public class OffboardManager implements Runnable {
 			}
 
 
-			if(valid_setpoint && (System.currentTimeMillis()-watch_tms ) > SETPOINT_TIMEOUT_MS ) {
+			if(valid_setpoint && (System.currentTimeMillis()-watch_tms ) > setpoint_timeout ) {
 				valid_setpoint = false; mode = MODE_LOITER;
 
 				if(model.sys.nav_state == Status.NAVIGATION_STATE_OFFBOARD)
