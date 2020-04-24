@@ -175,35 +175,35 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			// calculate maximum takeofftime (increased by 5 secs)
 			final int max_tko_time_ms = (int)(takeoff_alt_param.value / takeoff_speed_param.value ) * 1000 + 5000;
 
-			ExecutorService.get().submit(() -> {
+			control.writeLogMessage(new LogMessage("[msp] Takeoff proecdure initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
-				long takeoff_start_tms = System.currentTimeMillis();
-				double delta_height = Math.abs(takeoff_alt_param.value - model.hud.al) / takeoff_alt_param.value;
+			long takeoff_start_tms = System.currentTimeMillis();
+			double delta_height = Math.abs(takeoff_alt_param.value - model.hud.al) / takeoff_alt_param.value;
 
-				while( delta_height > MAX_REL_DELTA_HEIGHT && (System.currentTimeMillis() - takeoff_start_tms) < max_tko_time_ms) {
-					try { Thread.sleep(100); } catch(Exception e) { }
-					delta_height = Math.abs(takeoff_alt_param.value - model.hud.al) / takeoff_alt_param.value;
+			while( delta_height > MAX_REL_DELTA_HEIGHT && (System.currentTimeMillis() - takeoff_start_tms) < max_tko_time_ms) {
+				try { Thread.sleep(100); } catch(Exception e) { }
+				delta_height = Math.abs(takeoff_alt_param.value - model.hud.al) / takeoff_alt_param.value;
+			}
+
+			if(delta_height > MAX_REL_DELTA_HEIGHT) {
+				control.writeLogMessage(new LogMessage("[msp] Takeoff did not complete within "+(max_tko_time_ms/1000)+" secs",
+						MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				return;
+			}
+
+			control.writeLogMessage(new LogMessage("[msp] Takeoff complete enforced.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			offboard.setCurrentSetPointAsTarget();
+			offboard.start(OffboardManager.MODE_LOITER);
+
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
+				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
+					offboard.stop();
+					control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+").", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				}
-
-				if(delta_height > MAX_REL_DELTA_HEIGHT) {
-					control.writeLogMessage(new LogMessage("[msp] Takeoff not completed.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-					return;
-				}
-
-				control.writeLogMessage(new LogMessage("[msp] Takeoff complete enforced.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-				offboard.setCurrentSetPointAsTarget();
-				offboard.start(OffboardManager.MODE_LOITER);
-
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
-					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
-						offboard.stop();
-						control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+").", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-					}
-				}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
-				this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
-				this.takeoffCompleted();
-			});
+			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
+			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
+			this.takeoffCompleted();
 
 		});
 
@@ -262,7 +262,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 		});
-
 	}
 
 	public int getAutopilotMode() {
@@ -336,7 +335,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			ListIterator<SeqItem> i = sequence.listIterator();
 			while(i.hasNext() && model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
 				model.slam.wpcount  = i.nextIndex()+1;
-			//	control.writeLogMessage(new LogMessage("[msp] Step "+(i.nextIndex()+1)+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+				//	control.writeLogMessage(new LogMessage("[msp] Step "+(i.nextIndex()+1)+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				SeqItem item = i.next();
 				if(item.hasTarget()) {
 					offboard.setTarget(item.getTarget(model));
@@ -453,7 +452,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			planner.enable(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
-            square();
+			square();
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
 			offboardPosHold(enable);
@@ -619,34 +618,34 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
 
-//		autopilot_mode = AUTOPILOT_MODE_ENABLED;
-//		abortSequence();
-//
-//		if(enable) {
-//
-//			if((takeoff.x == 0 && takeoff.y == 0) || takeoff.isNaN()) {
-//				logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-//				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
-//				return;
-//			}
-//
-//			logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-//
-//			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
-//			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT, false);
-//
-//			offboard.registerActionListener((m,d) -> {
-//				logger.writeLocalMsg("[msp] Home reached.Landing now.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-//				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
-//			});
-//			offboard.setTarget(takeoff);
-//			offboard.start(OffboardManager.MODE_SPEED_POSITION);
-//		} else {
-//			logger.writeLocalMsg("[msp] Return to launch aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-//			offboard.setCurrentAsTarget();
-//			offboard.start(OffboardManager.MODE_LOITER);
-//			this.autopilot_mode = AUTOPILOT_MODE_NONE;
-//		}
+		//		autopilot_mode = AUTOPILOT_MODE_ENABLED;
+		//		abortSequence();
+		//
+		//		if(enable) {
+		//
+		//			if((takeoff.x == 0 && takeoff.y == 0) || takeoff.isNaN()) {
+		//				logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+		//				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
+		//				return;
+		//			}
+		//
+		//			logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+		//
+		//			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
+		//			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT, false);
+		//
+		//			offboard.registerActionListener((m,d) -> {
+		//				logger.writeLocalMsg("[msp] Home reached.Landing now.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+		//				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
+		//			});
+		//			offboard.setTarget(takeoff);
+		//			offboard.start(OffboardManager.MODE_SPEED_POSITION);
+		//		} else {
+		//			logger.writeLocalMsg("[msp] Return to launch aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+		//			offboard.setCurrentAsTarget();
+		//			offboard.start(OffboardManager.MODE_LOITER);
+		//			this.autopilot_mode = AUTOPILOT_MODE_NONE;
+		//		}
 	}
 
 	public void emergency_stop_and_turn(float targetAngle) {
