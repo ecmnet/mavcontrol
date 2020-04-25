@@ -188,7 +188,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			if(delta_height > MAX_REL_DELTA_HEIGHT) {
 				control.writeLogMessage(new LogMessage("[msp] Takeoff did not complete within "+(max_tko_time_ms/1000)+" secs",
 						MAV_SEVERITY.MAV_SEVERITY_WARNING));
-			return;
+				return;
 			}
 
 			control.writeLogMessage(new LogMessage("[msp] Takeoff complete enforced.", MAV_SEVERITY.MAV_SEVERITY_INFO));
@@ -445,8 +445,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			setXObstacleForSITL();
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
-			//	setYObstacleForSITL();
-
+			buildvirtualWall(1.0f);
+			break;
+		case MSP_AUTOCONTROL_ACTION.ROTATE:
+			turn_to(param);
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
 			planner.enable(enable);
@@ -590,6 +592,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		executeSequence(completedAction);
 	}
 
+	public void turn_to(float deg) {
+		clearSequence();
+		float rad = MSPMathUtils.toRad(deg);
+		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad,SeqItem.ABS));
+		executeSequence();
+	}
+
 	public void returnToLand(boolean enable) {
 
 		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
@@ -703,14 +712,35 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	public void square() {
 		clearSequence();
-		addToSequence(new SeqItem(0.5f     , 0.5f     , Float.NaN, Float.NaN, SeqItem.REL));
-		addToSequence(new SeqItem(Float.NaN, -1f      , Float.NaN, Float.NaN, SeqItem.REL));
-		addToSequence(new SeqItem(-1f      , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL));
-		addToSequence(new SeqItem(Float.NaN, 1f       , Float.NaN, Float.NaN, SeqItem.REL));
-		addToSequence(new SeqItem(1f       , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL));
-		addToSequence(new SeqItem(-0.5f    , -0.5f    , Float.NaN, Float.NaN, SeqItem.REL));
+		addToSequence(new SeqItem(0.5f     , 0.5f     , Float.NaN, Float.NaN, SeqItem.REL,null,200));
+		addToSequence(new SeqItem(Float.NaN, -1f      , Float.NaN, Float.NaN, SeqItem.REL,null,200));
+		addToSequence(new SeqItem(-1f      , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL,null,200));
+		addToSequence(new SeqItem(Float.NaN, 1f       , Float.NaN, Float.NaN, SeqItem.REL,null,200));
+		addToSequence(new SeqItem(1f       , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL,null,200));
+		addToSequence(new SeqItem(-0.5f    , -0.5f    , Float.NaN, Float.NaN, SeqItem.REL,null,200));
 		addToSequence(new SeqItem(Float.NaN, Float.NaN, Float.NaN,0         , SeqItem.ABS));
 		executeSequence();
+	}
+
+
+	public void buildvirtualWall(float distance_m) {
+		if(map==null)
+			return;
+		control.writeLogMessage(new LogMessage("[msp] Build virtual wall.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+
+		Point3D_F64   pos          = new Point3D_F64();
+		Point3D_F64   wall         = new Point3D_F64();
+		pos.setZ(model.state.l_z);
+		pos.x = model.state.l_x + Math.cos(model.attitude.y) * distance_m;
+		pos.y = model.state.l_y + Math.sin(model.attitude.y) * distance_m;
+
+
+		wall.setZ(model.state.l_z);
+		for(int k=-5; k<6; k++) {
+			wall.x = pos.x + Math.sin(-model.attitude.y) * 0.05f * k;
+			wall.y = pos.y + Math.cos(-model.attitude.y) * 0.05f * k;
+			for(int i=0;i<100;i++) map.update(model.state.l_x, model.state.l_y,wall);
+		}
 	}
 
 
