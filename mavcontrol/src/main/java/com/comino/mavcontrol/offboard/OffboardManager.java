@@ -59,7 +59,7 @@ import georegression.struct.point.Vector4D_F32;
 
 public class OffboardManager implements Runnable {
 
-	private static final int UPDATE_RATE                 			= 100;					  // offboard update rate in ms
+	private static final int UPDATE_RATE                 			= 50;					  // offboard update rate in ms
 
 	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(45); // Max YawSpeed rad/s
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(5);  // Min yawSpeed rad/s
@@ -180,7 +180,7 @@ public class OffboardManager implements Runnable {
 			worker.setName("OffboardManager");
 			worker.start();
 			System.out.println("Offboard updater started..");
-			try { Thread.sleep( 5 * UPDATE_RATE); } catch (InterruptedException e) { }
+//			try { Thread.sleep( 5 * UPDATE_RATE); } catch (InterruptedException e) { }
 		}
 
 		synchronized(this) {
@@ -211,6 +211,9 @@ public class OffboardManager implements Runnable {
 		valid_setpoint = false;
 		new_setpoint = false;
 		already_fired = false;
+		synchronized(this) {
+			notify();
+		}
 	}
 
 
@@ -222,13 +225,8 @@ public class OffboardManager implements Runnable {
 		setpoint_tms = System.currentTimeMillis();
 	}
 
-	public void setTarget(Vector4D_F32 t, int mode) {
-		this.mode = mode;
-		setTarget(t);
-	}
 
-	public void setTarget(float x, float y, float z, float yaw, int mode) {
-		this.mode = mode;
+	public void setTarget(float x, float y, float z, float yaw) {
 		target.set(x,y,z,yaw);
 		valid_setpoint = true;
 		new_setpoint = true;
@@ -252,37 +250,14 @@ public class OffboardManager implements Runnable {
 		return target;
 	}
 
-	public void setCurrentAsTarget(float yaw) {
-		target.set(model.state.l_x, model.state.l_y, model.state.l_z, yaw);
-		already_fired = false;
-		new_setpoint = true;
-		valid_setpoint = true;
-		setpoint_tms = System.currentTimeMillis();
-	}
-
-	public void setCurrentAsTarget() {
-		target.set(model.state.l_x, model.state.l_y, model.state.l_z, model.attitude.y);
-		already_fired = false;
-		new_setpoint = true;
-		valid_setpoint = true;
-		setpoint_tms = System.currentTimeMillis();
-	}
-
-	public void setCurrentSetPointAsTarget() {
-		target.set(model.target_state.l_x, model.target_state.l_y, model.target_state.l_z, model.attitude.sy);
-		already_fired = false;
-		new_setpoint = true;
-		valid_setpoint = true;
-		setpoint_tms = System.currentTimeMillis();
-	}
 
 	public void finalize() {
 		this.action_listener  = null;
+		synchronized(this) {
+			notify();
+		}
 	}
 
-	public boolean isEnabled() {
-		return enabled;
-	}
 
 	public void registerExternalControlListener(IOffboardExternalControl control_listener) {
 		this.ext_control_listener = control_listener;
@@ -292,11 +267,9 @@ public class OffboardManager implements Runnable {
 		this.ext_constraints_listener = constraints;
 	}
 
-	//	public void removeExternalControlListener() {
-	//		// consider current setpoint as new to set the start position at
-	//		this.new_setpoint = true;
-	//		this.ext_control_listener = null;
-	//	}
+	public boolean isEnabled() {
+		return enabled;
+	}
 
 	public int getMode() {
 		return mode;
@@ -345,7 +318,9 @@ public class OffboardManager implements Runnable {
 
 		last_update_tms = System.currentTimeMillis();
 
+
 		while(enabled) {
+
 
 			if(model.sys.isStatus(Status.MSP_RC_ATTACHED) && !safety_check()) {
 				enabled = false;
@@ -361,6 +336,13 @@ public class OffboardManager implements Runnable {
 			}
 
 			current.set(model.state.l_x, model.state.l_y, model.state.l_z,model.attitude.y);
+
+			if(!valid_setpoint) {
+				target.set(current);
+				valid_setpoint = true;
+				mode = MODE_LOITER;
+			}
+
 			path.set(target, current);
 			spd.set(model.state.l_vx, model.state.l_vy, model.state.l_vz );
 
@@ -371,24 +353,11 @@ public class OffboardManager implements Runnable {
 
 			case MODE_LOITER:
 				watch_tms = System.currentTimeMillis();
-				if(!valid_setpoint) {
-					setCurrentAsTarget();
-					continue;
-				}
-				valid_setpoint = true;
-
 				sendPositionControlToVehice(target, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 				toModel(target,null);
 				break;
 
 			case MODE_LOCAL_SPEED:
-
-				if(!valid_setpoint) {
-					watch_tms = System.currentTimeMillis();
-					logger.writeLocalMsg("[msp] No valid Setpoint. Loitering.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-					setCurrentAsTarget();
-					mode = MODE_LOITER;
-				}
 
 				ctl.set(target.x, target.y, target.z);
 				path.angle_xy = ctl.angle_xy;
@@ -410,7 +379,6 @@ public class OffboardManager implements Runnable {
 				//					cmd.z = (model.target_state.l_z - current.z) / (UPDATE_RATE / 1000f) * Z_PV;
 				//				}
 
-
 				sendSpeedControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 				//toModel(spd.value,target,current);
 
@@ -424,10 +392,9 @@ public class OffboardManager implements Runnable {
 
 				// a new setpoint was provided
 				if(new_setpoint) {
-					valid_setpoint = true;
+					new_setpoint = false;
 					ext_control_listener.initialize(spd, path);
 					trajectory_start_tms = 0; ela_sec = 0;
-					new_setpoint = false;
 					start.set(current);
 					ctl.set(spd);
 				}
@@ -454,12 +421,11 @@ public class OffboardManager implements Runnable {
 						path.clear();
 						ctl.clear();
 						fireAction(model, path.value);
-					//	logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-						setTarget(target);
+						logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+						target.set(current);
 						mode = MODE_LOITER;
 					} else {
-					//	logger.writeLocalMsg("[msp] Offboard: Switched to POSITION",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-						setTarget(target);
+						logger.writeLocalMsg("[msp] Offboard: Switched to POSITION",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 						mode = MODE_POSITION;
 					}
 					continue;
@@ -487,7 +453,6 @@ public class OffboardManager implements Runnable {
 
 				// get Cartesian speeds from polar
 				ctl.get(cmd);
-
 				sendSpeedControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 
 				toModel(target,path);
@@ -496,13 +461,6 @@ public class OffboardManager implements Runnable {
 
 			case MODE_POSITION:
 
-				if(!valid_setpoint) {
-					setCurrentAsTarget();
-				}
-
-				//				System.out.println("P");
-
-				path.set(target, current);
 
 				if(path.value < acceptance_radius_pos && valid_setpoint && Math.abs(MSPMathUtils.normAngle(target.w - current.w)) < YAW_ACCEPT) {
 					path.clear(); valid_setpoint = false;
@@ -520,7 +478,6 @@ public class OffboardManager implements Runnable {
 
 				if(Math.abs(d_yaw)< MIN_YAW_SPEED) d_yaw = MIN_YAW_SPEED * Math.signum(d_yaw);
 				if(Math.abs(d_yaw)> MAX_YAW_SPEED) d_yaw = MAX_YAW_SPEED * Math.signum(d_yaw);
-
 
 				cmd.set(target.x,target.y,target.z,current.w + d_yaw);
 
@@ -551,7 +508,6 @@ public class OffboardManager implements Runnable {
 		already_fired = false; valid_setpoint = false;
 	}
 
-
 	private void sendPositionControlToVehice(Vector4D_F32 target, int frame) {
 
 		pos_cmd.target_component = 1;
@@ -563,11 +519,12 @@ public class OffboardManager implements Runnable {
 		pos_cmd.z   = target.z;
 		pos_cmd.yaw = Float.isNaN(target.w)? model.attitude.y : MSPMathUtils.normAngle(target.w);
 
-		if(target.x==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000000000000001;
-		if(target.y==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000000000000010;
-		if(target.z==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000000000000100;
-		if(target.w==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000010000000000;
+		if(Float.isNaN(target.x) || target.x==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000000000000001;
+		if(Float.isNaN(target.y) || target.y==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000000000000010;
+		if(Float.isNaN(target.z) || target.z==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000000000000100;
+		if(Float.isNaN(target.w) || target.w==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000010000000000;
 
+//		System.out.println("P:"+target);
 		pos_cmd.coordinate_frame = frame;
 
 		if(!control.sendMAVLinkMessage(pos_cmd))
@@ -581,13 +538,14 @@ public class OffboardManager implements Runnable {
 		speed_cmd.type_mask        = 0b000011111000111;
 
 
-		if(target.x==Float.MAX_VALUE) speed_cmd.type_mask = speed_cmd.type_mask | 0b000000000001000;
-		if(target.y==Float.MAX_VALUE) speed_cmd.type_mask = speed_cmd.type_mask | 0b000000000010000;
-		if(target.z==Float.MAX_VALUE) speed_cmd.type_mask = speed_cmd.type_mask | 0b000000000100000;
-		if(target.w==Float.MAX_VALUE) speed_cmd.type_mask = speed_cmd.type_mask | 0b000100000000000;
+		if(Float.isNaN(target.x) || target.x==Float.MAX_VALUE) speed_cmd.type_mask = speed_cmd.type_mask | 0b000000000001000;
+		if(Float.isNaN(target.y) || target.y==Float.MAX_VALUE) speed_cmd.type_mask = speed_cmd.type_mask | 0b000000000010000;
+		if(Float.isNaN(target.z) || target.z==Float.MAX_VALUE) speed_cmd.type_mask = speed_cmd.type_mask | 0b000000000100000;
+		if(Float.isNaN(target.w) || target.w==Float.MAX_VALUE) speed_cmd.type_mask = speed_cmd.type_mask | 0b000100000000000;
 
 		// safety constraints
 		checkAbsoluteSpeeds(target);
+//		System.out.println("S:"+target);
 
 		speed_cmd.vx       = target.x;
 		speed_cmd.vy       = target.y;

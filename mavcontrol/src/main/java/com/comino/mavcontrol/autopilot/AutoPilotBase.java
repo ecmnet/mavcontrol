@@ -86,7 +86,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected static final int   CERTAINITY_THRESHOLD  = 100;
 	protected static final float WINDOWSIZE       	   = 3.0f;
 
-	private   static final float MAX_REL_DELTA_HEIGHT  = 0.05f;
+	private   static final float MAX_REL_DELTA_HEIGHT  = 0.075f;
 
 	private static AutoPilotBase  autopilot    = null;
 
@@ -173,7 +173,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			final ParameterAttributes  takeoff_speed_param = PX4Parameters.getInstance().getParam("MPC_TKO_SPEED");
 
 			// calculate maximum takeofftime (increased by 5 secs)
-			final int max_tko_time_ms = (int)(takeoff_alt_param.value / takeoff_speed_param.value ) * 1000 + 5000;
+			final int max_tko_time_ms = (int)(takeoff_alt_param.value / takeoff_speed_param.value ) * 1000 + 10000;
 
 			control.writeLogMessage(new LogMessage("[msp] Takeoff proecdure initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
@@ -192,7 +192,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}
 
 			control.writeLogMessage(new LogMessage("[msp] Takeoff complete enforced.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-			offboard.setCurrentSetPointAsTarget();
 			offboard.start(OffboardManager.MODE_LOITER);
 
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
@@ -335,7 +334,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			ListIterator<SeqItem> i = sequence.listIterator();
 			while(i.hasNext() && model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
 				model.slam.wpcount  = i.nextIndex()+1;
-				//	control.writeLogMessage(new LogMessage("[msp] Step "+(i.nextIndex()+1)+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+				control.writeLogMessage(new LogMessage("[msp] Step "+(i.nextIndex()+1)+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				SeqItem item = i.next();
 				if(item.hasTarget()) {
 					offboard.setTarget(item.getTarget(model));
@@ -484,7 +483,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		}
 		else {
 			model.sys.setStatus(Status.MSP_JOY_ATTACHED,false);
-			offboard.setCurrentAsTarget();
+			offboard.start(OffboardManager.MODE_LOITER);
 		}
 	}
 
@@ -577,7 +576,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
 			offboard.stop();
 		} else {
-			offboard.setCurrentAsTarget();
 			offboard.start(OffboardManager.MODE_LOITER);
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 		}
@@ -663,7 +661,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 		offboard.finalize();
-		offboard.setCurrentAsTarget(targetAngle);
+		offboard.setTarget(Float.NaN, Float.NaN, Float.NaN,targetAngle);
 		offboard.start(OffboardManager.MODE_POSITION);
 	}
 
@@ -712,6 +710,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	public void square() {
 		clearSequence();
+		addToSequence(new SeqItem(Float.NaN, Float.NaN, -1.0f, Float.NaN        , SeqItem.ABS));
 		addToSequence(new SeqItem(0.5f     , 0.5f     , Float.NaN, Float.NaN, SeqItem.REL,null,200));
 		addToSequence(new SeqItem(Float.NaN, -1f      , Float.NaN, Float.NaN, SeqItem.REL,null,200));
 		addToSequence(new SeqItem(-1f      , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL,null,200));

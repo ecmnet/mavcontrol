@@ -87,7 +87,7 @@ public class BreakingPilot extends AutoPilotBase {
 			if(n.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT)) {
 				smooth_target_initialized = false;
 				smooth_target.set(model.state.l_x, model.state.l_y, model.state.l_z);
-				offboard.setTarget((float)smooth_target.x, (float)smooth_target.y, (float)smooth_target.z, 0, OffboardManager.MODE_SPEED_POSITION);
+				offboard.setTarget((float)smooth_target.x, (float)smooth_target.y, (float)smooth_target.z, 0);
 				logger.writeLocalMsg("[msp] Follow object mode enabled.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				offboard.start(OffboardManager.MODE_SPEED_POSITION);
 			} else {

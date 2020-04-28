@@ -177,7 +177,6 @@ public class LVH2DPilot extends AutoPilotBase {
 	//	}
 
 	public void stop_at_position() {
-		offboard.setCurrentAsTarget();
 		offboard.start(OffboardManager.MODE_LOITER);
 		logger.writeLocalMsg("[msp] Autopilot: Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 	}
@@ -210,7 +209,7 @@ public class LVH2DPilot extends AutoPilotBase {
 			public boolean determineSpeedAnDirection(float delta_sec, float ela_sec, float eta_sec, Polar3D_F32 spd, Polar3D_F32 path, Polar3D_F32 ctl) {
 
 				if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_AVOIDANCE)) {
-					offboard.setCurrentAsTarget();
+					offboard.start(OffboardManager.MODE_LOITER);
 				}
 
 				try {
@@ -221,7 +220,7 @@ public class LVH2DPilot extends AutoPilotBase {
 
 				} catch(Exception e) {
 					logger.writeLocalMsg("Obstacle Avoidance: No path found", MAV_SEVERITY.MAV_SEVERITY_WARNING);
-					offboard.setCurrentAsTarget();
+					offboard.start(OffboardManager.MODE_LOITER);
 					return false;
 				}
 			}
