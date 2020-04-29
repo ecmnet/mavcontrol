@@ -116,10 +116,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	private Future<?> future;
 
-	public static AutoPilotBase getInstance(Class<?> clazz, IMAVController control,MSPConfig config) {
+
+	public static AutoPilotBase getInstance(String clazz, IMAVController control,MSPConfig config) {
 		if(autopilot == null)
 			try {
-				autopilot =(AutoPilotBase)clazz.getDeclaredConstructor(IMAVController.class,MSPConfig.class).newInstance(control,config);
+				autopilot =(AutoPilotBase)Class.forName(clazz).getDeclaredConstructor(IMAVController.class,MSPConfig.class).newInstance(control,config);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}

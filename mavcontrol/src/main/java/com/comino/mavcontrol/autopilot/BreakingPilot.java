@@ -54,6 +54,7 @@ public class BreakingPilot extends AutoPilotBase {
 	private static float SMOOTH_TARGET_FILTER               = 0.1f;
 
 	private static final int              CYCLE_MS	        = 50;
+
 	private static final float            ROBOT_RADIUS      = 0.25f;
 
 	private static final float OBSTACLE_MINDISTANCE_0MS  	= ROBOT_RADIUS + 0.25f;

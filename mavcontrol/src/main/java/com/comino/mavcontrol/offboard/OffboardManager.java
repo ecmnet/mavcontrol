@@ -94,7 +94,7 @@ public class OffboardManager implements Runnable {
 	private IOffboardExternalConstraints ext_constraints_listener   = null;		// CB Constrains in MODE_SPEED_POSITION
 
 	private boolean					enabled					  		= false;
-	private int						mode					  		= 0;		// Offboard mode
+	private int						mode					  		= MODE_LOITER;		     // Offboard mode
 
 	private final Vector4D_F32		target					  		= new Vector4D_F32();	 // target state (coordinates/speeds) incl. yaw
 	private final Vector4D_F32		current					  		= new Vector4D_F32();	 // current state incl. yaw
@@ -221,11 +221,13 @@ public class OffboardManager implements Runnable {
 
 
 	public void setTarget(float x, float y, float z, float yaw) {
-		target.set(x,y,z,yaw);
-		valid_setpoint = true;
-		new_setpoint = true;
-		already_fired = false;
-		setpoint_tms = System.currentTimeMillis();
+		synchronized(this) {
+			target.set(x,y,z,yaw);
+			valid_setpoint = true;
+			new_setpoint = true;
+			already_fired = false;
+			setpoint_tms = System.currentTimeMillis();
+		}
 	}
 
 	public void updateTarget(Vector4D_F32 t) {
