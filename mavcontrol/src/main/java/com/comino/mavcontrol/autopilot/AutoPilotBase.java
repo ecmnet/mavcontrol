@@ -250,8 +250,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		// Abort any sequence if PX4 landing is triggered
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
-			abortSequence();
-
+	    	abortSequence();
 		});
 
 

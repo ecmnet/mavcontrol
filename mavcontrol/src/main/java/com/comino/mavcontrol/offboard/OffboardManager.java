@@ -132,10 +132,6 @@ public class OffboardManager implements Runnable {
 
 		target.set(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE,
-				Status.NAVIGATION_STATE_OFFBOARD, StatusManager.EDGE_FALLING, (n) -> {
-					valid_setpoint = false;
-				});
 
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE,
 				Status.NAVIGATION_STATE_AUTO_LOITER, StatusManager.EDGE_RISING, (n) -> {
@@ -206,9 +202,6 @@ public class OffboardManager implements Runnable {
 
 	public void stop() {
 		enabled = false;
-		valid_setpoint = false;
-		new_setpoint = false;
-		already_fired = false;
 		synchronized(this) {
 			notify();
 		}
@@ -326,8 +319,6 @@ public class OffboardManager implements Runnable {
 				enabled = false;
 				continue;
 			}
-
-			try { Thread.sleep(UPDATE_RATE); 	} catch (InterruptedException e) { }
 
 
 			if(valid_setpoint && (System.currentTimeMillis()-watch_tms ) > setpoint_timeout ) {
@@ -497,6 +488,8 @@ public class OffboardManager implements Runnable {
 				break;
 
 			}
+
+			try { Thread.sleep(UPDATE_RATE); 	} catch (InterruptedException e) { }
 		}
 
 		System.out.println("Offboard updater stopped");
@@ -507,7 +500,8 @@ public class OffboardManager implements Runnable {
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_AVOIDANCE, false);
 
 		logger.writeLocalMsg("[msp] Offboard manager stopped",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-		already_fired = false; valid_setpoint = false;
+		already_fired = false; valid_setpoint = false; new_setpoint = false;
+
 	}
 
 	private void sendPositionControlToVehice(Vector4D_F32 target, int frame) {
