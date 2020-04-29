@@ -154,8 +154,6 @@ public class BreakingPilot extends AutoPilotBase {
 			switch(offboard.getMode()) {
 			case OffboardManager.MODE_LOITER:
 				continue;
-			case OffboardManager.MODE_POSITION:
-				continue;
 			default:
 			}
 

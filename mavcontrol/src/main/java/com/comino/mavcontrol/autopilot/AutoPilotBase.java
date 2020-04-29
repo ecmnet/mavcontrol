@@ -86,7 +86,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected static final int   CERTAINITY_THRESHOLD  = 100;
 	protected static final float WINDOWSIZE       	   = 3.0f;
 
-	private   static final float MAX_REL_DELTA_HEIGHT  = 0.075f;
+	private   static final float MAX_REL_DELTA_HEIGHT  = 0.05f;
 
 	private static AutoPilotBase  autopilot    = null;
 
@@ -192,17 +192,22 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}
 
 			control.writeLogMessage(new LogMessage("[msp] Takeoff complete enforced.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			offboard.setTarget(Float.NaN, Float.NaN, -(float)takeoff_alt_param.value, Float.NaN);
 			offboard.start(OffboardManager.MODE_LOITER);
 
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
 				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
 					offboard.stop();
 					control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+").", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+							MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+							MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
 				}
 			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
-			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
+
 			this.takeoffCompleted();
+			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
 
 		});
 
@@ -268,11 +273,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	protected void takeoffCompleted() {
+
 		control.writeLogMessage(new LogMessage("[msp] Obstacle survey executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 		rotate(45,() -> {
 			control.writeLogMessage(new LogMessage("[msp] Takeoff procedure completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 			return true;
 		});
+
 	}
 
 	protected void addToSequence(SeqItem item) {
@@ -544,6 +551,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	public void offboardPosHold(boolean enable) {
 		if(enable) {
+			offboard.setTarget(Float.NaN,Float.NaN, Float.NaN, Float.NaN);
 			offboard.start(OffboardManager.MODE_LOITER);
 			if(!model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_RC_ATTACHED)) {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
@@ -576,6 +584,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
 			offboard.stop();
 		} else {
+			offboard.setTarget(Float.NaN,Float.NaN, Float.NaN, Float.NaN);
 			offboard.start(OffboardManager.MODE_LOITER);
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 		}
@@ -662,7 +671,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 		offboard.finalize();
 		offboard.setTarget(Float.NaN, Float.NaN, Float.NaN,targetAngle);
-		offboard.start(OffboardManager.MODE_POSITION);
+		offboard.start(OffboardManager.MODE_LOITER);
 	}
 
 
@@ -710,13 +719,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	public void square() {
 		clearSequence();
-		addToSequence(new SeqItem(Float.NaN, Float.NaN, -1.0f, Float.NaN        , SeqItem.ABS));
-		addToSequence(new SeqItem(0.5f     , 0.5f     , Float.NaN, Float.NaN, SeqItem.REL,null,200));
-		addToSequence(new SeqItem(Float.NaN, -1f      , Float.NaN, Float.NaN, SeqItem.REL,null,200));
-		addToSequence(new SeqItem(-1f      , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL,null,200));
-		addToSequence(new SeqItem(Float.NaN, 1f       , Float.NaN, Float.NaN, SeqItem.REL,null,200));
-		addToSequence(new SeqItem(1f       , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL,null,200));
-		addToSequence(new SeqItem(-0.5f    , -0.5f    , Float.NaN, Float.NaN, SeqItem.REL,null,200));
+//		addToSequence(new SeqItem(Float.NaN, Float.NaN, -1.0f, Float.NaN , SeqItem.ABS));
+		addToSequence(new SeqItem(0.5f     , 0.5f     , Float.NaN, Float.NaN, SeqItem.REL,null,0));
+		addToSequence(new SeqItem(Float.NaN, -1f      , Float.NaN, Float.NaN, SeqItem.REL,null,0));
+		addToSequence(new SeqItem(-1f      , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL,null,0));
+		addToSequence(new SeqItem(Float.NaN, 1f       , Float.NaN, Float.NaN, SeqItem.REL,null,0));
+		addToSequence(new SeqItem(1f       , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL,null,0));
+		addToSequence(new SeqItem(-0.5f    , -0.5f    , Float.NaN, Float.NaN, SeqItem.REL,null,0));
 		addToSequence(new SeqItem(Float.NaN, Float.NaN, Float.NaN,0         , SeqItem.ABS));
 		executeSequence();
 	}

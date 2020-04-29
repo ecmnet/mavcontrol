@@ -48,10 +48,8 @@ import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
-import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard.control.DefaultConstraintListener;
 import com.comino.mavcontrol.offboard.control.DefaultControlListener;
-import com.comino.mavcontrol.offboard.control.TimebasedControlListener;
 import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavutils.MSPMathUtils;
 
@@ -59,12 +57,19 @@ import georegression.struct.point.Vector4D_F32;
 
 public class OffboardManager implements Runnable {
 
+	// Offboard modes
+
+	public static final int MODE_LOITER	 		   					= 0;
+	public static final int MODE_LOCAL_SPEED                		= 1;
+	public static final int MODE_SPEED_POSITION	 	    			= 2;
+	public static final int MODE_BEZIER                             = 3;
+
 	private static final int UPDATE_RATE                 			= 50;					  // offboard update rate in ms
 
 	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(45); // Max YawSpeed rad/s
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(5);  // Min yawSpeed rad/s
 	private static final float MAX_TURN_SPEED               		= 0.2f;   	              // Max speed that allow turning before start in m/s
-	private static final float MAX_SPEED							= 2.0f;					  // Max speed m/s
+	private static final float MAX_SPEED							= 1.0f;					  // Max speed m/s
 
 	private static final int   RC_DEADBAND             				= 20;				      // RC XY deadband for safety check
 	private static final int   RC_LAND_CHANNEL						= 8;                      // RC channel 8 landing
@@ -76,15 +81,7 @@ public class OffboardManager implements Runnable {
 	private static final float YAW_PV								= 0.05f;                  // P factor for yaw speed control
 	private static final float YAW_P								= 0.15f;                  // P factor for yaw position control
 
-	private static final float YAW_ACCEPT                	    	= MSPMathUtils.toRad(2);  // Acceptance yaw deviation
-
-	// Offboard modes
-
-	public static final int MODE_LOITER	 		   					= 0;
-	public static final int MODE_LOCAL_SPEED                		= 1;
-	public static final int MODE_SPEED_POSITION	 	    			= 2;
-	public static final int MODE_POSITION	 		            	= 3;
-	public static final int MODE_BEZIER                             = 4;
+	private static final float YAW_ACCEPT                	    	= MSPMathUtils.toRad(0.3);// Acceptance yaw deviation
 
 	//
 
@@ -133,6 +130,8 @@ public class OffboardManager implements Runnable {
 		acceptance_radius_pos = config.getFloatProperty("AP2D_ACCEPT_RAD", String.valueOf(acceptance_radius_pos));
 		System.out.println("Autopilot: acceptance radius: "+acceptance_radius_pos+" m");
 
+		target.set(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
+
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE,
 				Status.NAVIGATION_STATE_OFFBOARD, StatusManager.EDGE_FALLING, (n) -> {
 					valid_setpoint = false;
@@ -180,7 +179,6 @@ public class OffboardManager implements Runnable {
 			worker.setName("OffboardManager");
 			worker.start();
 			System.out.println("Offboard updater started..");
-//			try { Thread.sleep( 5 * UPDATE_RATE); } catch (InterruptedException e) { }
 		}
 
 		synchronized(this) {
@@ -218,11 +216,7 @@ public class OffboardManager implements Runnable {
 
 
 	public void setTarget(Vector4D_F32 t) {
-		target.set(t);
-		valid_setpoint = true;
-		new_setpoint = true;
-		already_fired = false;
-		setpoint_tms = System.currentTimeMillis();
+		this.setTarget(t.x,t.y,t.z,t.w);
 	}
 
 
@@ -291,6 +285,10 @@ public class OffboardManager implements Runnable {
 		return valid_setpoint;
 	}
 
+	public boolean isFired() {
+		return already_fired;
+	}
+
 	@Override
 	public void run() {
 
@@ -327,6 +325,8 @@ public class OffboardManager implements Runnable {
 				continue;
 			}
 
+			try { Thread.sleep(UPDATE_RATE); 	} catch (InterruptedException e) { }
+
 
 			if(valid_setpoint && (System.currentTimeMillis()-watch_tms ) > setpoint_timeout ) {
 				valid_setpoint = false; mode = MODE_LOITER;
@@ -337,11 +337,18 @@ public class OffboardManager implements Runnable {
 
 			current.set(model.state.l_x, model.state.l_y, model.state.l_z,model.attitude.y);
 
+			// safety: if no valid setpoint, use current as target
 			if(!valid_setpoint) {
 				target.set(current);
 				valid_setpoint = true;
+				logger.writeLocalMsg("[msp] Offboard: Switched to LOITER (no SP)",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				mode = MODE_LOITER;
 			}
+
+			// handle NaN targets for position, but not for yaw
+			if(Float.isNaN(target.x)) target.x = current.x;
+			if(Float.isNaN(target.y)) target.y = current.y;
+			if(Float.isNaN(target.z)) target.z = current.z;
 
 			path.set(target, current);
 			spd.set(model.state.l_vx, model.state.l_vy, model.state.l_vz );
@@ -353,7 +360,29 @@ public class OffboardManager implements Runnable {
 
 			case MODE_LOITER:
 				watch_tms = System.currentTimeMillis();
-				sendPositionControlToVehice(target, MAV_FRAME.MAV_FRAME_LOCAL_NED);
+
+				if(path.value < acceptance_radius_pos && valid_setpoint && Math.abs(MSPMathUtils.normAngle2(target.w - current.w)) < YAW_ACCEPT) {
+					fireAction(model, path.value);
+				}
+
+				if(Float.isNaN(target.w)) {
+					target.setW(model.attitude.y);
+				}
+
+				//  simple P controller for yaw;
+				d_yaw = MSPMathUtils.normAngle2(target.w - current.w) * YAW_P;
+
+				// limit min yaw speed if action not fired yet
+				if(Math.abs(d_yaw)< MIN_YAW_SPEED && !already_fired)
+					d_yaw = MIN_YAW_SPEED * Math.signum(d_yaw);
+
+				if(Math.abs(d_yaw)> MAX_YAW_SPEED)
+					d_yaw = MAX_YAW_SPEED * Math.signum(d_yaw);
+
+				cmd.set(target.x,target.y,target.z,current.w + d_yaw);
+
+				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
+
 				toModel(target,null);
 				break;
 
@@ -416,18 +445,15 @@ public class OffboardManager implements Runnable {
 				// target reached?
 				if(path.value < acceptance_radius_pos && valid_setpoint ) {
 					trajectory_start_tms = 0;
-
+					path.clear();
+					ctl.clear();
 					if(Float.isNaN(target.w)) {
-						path.clear();
-						ctl.clear();
 						fireAction(model, path.value);
-						logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-						target.set(current);
-						mode = MODE_LOITER;
-					} else {
-						logger.writeLocalMsg("[msp] Offboard: Switched to POSITION",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-						mode = MODE_POSITION;
+						target.setW(model.attitude.y);
 					}
+					logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+					mode = MODE_LOITER;
+
 					continue;
 				}
 
@@ -448,7 +474,9 @@ public class OffboardManager implements Runnable {
 				else
 					cmd.w = MSPMathUtils.normAngle2(path.angle_xy - current.w) / delta_sec * YAW_PV;
 
-				// Limit min yaw speed
+				//	System.out.println("S:"+(target.z - current.z)+" / "+target.z);
+
+				// do not go below min yaw speed
 				if(Math.abs(cmd.w)< MIN_YAW_SPEED) cmd.w = MIN_YAW_SPEED * Math.signum(cmd.w);
 
 				// get Cartesian speeds from polar
@@ -456,33 +484,6 @@ public class OffboardManager implements Runnable {
 				sendSpeedControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 
 				toModel(target,path);
-
-				break;
-
-			case MODE_POSITION:
-
-
-				if(path.value < acceptance_radius_pos && valid_setpoint && Math.abs(MSPMathUtils.normAngle(target.w - current.w)) < YAW_ACCEPT) {
-					path.clear(); valid_setpoint = false;
-					ctl.clear();
-					fireAction(model, path.value);
-					//logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-					mode = MODE_LOITER;
-					continue;
-				}
-
-				ext_constraints_listener.get(delta_sec, spd, path, ctl);
-
-				//  simple P controller for yaw;
-				d_yaw = MSPMathUtils.normAngle2(target.w - current.w) * YAW_P;
-
-				if(Math.abs(d_yaw)< MIN_YAW_SPEED) d_yaw = MIN_YAW_SPEED * Math.signum(d_yaw);
-				if(Math.abs(d_yaw)> MAX_YAW_SPEED) d_yaw = MAX_YAW_SPEED * Math.signum(d_yaw);
-
-				cmd.set(target.x,target.y,target.z,current.w + d_yaw);
-
-				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
-				toModel(target,null);
 
 				break;
 
@@ -494,7 +495,6 @@ public class OffboardManager implements Runnable {
 				break;
 
 			}
-			try { Thread.sleep(UPDATE_RATE); 	} catch (InterruptedException e) { }
 		}
 
 		System.out.println("Offboard updater stopped");
@@ -524,7 +524,7 @@ public class OffboardManager implements Runnable {
 		if(Float.isNaN(target.z) || target.z==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000000000000100;
 		if(Float.isNaN(target.w) || target.w==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000010000000000;
 
-//		System.out.println("P:"+target);
+		//		System.out.println("P:"+target);
 		pos_cmd.coordinate_frame = frame;
 
 		if(!control.sendMAVLinkMessage(pos_cmd))
@@ -545,7 +545,6 @@ public class OffboardManager implements Runnable {
 
 		// safety constraints
 		checkAbsoluteSpeeds(target);
-//		System.out.println("S:"+target);
 
 		speed_cmd.vx       = target.x;
 		speed_cmd.vy       = target.y;
