@@ -51,6 +51,7 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavcontrol.autopilot.BreakingPilot;
+import com.comino.mavcontrol.autopilot.NoPilot;
 import com.comino.mavmap.map.map2D.ILocalMap;
 import com.comino.mavutils.legacy.ExecutorService;
 
@@ -72,17 +73,9 @@ public class MSPCommander  {
 
 		System.out.println("Commander initialized");
 
-		//		autopilot = AutoPilotBase.getInstance(CollisonPreventionPilot.class,control,config);
-		//		autopilot = AutoPilotBase.getInstance(LVH2DPilot.class,control,config);
+		String autopilot_class = config.getProperty("autopilot_class", "com.comino.mavcontrol.autopilot.BreakingPilot");
 
-		//TODO: High perfomrmance impact of autopilot
-		//		autopilot = AutoPilotBase.getInstance(BreakingPilot.class,control,config);
-
-		if(control.isSimulation())
-			autopilot = AutoPilotBase.getInstance(BreakingPilot.class,control,config);
-		else
-			autopilot = AutoPilotBase.getInstance(BreakingPilot.class,control,config);
-
+		this.autopilot =  AutoPilotBase.getInstance(autopilot_class,control,config);
 		this.map = autopilot.getMap2D();
 	}
 
