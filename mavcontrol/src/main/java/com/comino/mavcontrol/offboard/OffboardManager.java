@@ -293,11 +293,6 @@ public class OffboardManager implements Runnable {
 		float eta_sec    = 0;
 		float ela_sec    = 0;
 
-		//		float speed_incr = 0;
-		//		float acc_incr = 0;
-		//
-		//		boolean isBreaking     = false;
-
 		Polar3D_F32 path = new Polar3D_F32(); // planned direct path
 		Polar3D_F32 spd  = new Polar3D_F32(); // current speed
 		Polar3D_F32 ctl  = new Polar3D_F32(); // speed control
@@ -444,7 +439,7 @@ public class OffboardManager implements Runnable {
 						fireAction(model, path.value);
 						target.setW(model.attitude.y);
 					}
-					logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+//					logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 					mode = MODE_LOITER;
 
 					continue;
