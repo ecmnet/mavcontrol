@@ -162,7 +162,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.flowCheck = config.getBoolProperty("autopilot_flow_check", "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
 
-		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE, true);
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE,
+				config.getBoolProperty("autopilot_takeoff_procedure", "true"));
 
 		//**********
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_TAKEOFF, StatusManager.EDGE_RISING, (n) -> {
