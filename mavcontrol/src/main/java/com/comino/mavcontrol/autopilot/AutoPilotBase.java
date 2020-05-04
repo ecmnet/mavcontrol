@@ -43,6 +43,7 @@ import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
+import org.mavlink.messages.lquac.msg_debug_vect;
 import org.mavlink.messages.lquac.msg_msp_micro_slam;
 
 import com.comino.mavcom.config.MSPConfig;
@@ -86,7 +87,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected static final int   CERTAINITY_THRESHOLD  = 100;
 	protected static final float WINDOWSIZE       	   = 3.0f;
 
-	private   static final float MAX_REL_DELTA_HEIGHT  = 0.05f;
+	private   static final float MAX_REL_DELTA_HEIGHT  = 0.15f;
+	private   static final float MAX_TAKEOFF_VZ        = 0.06f;
 
 	private static AutoPilotBase  autopilot    = null;
 
@@ -160,42 +162,46 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.flowCheck = config.getBoolProperty("autopilot_flow_check", "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
 
-		// Auto-Takeoff: Switch to Offboard and enable ObstacleAvoidance as soon as takeoff completed
-		//
-		// TODO: Landing during takeoff switches to offboard mode here => should directly land instead
-		//       Update: 		After takeoff the mode is set to POSCTL, even if AUTOLAND was triggered
-
-
-		// Workaround as Takeoff does not finish: Switch to offboard after 10 secs
 		//**********
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_TAKEOFF, StatusManager.EDGE_RISING, (n) -> {
 
 			final ParameterAttributes  takeoff_alt_param   = PX4Parameters.getInstance().getParam("MIS_TAKEOFF_ALT");
 			final ParameterAttributes  takeoff_speed_param = PX4Parameters.getInstance().getParam("MPC_TKO_SPEED");
 
-			// calculate maximum takeofftime (increased by 5 secs)
+			// calculate maximum takeofftime
 			final int max_tko_time_ms = (int)(takeoff_alt_param.value / takeoff_speed_param.value ) * 1000 + 10000;
 
 			control.writeLogMessage(new LogMessage("[msp] Takeoff proecdure initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
 			long takeoff_start_tms = System.currentTimeMillis();
-			double delta_height = Math.abs(takeoff_alt_param.value - model.hud.al) / takeoff_alt_param.value;
+			double delta_height = Math.abs(takeoff_alt_param.value - model.hud.ar) / takeoff_alt_param.value;
 
-			while( delta_height > MAX_REL_DELTA_HEIGHT && (System.currentTimeMillis() - takeoff_start_tms) < max_tko_time_ms) {
-				try { Thread.sleep(100); } catch(Exception e) { }
-				delta_height = Math.abs(takeoff_alt_param.value - model.hud.al) / takeoff_alt_param.value;
+
+			// Phase 1: Wait for height is in range
+			while(delta_height > MAX_REL_DELTA_HEIGHT) {
+				try { Thread.sleep(50); } catch(Exception e) { }
+				delta_height = Math.abs(takeoff_alt_param.value - model.hud.ar) / takeoff_alt_param.value;
+				if((System.currentTimeMillis() - takeoff_start_tms) > max_tko_time_ms) {
+					control.writeLogMessage(new LogMessage("[msp] Takeoff did not complete within "+(max_tko_time_ms/1000)+" secs",
+							MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					return;
+				}
 			}
 
-			if(delta_height > MAX_REL_DELTA_HEIGHT) {
-				control.writeLogMessage(new LogMessage("[msp] Takeoff did not complete within "+(max_tko_time_ms/1000)+" secs",
-						MAV_SEVERITY.MAV_SEVERITY_WARNING));
-				return;
+			// Phase 2: Wait for VZ is small enough to switch to offboard
+			while(Math.abs(model.state.l_vz) > MAX_TAKEOFF_VZ) {
+				try { Thread.sleep(50); } catch(Exception e) { }
+				if((System.currentTimeMillis() - takeoff_start_tms) > max_tko_time_ms) {
+					control.writeLogMessage(new LogMessage("[msp] Takeoff did not complete within "+(max_tko_time_ms/1000)+" secs",
+							MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					return;
+				}
 			}
 
-			control.writeLogMessage(new LogMessage("[msp] Takeoff complete enforced.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+
+			// Phase 3: Switch to offboard
 			offboard.setTarget(Float.NaN, Float.NaN, -(float)takeoff_alt_param.value, Float.NaN);
 			offboard.start(OffboardManager.MODE_LOITER);
-
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
 				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
 					offboard.stop();
@@ -263,6 +269,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
 				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
+
+				control.sendMAVLinkMessage(new msg_debug_vect(1,2));
 			}
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 		});
@@ -274,6 +282,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected void takeoffCompleted() {
 
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, true);
 		control.writeLogMessage(new LogMessage("[msp] Obstacle survey executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 		rotate(45,() -> {
 			control.writeLogMessage(new LogMessage("[msp] Takeoff procedure completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
@@ -460,7 +469,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			planner.enable(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
-			square();
+			if(enable)
+			  square();
+			else
+			 abortSequence();
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
 			offboardPosHold(enable);
@@ -554,17 +566,20 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			offboard.setTarget(Float.NaN,Float.NaN, Float.NaN, Float.NaN);
 			offboard.start(OffboardManager.MODE_LOITER);
 			if(!model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_RC_ATTACHED)) {
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
+					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
+						offboard.stop();
+						control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+") (manual).", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+						control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+								MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+								MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
+					}
+				}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
 				this.autopilot_mode = AUTOPILOT_MODE_NONE;
 			}
 		} else {
 			if(model.sys.nav_state==Status.NAVIGATION_STATE_OFFBOARD) {
-				model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.INTERACTIVE, false);
-				model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_AVOIDANCE, false);
-				model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, false);
-				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
@@ -715,6 +730,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	/*******************************************************************************/
 	// SITL testing
+
 
 
 	public void square() {

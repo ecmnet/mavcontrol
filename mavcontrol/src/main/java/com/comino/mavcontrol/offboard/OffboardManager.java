@@ -39,12 +39,14 @@ import org.mavlink.messages.MAV_MODE_FLAG;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
+import org.mavlink.messages.lquac.msg_debug_vect;
 import org.mavlink.messages.lquac.msg_set_position_target_local_ned;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.log.MSPLogger;
 import com.comino.mavcom.mavlink.MAV_CUST_MODE;
+import com.comino.mavcom.mavlink.MAV_MASK;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
@@ -59,10 +61,11 @@ public class OffboardManager implements Runnable {
 
 	// Offboard modes
 
-	public static final int MODE_LOITER	 		   					= 0;
-	public static final int MODE_LOCAL_SPEED                		= 1;
-	public static final int MODE_SPEED_POSITION	 	    			= 2;
-	public static final int MODE_BEZIER                             = 3;
+	public static final int MODE_IDLE 		   					    = 0;
+	public static final int MODE_LOITER	 		   					= 1;
+	public static final int MODE_LOCAL_SPEED                		= 2;
+	public static final int MODE_SPEED_POSITION	 	    			= 3;
+	public static final int MODE_BEZIER                             = 4;
 
 	private static final int UPDATE_RATE                 			= 50;					  // offboard update rate in ms
 
@@ -103,6 +106,7 @@ public class OffboardManager implements Runnable {
 
 	private final msg_set_position_target_local_ned pos_cmd   		= new msg_set_position_target_local_ned(1,2);
 	private final msg_set_position_target_local_ned speed_cmd 		= new msg_set_position_target_local_ned(1,2);
+	private final msg_debug_vect  debug                             = new msg_debug_vect(1,2);
 
 	private float      max_speed                                    = MAX_SPEED;
 
@@ -160,7 +164,7 @@ public class OffboardManager implements Runnable {
 			worker.setName("OffboardManager");
 			worker.start();
 			System.out.println("Offboard updater started..");
-			try { Thread.sleep(UPDATE_RATE); } catch (InterruptedException e) { }
+			try { Thread.sleep(2*UPDATE_RATE); } catch (InterruptedException e) { }
 		}
 
 	}
@@ -175,6 +179,7 @@ public class OffboardManager implements Runnable {
 			worker.setName("OffboardManager");
 			worker.start();
 			System.out.println("Offboard updater started..");
+			try { Thread.sleep(2*UPDATE_RATE); } catch (InterruptedException e) { }
 		}
 
 		synchronized(this) {
@@ -183,7 +188,6 @@ public class OffboardManager implements Runnable {
 				try { 	wait(timeout); } catch (InterruptedException e) { }
 				if((System.currentTimeMillis() - tstart) >= timeout)
 					return false;
-				try { Thread.sleep( 2 * UPDATE_RATE); } catch (InterruptedException e) { }
 			}
 		}
 		return true;
@@ -326,7 +330,7 @@ public class OffboardManager implements Runnable {
 			current.set(model.state.l_x, model.state.l_y, model.state.l_z,model.attitude.y);
 
 			// safety: if no valid setpoint, use current as target
-			if(!valid_setpoint) {
+			if(!valid_setpoint && mode != MODE_IDLE) {
 				target.set(current);
 				valid_setpoint = true;
 				logger.writeLocalMsg("[msp] Offboard: Switched to LOITER (no SP)",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
@@ -346,6 +350,12 @@ public class OffboardManager implements Runnable {
 
 			switch(mode) {
 
+			case MODE_IDLE:
+				watch_tms = System.currentTimeMillis();
+
+				sendIdleControlToVehice(MAV_FRAME.MAV_FRAME_LOCAL_NED);
+
+               break;
 			case MODE_LOITER:
 				watch_tms = System.currentTimeMillis();
 
@@ -487,52 +497,67 @@ public class OffboardManager implements Runnable {
 			try { Thread.sleep(UPDATE_RATE); 	} catch (InterruptedException e) { }
 		}
 
-		System.out.println("Offboard updater stopped");
 		action_listener = null;
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER, false);
-		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, false);
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.INTERACTIVE, false);
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_AVOIDANCE, false);
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, false);
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
 
 		logger.writeLocalMsg("[msp] Offboard manager stopped",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 		already_fired = false; valid_setpoint = false; new_setpoint = false;
 
 	}
 
+	private void sendIdleControlToVehice(int frame) {
+
+		pos_cmd.target_component = 1;
+		pos_cmd.target_system    = 1;
+		pos_cmd.type_mask        = MAV_MASK.MASK_VELOCITY_IGNORE | MAV_MASK.MASK_VELOCITY_IGNORE | MAV_MASK.MASK_ACCELERATION_IGNORE |
+				                   MAV_MASK.MASK_FORCE_IGNORE | MAV_MASK.MASK_YAW_IGNORE  | MAV_MASK.MASK_YAW_RATE_IGNORE |
+				                   MAV_MASK.MASK_IDLE_SETPOINT_TYPE;
+
+		pos_cmd.coordinate_frame = frame;
+
+		if(!control.sendMAVLinkMessage(pos_cmd))
+			enabled = false;
+
+	}
+
+
 	private void sendPositionControlToVehice(Vector4D_F32 target, int frame) {
 
 		pos_cmd.target_component = 1;
 		pos_cmd.target_system    = 1;
-		pos_cmd.type_mask        = 0b000101111111000;
+		pos_cmd.type_mask        = MAV_MASK.MASK_VELOCITY_IGNORE | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
+				                   MAV_MASK.MASK_YAW_RATE_IGNORE ;
 
 		pos_cmd.x   = target.x;
 		pos_cmd.y   = target.y;
 		pos_cmd.z   = target.z;
 		pos_cmd.yaw = Float.isNaN(target.w)? model.attitude.y : MSPMathUtils.normAngle(target.w);
 
-		if(Float.isNaN(target.x) || target.x==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000000000000001;
-		if(Float.isNaN(target.y) || target.y==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000000000000010;
-		if(Float.isNaN(target.z) || target.z==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000000000000100;
-		if(Float.isNaN(target.w) || target.w==Float.MAX_VALUE) pos_cmd.type_mask = pos_cmd.type_mask | 0b000010000000000;
-
-		//		System.out.println("P:"+target);
 		pos_cmd.coordinate_frame = frame;
+
+		debug.x = pos_cmd.x;
+		debug.y = pos_cmd.y;
+		debug.z = pos_cmd.z;
 
 		if(!control.sendMAVLinkMessage(pos_cmd))
 			enabled = false;
+
+		control.sendMAVLinkMessage(debug);
+
 	}
 
 	private void sendSpeedControlToVehice(Vector4D_F32 target, int frame) {
 
 		speed_cmd.target_component = 1;
 		speed_cmd.target_system    = 1;
-		speed_cmd.type_mask        = 0b000011111000111;
+		speed_cmd.type_mask        = MAV_MASK.MASK_POSITION_IGNORE | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
+                                     MAV_MASK.MASK_YAW_IGNORE ;
 
-
-		if(Float.isNaN(target.x) || target.x==Float.MAX_VALUE) speed_cmd.type_mask = speed_cmd.type_mask | 0b000000000001000;
-		if(Float.isNaN(target.y) || target.y==Float.MAX_VALUE) speed_cmd.type_mask = speed_cmd.type_mask | 0b000000000010000;
-		if(Float.isNaN(target.z) || target.z==Float.MAX_VALUE) speed_cmd.type_mask = speed_cmd.type_mask | 0b000000000100000;
-		if(Float.isNaN(target.w) || target.w==Float.MAX_VALUE) speed_cmd.type_mask = speed_cmd.type_mask | 0b000100000000000;
 
 		// safety constraints
 		checkAbsoluteSpeeds(target);
