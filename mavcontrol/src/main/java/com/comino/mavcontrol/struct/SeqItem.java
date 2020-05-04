@@ -5,8 +5,9 @@ import georegression.struct.point.Vector4D_F32;
 
 public class SeqItem {
 
-	public static final int          ABS    = 0;
-	public static final int          REL    = 1;
+	public static final int          ABS           = 0;
+	public static final int          REL           = 1;
+
 	public static final int ITEM_TIMEOUT_MS = 60000;
 
 
@@ -48,12 +49,22 @@ public class SeqItem {
 
 	public Vector4D_F32 getTarget(DataModel model) {
 
-		if(mode == REL) {
-			target.x = Float.isNaN(target.x) ? Float.NaN : target.x + model.state.l_x;
-			target.y = Float.isNaN(target.y) ? Float.NaN : target.y + model.state.l_y;
-			target.z = Float.isNaN(target.z) ? Float.NaN : target.z + model.state.l_z;
+		switch(mode) {
+		case REL:
+			target.x = Float.isNaN(target.x) ? model.target_state.l_x : target.x + model.state.l_x;
+			target.y = Float.isNaN(target.y) ? model.target_state.l_y : target.y + model.state.l_y;
+			target.z = Float.isNaN(target.z) ? model.target_state.l_z : target.z + model.state.l_z;
 			target.w = Float.isNaN(target.w) ? Float.NaN : target.w + model.attitude.y;
+			break;
+		case ABS:
+			target.x = Float.isNaN(target.x) ? model.target_state.l_x : target.x ;
+			target.y = Float.isNaN(target.y) ? model.target_state.l_y : target.y ;
+			target.z = Float.isNaN(target.z) ? model.target_state.l_z : target.z ;
+			target.w = Float.isNaN(target.w) ? Float.NaN : target.w + model.attitude.y;
+		default:
+
 		}
+
 		return target;
 	}
 
