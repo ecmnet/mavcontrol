@@ -218,33 +218,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		});
 
-		//****************
-
-		//		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_TAKEOFF, StatusManager.EDGE_FALLING, (n) -> {
-		//
-		//			if(n.nav_state == Status.NAVIGATION_STATE_AUTO_LAND || n.nav_state == Status.NAVIGATION_STATE_OFFBOARD)
-		//				return;
-		//
-		//			control.writeLogMessage(new LogMessage("[msp] Takeoff completed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-		//
-		//			if(planner.isStarted())
-		//				return;
-		//
-		//			offboard.setCurrentSetPointAsTarget();
-		//			offboard.start(OffboardManager.MODE_LOITER);
-		//
-		//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
-		//				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
-		//					offboard.stop();
-		//					control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+").", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-		//				}
-		//			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-		//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
-		//			this.takeoffCompleted();
-		//			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
-		//			control.writeLogMessage(new LogMessage("[msp] Takeoff procedure completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-		//		});
-
 		// offboard mode enabled action
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_OFFBOARD, StatusManager.EDGE_RISING, (n) -> {
 
