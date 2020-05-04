@@ -162,6 +162,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.flowCheck = config.getBoolProperty("autopilot_flow_check", "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
 
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE, true);
+
 		//**********
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_TAKEOFF, StatusManager.EDGE_RISING, (n) -> {
 
@@ -213,7 +215,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
 
-			this.takeoffCompleted();
+			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))
+				this.takeoffCompleted();
 			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
 
 		});
@@ -229,7 +232,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		// Abort any sequence if PX4 landing is triggered
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
-	    	abortSequence();
+			abortSequence();
 		});
 
 
@@ -443,9 +446,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
 			if(enable)
-			  square();
+				square();
 			else
-			 abortSequence();
+				abortSequence();
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
 			offboardPosHold(enable);
@@ -708,7 +711,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	public void square() {
 		clearSequence();
-//		addToSequence(new SeqItem(Float.NaN, Float.NaN, -1.0f, Float.NaN , SeqItem.ABS));
+		//		addToSequence(new SeqItem(Float.NaN, Float.NaN, -1.0f, Float.NaN , SeqItem.ABS));
 		addToSequence(new SeqItem(0.5f     , 0.5f     , Float.NaN, Float.NaN, SeqItem.REL,null,0));
 		addToSequence(new SeqItem(Float.NaN, -1f      , Float.NaN, Float.NaN, SeqItem.REL,null,0));
 		addToSequence(new SeqItem(-1f      , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL,null,0));
