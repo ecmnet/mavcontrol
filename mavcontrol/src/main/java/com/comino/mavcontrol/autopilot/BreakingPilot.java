@@ -135,6 +135,7 @@ public class BreakingPilot extends AutoPilotBase {
 
 		while(isRunning) {
 
+
 			try { Thread.sleep(CYCLE_MS); } catch(Exception s) { }
 
 			// Apply filter first
@@ -162,7 +163,7 @@ public class BreakingPilot extends AutoPilotBase {
 		//	relAngle = Math.abs(MSPMathUtils.normAngle2(Math.abs(obstacle.angle_xy-plannedPath.angle_xy)));
 
 			if(obstacle.value < OBSTACLE_MINDISTANCE_1MS
-					&& !tooClose && relAngle < MIN_REL_ANGLE ) {
+					&& !tooClose && relAngle < MIN_REL_ANGLE) {
 				tooClose = true;
 //				System.out.println("W"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
 				logger.writeLocalMsg("[msp] Collision warning. Breaking.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
@@ -194,7 +195,6 @@ public class BreakingPilot extends AutoPilotBase {
 	}
 
 	protected void takeoffCompleted() {
-		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP,true);
 		super.takeoffCompleted();
 	}
 

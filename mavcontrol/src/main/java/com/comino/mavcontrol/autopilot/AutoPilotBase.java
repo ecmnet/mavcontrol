@@ -149,11 +149,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.offboard = new OffboardManager(control);
 		this.sequence = new LinkedList<SeqItem>();
 
-		//		if(control.isSimulation())
-		//			this.map      = new LocalMap2DArray(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
-		//		else
 		this.map      = new LocalMap2DRaycast(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
-
 		this.mapForget = config.getBoolProperty("autopilot_forget_map", "true");
 		System.out.println(instanceName+": Map forget enabled: "+mapForget);
 		if(mapForget)
@@ -171,7 +167,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			final ParameterAttributes  takeoff_alt_param   = PX4Parameters.getInstance().getParam("MIS_TAKEOFF_ALT");
 			final ParameterAttributes  takeoff_speed_param = PX4Parameters.getInstance().getParam("MPC_TKO_SPEED");
 
-			// calculate maximum takeofftime
+			// calculate maximum takeoff time
 			final int max_tko_time_ms = (int)(takeoff_alt_param.value / takeoff_speed_param.value ) * 1000 + 10000;
 
 			control.writeLogMessage(new LogMessage("[msp] Takeoff proecdure initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -203,7 +199,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 			// Phase 3: Switch to offboard
-			offboard.setTarget(Float.NaN, Float.NaN, -(float)takeoff_alt_param.value, Float.NaN);
+			offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
 			offboard.start(OffboardManager.MODE_LOITER);
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
 				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
@@ -216,9 +212,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
 
+			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))
 				this.takeoffCompleted();
-			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
 
 		});
 
@@ -234,6 +230,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 			abortSequence();
+			if(future!=null)
+				future.cancel(true);
 		});
 
 
@@ -263,6 +261,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		control.writeLogMessage(new LogMessage("[msp] Obstacle survey executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 		rotate(45,() -> {
 			control.writeLogMessage(new LogMessage("[msp] Takeoff procedure completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+
+			control.writeLogMessage(new LogMessage("[msp] TEST -> Landing immediately.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
+
 			return true;
 		});
 
@@ -345,13 +347,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			model.slam.wpcount = 0;
 			sequence.clear();
 
-			if(completedAction!=null)
+			if(completedAction!=null && model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE))
 				completedAction.execute();
 
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE))
 				control.writeLogMessage(new LogMessage("[msp] Sequence finished.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 			else
-				control.writeLogMessage(new LogMessage("[msp] Sequence aborted.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+				control.writeLogMessage(new LogMessage("[msp] Sequence aborted.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
 		});
 	}
@@ -440,6 +442,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			buildvirtualWall(1.0f);
 			break;
 		case MSP_AUTOCONTROL_ACTION.ROTATE:
+			System.out.println("Turn to "+param);
 			turn_to(param);
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
@@ -662,7 +665,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 		offboard.finalize();
-		offboard.setTarget(Float.NaN, Float.NaN, Float.NaN,targetAngle);
+		offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, targetAngle);
 		offboard.start(OffboardManager.MODE_LOITER);
 	}
 
