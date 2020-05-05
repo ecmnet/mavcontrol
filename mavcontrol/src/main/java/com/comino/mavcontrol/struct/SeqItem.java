@@ -50,6 +50,7 @@ public class SeqItem {
 	public Vector4D_F32 getTarget(DataModel model) {
 
 		switch(mode) {
+		// Note: If NaN use current PX4 setpoint for XYZ, for Yaw use current yaw
 		case REL:
 			target.x = Float.isNaN(target.x) ? model.target_state.l_x : target.x + model.state.l_x;
 			target.y = Float.isNaN(target.y) ? model.target_state.l_y : target.y + model.state.l_y;
@@ -60,7 +61,7 @@ public class SeqItem {
 			target.x = Float.isNaN(target.x) ? model.target_state.l_x : target.x ;
 			target.y = Float.isNaN(target.y) ? model.target_state.l_y : target.y ;
 			target.z = Float.isNaN(target.z) ? model.target_state.l_z : target.z ;
-			target.w = Float.isNaN(target.w) ? Float.NaN : target.w + model.attitude.y;
+			target.w = Float.isNaN(target.w) ? Float.NaN : target.w;
 		default:
 
 		}
