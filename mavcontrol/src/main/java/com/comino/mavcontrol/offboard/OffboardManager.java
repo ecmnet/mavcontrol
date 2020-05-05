@@ -69,8 +69,9 @@ public class OffboardManager implements Runnable {
 
 	private static final int UPDATE_RATE                 			= 50;					  // offboard update rate in ms
 
-	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(45); // Max YawSpeed rad/s
-	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(5);  // Min yawSpeed rad/s
+	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(60); // Max YawSpeed rad/s
+	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(2);  // Min yawSpeed rad/s
+	private static final float RAMP_YAW_SPEED                       = MSPMathUtils.toRad(7);  // Ramp up Speed for yaw turning
 	private static final float MAX_TURN_SPEED               		= 0.2f;   	              // Max speed that allow turning before start in m/s
 	private static final float MAX_SPEED							= 1.0f;					  // Max speed m/s
 
@@ -82,7 +83,7 @@ public class OffboardManager implements Runnable {
 	private static final int SETPOINT_TIMEOUT_MS         			= 75000;
 
 	private static final float YAW_PV								= 0.05f;                  // P factor for yaw speed control
-	private static final float YAW_P								= 0.15f;                  // P factor for yaw position control
+	private static final float YAW_P								= 0.35f;                  // P factor for yaw position control
 
 	private static final float YAW_ACCEPT                	    	= MSPMathUtils.toRad(0.3);// Acceptance yaw deviation
 
@@ -137,11 +138,6 @@ public class OffboardManager implements Runnable {
 		target.set(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 
 
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE,
-				Status.NAVIGATION_STATE_AUTO_LOITER, StatusManager.EDGE_RISING, (n) -> {
-					this.stop();
-				});
-
 		control.getStatusManager().addListener(Status.MSP_ARMED, (n) -> {
 			model.slam.clear();
 			model.slam.tms = model.sys.getSynchronizedPX4Time_us();
@@ -164,24 +160,13 @@ public class OffboardManager implements Runnable {
 			worker.setName("OffboardManager");
 			worker.start();
 			System.out.println("Offboard updater started..");
-			try { Thread.sleep(2*UPDATE_RATE); } catch (InterruptedException e) { }
+			try { Thread.sleep(5*UPDATE_RATE); } catch (InterruptedException e) { }
 		}
 
 	}
 
 	public boolean start_wait(int m, long timeout) {
-		mode = m;
-		setpoint_timeout = timeout;
-		if(!enabled) {
-			enabled = true;
-			Thread worker = new Thread(this);
-			worker.setPriority(Thread.MIN_PRIORITY);
-			worker.setName("OffboardManager");
-			worker.start();
-			System.out.println("Offboard updater started..");
-			try { Thread.sleep(2*UPDATE_RATE); } catch (InterruptedException e) { }
-		}
-
+		start(m);
 		synchronized(this) {
 			if(!already_fired) {
 				long tstart = System.currentTimeMillis();
@@ -205,6 +190,7 @@ public class OffboardManager implements Runnable {
 
 
 	public void stop() {
+		//	Thread.dumpStack();
 		enabled = false;
 		synchronized(this) {
 			notify();
@@ -301,7 +287,7 @@ public class OffboardManager implements Runnable {
 		Polar3D_F32 spd  = new Polar3D_F32(); // current speed
 		Polar3D_F32 ctl  = new Polar3D_F32(); // speed control
 
-		float d_yaw;
+		float d_yaw = 0, d_yaw_target = 0;
 
 		already_fired = false; if(!new_setpoint) valid_setpoint = false;
 
@@ -355,11 +341,12 @@ public class OffboardManager implements Runnable {
 
 				sendIdleControlToVehice(MAV_FRAME.MAV_FRAME_LOCAL_NED);
 
-               break;
+				break;
 			case MODE_LOITER:
 				watch_tms = System.currentTimeMillis();
 
 				if(path.value < acceptance_radius_pos && valid_setpoint && Math.abs(MSPMathUtils.normAngle2(target.w - current.w)) < YAW_ACCEPT) {
+					d_yaw=0;
 					fireAction(model, path.value);
 				}
 
@@ -367,17 +354,28 @@ public class OffboardManager implements Runnable {
 					target.setW(model.attitude.y);
 				}
 
-				//  simple P controller for yaw;
-				d_yaw = MSPMathUtils.normAngle2(target.w - current.w) * YAW_P;
+
+				//  simple P controller for yaw with ramp up
+				d_yaw_target = MSPMathUtils.normAngle2(target.w - current.w) * YAW_P;
+				if(d_yaw_target > 0) {
+					d_yaw = d_yaw + (RAMP_YAW_SPEED * delta_sec);
+					if(d_yaw > d_yaw_target)
+						d_yaw = d_yaw_target;
+				} else {
+					d_yaw = d_yaw - (RAMP_YAW_SPEED * delta_sec);
+					if(d_yaw < d_yaw_target)
+						d_yaw = d_yaw_target;
+				}
 
 				// limit min yaw speed if action not fired yet
 				if(Math.abs(d_yaw)< MIN_YAW_SPEED && !already_fired)
-					d_yaw = MIN_YAW_SPEED * Math.signum(d_yaw);
+					d_yaw = MIN_YAW_SPEED * Math.signum(d_yaw_target);
 
-				if(Math.abs(d_yaw)> MAX_YAW_SPEED)
-					d_yaw = MAX_YAW_SPEED * Math.signum(d_yaw);
 
-				cmd.set(target.x,target.y,target.z,current.w + d_yaw);
+				if(Math.abs(d_yaw)>MAX_YAW_SPEED)
+					d_yaw = MAX_YAW_SPEED * Math.signum(d_yaw_target);
+
+				cmd.set(target.x,target.y,target.z, current.w + d_yaw);
 
 				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 
@@ -449,7 +447,7 @@ public class OffboardManager implements Runnable {
 						fireAction(model, path.value);
 						target.setW(model.attitude.y);
 					}
-//					logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+					//					logger.writeLocalMsg("[msp] Offboard: Switched to LOITER",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 					mode = MODE_LOITER;
 
 					continue;
@@ -515,8 +513,8 @@ public class OffboardManager implements Runnable {
 		pos_cmd.target_component = 1;
 		pos_cmd.target_system    = 1;
 		pos_cmd.type_mask        = MAV_MASK.MASK_VELOCITY_IGNORE | MAV_MASK.MASK_VELOCITY_IGNORE | MAV_MASK.MASK_ACCELERATION_IGNORE |
-				                   MAV_MASK.MASK_FORCE_IGNORE | MAV_MASK.MASK_YAW_IGNORE  | MAV_MASK.MASK_YAW_RATE_IGNORE |
-				                   MAV_MASK.MASK_IDLE_SETPOINT_TYPE;
+				MAV_MASK.MASK_FORCE_IGNORE | MAV_MASK.MASK_YAW_IGNORE  | MAV_MASK.MASK_YAW_RATE_IGNORE |
+				MAV_MASK.MASK_IDLE_SETPOINT_TYPE;
 
 		pos_cmd.coordinate_frame = frame;
 
@@ -531,7 +529,7 @@ public class OffboardManager implements Runnable {
 		pos_cmd.target_component = 1;
 		pos_cmd.target_system    = 1;
 		pos_cmd.type_mask        = MAV_MASK.MASK_VELOCITY_IGNORE | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
-				                   MAV_MASK.MASK_YAW_RATE_IGNORE ;
+				MAV_MASK.MASK_YAW_RATE_IGNORE ;
 
 		pos_cmd.x   = target.x;
 		pos_cmd.y   = target.y;
@@ -556,7 +554,7 @@ public class OffboardManager implements Runnable {
 		speed_cmd.target_component = 1;
 		speed_cmd.target_system    = 1;
 		speed_cmd.type_mask        = MAV_MASK.MASK_POSITION_IGNORE | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
-                                     MAV_MASK.MASK_YAW_IGNORE ;
+				MAV_MASK.MASK_YAW_IGNORE ;
 
 
 		// safety constraints
