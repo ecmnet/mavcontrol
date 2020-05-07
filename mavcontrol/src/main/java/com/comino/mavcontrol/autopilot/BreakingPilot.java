@@ -58,7 +58,7 @@ public class BreakingPilot extends AutoPilotBase {
 	private static final float            ROBOT_RADIUS      = 0.25f;
 
 	private static final float OBSTACLE_MINDISTANCE_0MS  	= ROBOT_RADIUS + 0.25f;
-	private static final float OBSTACLE_MINDISTANCE_1MS  	= ROBOT_RADIUS + 1.25f;
+	private static final float OBSTACLE_MINDISTANCE_1MS  	= ROBOT_RADIUS + 0.75f;
 	private static final float MIN_BREAKING_SPEED           = 0.2f;
 	private static final float MIN_REL_ANGLE                = MSPMathUtils.toRad(90);
 
@@ -148,7 +148,7 @@ public class BreakingPilot extends AutoPilotBase {
 			else
 				publishSLAMData();
 
-
+            obstacle.clear();
 			map.processWindow(model.state.l_x, model.state.l_y);
 			map.nearestObstacle(obstacle);
 
@@ -162,15 +162,14 @@ public class BreakingPilot extends AutoPilotBase {
 
 		//	relAngle = Math.abs(MSPMathUtils.normAngle2(Math.abs(obstacle.angle_xy-plannedPath.angle_xy)));
 
-			if(obstacle.value < OBSTACLE_MINDISTANCE_1MS
-					&& !tooClose && relAngle < MIN_REL_ANGLE) {
+			if(obstacle.value < OBSTACLE_MINDISTANCE_1MS && !tooClose && relAngle < MIN_REL_ANGLE && currentSpeed.value > 0.1 ) {
 				tooClose = true;
 //				System.out.println("W"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
 				logger.writeLocalMsg("[msp] Collision warning. Breaking.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			}
 
 
-			if(obstacle.value < OBSTACLE_MINDISTANCE_0MS && relAngle < MIN_REL_ANGLE ) {
+			if(obstacle.value < OBSTACLE_MINDISTANCE_0MS && relAngle < MIN_REL_ANGLE && currentSpeed.value > 0.1 ) {
 //				System.out.println("S"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
 //				System.out.println("S"+MIN_REL_ANGLE+" -> "+relAngle);
 				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP )) {

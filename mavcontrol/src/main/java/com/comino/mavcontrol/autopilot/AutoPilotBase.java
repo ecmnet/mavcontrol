@@ -87,8 +87,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected static final int   CERTAINITY_THRESHOLD  = 100;
 	protected static final float WINDOWSIZE       	   = 3.0f;
 
-	private   static final float MAX_REL_DELTA_HEIGHT  = 0.15f;
-	private   static final float MAX_TAKEOFF_VZ        = 0.06f;
+	private static final float MAX_REL_DELTA_HEIGHT    = 0.10f;
+	private static final float MAX_TAKEOFF_VZ          = 0.1f;
 
 	private static AutoPilotBase  autopilot    = null;
 
@@ -198,9 +198,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}
 
 
-			// Phase 3: Switch to offboard
-			offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
-			offboard.start(OffboardManager.MODE_LOITER);
+			// Phase 3: Switch to offboard in MODE_INIT
+			offboard.start();
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
 				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
 					offboard.stop();
@@ -212,6 +211,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
 
+			try { Thread.sleep(500); } catch(Exception e) { }
 			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))
 				this.takeoffCompleted();
@@ -234,11 +234,17 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				future.cancel(true);
 		});
 
+		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
+			if(offboard.isEnabled() && !model.sys.isStatus(Status.MSP_JOY_ATTACHED)) {
+				offboard.abort(); offboard.stop();
+			}
+			this.autopilot_mode = AUTOPILOT_MODE_NONE;
+		});
 
 		// Switch off offboard after disarmed
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
 			if(offboard.isEnabled() && !model.sys.isStatus(Status.MSP_JOY_ATTACHED)) {
-				offboard.stop();
+				offboard.abort(); offboard.stop();
 				control.writeLogMessage(new LogMessage("[msp] Switched to manual mode.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
@@ -326,6 +332,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, true);
 
 		future = ExecutorService.get().submit(() -> {
+			try { Thread.sleep(50); } catch (InterruptedException e) { }
 			ListIterator<SeqItem> i = sequence.listIterator();
 			while(i.hasNext() && model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
 				model.slam.wpcount  = i.nextIndex()+1;
@@ -439,7 +446,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			setXObstacleForSITL();
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
-			buildvirtualWall(1.0f);
+			buildvirtualWall(0.6f);
 			break;
 		case MSP_AUTOCONTROL_ACTION.ROTATE:
 			System.out.println("Turn to "+param);
@@ -450,7 +457,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
 			if(enable)
-				square();
+				//square();
+				northAndBack();
 			else
 				abortSequence();
 			break;
@@ -543,8 +551,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	public void offboardPosHold(boolean enable) {
 		if(enable) {
-			offboard.setTarget(Float.NaN,Float.NaN, Float.NaN, Float.NaN);
-			offboard.start(OffboardManager.MODE_LOITER);
+			offboard.start();
 			if(!model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_RC_ATTACHED)) {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
 					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
@@ -712,7 +719,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	// SITL testing
 
 
-
 	public void square() {
 		clearSequence();
 		//		addToSequence(new SeqItem(Float.NaN, Float.NaN, -1.0f, Float.NaN , SeqItem.ABS));
@@ -723,6 +729,18 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		addToSequence(new SeqItem(1f       , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL,null,0));
 		addToSequence(new SeqItem(-0.5f    , -0.5f    , Float.NaN, Float.NaN, SeqItem.REL,null,0));
 		addToSequence(new SeqItem(Float.NaN, Float.NaN, Float.NaN,0         , SeqItem.ABS));
+		executeSequence();
+	}
+
+	public void northAndBack() {
+		clearSequence();
+		if(control.isSimulation()) {
+		addToSequence(new SeqItem( 1f    , Float.NaN  , -0.5f, Float.NaN, SeqItem.REL,null,0));
+		addToSequence(new SeqItem(-1f    , Float.NaN  ,  0.5f, Float.NaN, SeqItem.REL,null,0));
+		} else {
+		addToSequence(new SeqItem( 1f    , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
+		addToSequence(new SeqItem(-1f    , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
+		}
 		executeSequence();
 	}
 
