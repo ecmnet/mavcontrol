@@ -1,6 +1,7 @@
 package com.comino.mavcontrol.struct;
 
 import com.comino.mavcom.model.DataModel;
+
 import georegression.struct.point.Vector4D_F32;
 
 public class SeqItem {

@@ -39,9 +39,9 @@ import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.status.StatusManager;
+import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard.OffboardManager;
-import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.point.Point3D_F64;

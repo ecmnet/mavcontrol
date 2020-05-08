@@ -42,10 +42,10 @@ import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcontrol.offboard.IOffboardExternalControl;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavmap.libs.TrajMathLib;
-import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavmap.trajectory.vfh.LocalVFH2D;
 
 import georegression.struct.point.Vector3D_F32;

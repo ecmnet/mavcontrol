@@ -56,6 +56,7 @@ import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.param.ParameterAttributes;
 import com.comino.mavcom.status.StatusManager;
+import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.autopilot.tests.PlannerTest;
 import com.comino.mavcontrol.offboard.OffboardManager;
@@ -66,7 +67,6 @@ import com.comino.mavmap.map.map2D.filter.ILocalMapFilter;
 import com.comino.mavmap.map.map2D.filter.impl.ForgetMapFilter;
 import com.comino.mavmap.map.map2D.impl.LocalMap2DRaycast;
 import com.comino.mavmap.map.map2D.store.LocaMap2DStorage;
-import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.legacy.ExecutorService;
@@ -351,6 +351,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 					break;
 				}
 			}
+			offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+			offboard.start(OffboardManager.MODE_LOITER);
+
 			model.slam.wpcount = 0;
 			sequence.clear();
 
@@ -667,13 +670,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	public void emergency_stop_and_turn(float targetAngle) {
-		abortSequence();
-		autopilot_mode = AUTOPILOT_MODE_ENABLED;
-		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
-		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 		offboard.finalize();
-		offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, targetAngle);
+		offboard.setTarget(model.state.l_x, model.state.l_y, model.state.l_z, targetAngle);
 		offboard.start(OffboardManager.MODE_LOITER);
+		sequence.clear();
+		autopilot_mode = AUTOPILOT_MODE_ENABLED;
+		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 	}
 
 

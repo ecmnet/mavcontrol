@@ -14,7 +14,7 @@ import com.comino.mavcom.log.MSPLogger;
 import com.comino.mavcom.mavlink.IMAVLinkListener;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.param.PX4Parameters;
-import com.comino.mavmap.struct.Polar3D_F32;
+import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.point.Vector4D_F32;

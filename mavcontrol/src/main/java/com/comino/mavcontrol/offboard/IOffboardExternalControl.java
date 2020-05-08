@@ -33,7 +33,7 @@
 
 package com.comino.mavcontrol.offboard;
 
-import com.comino.mavmap.struct.Polar3D_F32;
+import com.comino.mavcom.struct.Polar3D_F32;
 
 public interface IOffboardExternalControl {
 

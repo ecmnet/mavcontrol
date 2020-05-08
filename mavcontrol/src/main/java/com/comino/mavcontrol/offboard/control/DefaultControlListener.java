@@ -1,7 +1,7 @@
 package com.comino.mavcontrol.offboard.control;
 
+import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcontrol.offboard.IOffboardExternalControl;
-import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavutils.MSPMathUtils;
 
 public class DefaultControlListener implements IOffboardExternalControl {

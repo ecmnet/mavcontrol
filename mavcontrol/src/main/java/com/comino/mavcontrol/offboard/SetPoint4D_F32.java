@@ -2,7 +2,7 @@ package com.comino.mavcontrol.offboard;
 
 
 
-import com.comino.mavmap.struct.Polar4D_F32;
+import com.comino.mavcom.struct.Polar4D_F32;
 
 import georegression.struct.point.Point4D_F32;
 import georegression.struct.point.Vector3D_F32;

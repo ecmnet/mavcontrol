@@ -39,7 +39,6 @@ import java.io.IOException;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_CMD;
 import org.mavlink.messages.MSP_COMPONENT_CTRL;
-import org.mavlink.messages.lquac.msg_hil_gps;
 import org.mavlink.messages.lquac.msg_msp_command;
 import org.mavlink.messages.lquac.msg_set_gps_global_origin;
 
@@ -50,8 +49,6 @@ import com.comino.mavcom.mavlink.IMAVLinkListener;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
-import com.comino.mavcontrol.autopilot.BreakingPilot;
-import com.comino.mavcontrol.autopilot.NoPilot;
 import com.comino.mavmap.map.map2D.ILocalMap;
 import com.comino.mavutils.legacy.ExecutorService;
 
