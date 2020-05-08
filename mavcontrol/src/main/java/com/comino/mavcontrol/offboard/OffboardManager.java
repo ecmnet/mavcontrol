@@ -83,7 +83,7 @@ public class OffboardManager implements Runnable {
 
 	private static final int   RC_DEADBAND             				= 20;				      // RC XY deadband for safety check
 	private static final int   RC_LAND_CHANNEL						= 8;                      // RC channel 8 landing
-	private static final int   RC_LAND_THRESHOLD            		= 1600;		              // RC channel 8 landing threshold
+	private static final int   RC_LAND_THRESHOLD            		= 2010;		              // RC channel 8 landing threshold
 
 
 	private static final int SETPOINT_TIMEOUT_MS         			= 75000;
@@ -692,9 +692,9 @@ public class OffboardManager implements Runnable {
 			return false;
 		}
 
-		// Safety: Channel 8 triggers landing mode of PX4
-		if(model.rc.get(RC_LAND_CHANNEL) > RC_LAND_THRESHOLD) {
-			logger.writeLocalMsg("[msp] OffboardUpdater stopped: Landing",MAV_SEVERITY.MAV_SEVERITY_INFO);
+		// Safety: Channel 8 (Mid) triggers landing mode of PX4
+		if(Math.abs(model.rc.get(RC_LAND_CHANNEL) - RC_LAND_THRESHOLD) < RC_DEADBAND) {
+			logger.writeLocalMsg("[msp] Emergency landing triggered",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
 			return false;
 		}
