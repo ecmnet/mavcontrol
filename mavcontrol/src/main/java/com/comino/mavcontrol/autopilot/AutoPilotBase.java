@@ -345,14 +345,20 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 						control.writeLogMessage(new LogMessage("[msp] Sequence timeout occurred.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 						break;
 					}
+					if(!offboard.isEnabled()) {
+						model.slam.wpcount = 0;
+						sequence.clear();
+						control.writeLogMessage(new LogMessage("[msp] Sequence aborted.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+						return;
+					}
 				}
 				if(!item.executeAction()) {
 					control.writeLogMessage(new LogMessage("[msp] Sequence action request abort.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 					break;
 				}
 			}
-			offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
-			offboard.start(OffboardManager.MODE_LOITER);
+				offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+				offboard.start(OffboardManager.MODE_LOITER);
 
 			model.slam.wpcount = 0;
 			sequence.clear();
@@ -587,12 +593,15 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
-			offboard.stop();
+			control.writeLogMessage(new LogMessage("[msp] Autopilot disabled. Return control to pilot.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 		} else {
-			offboard.setTarget(Float.NaN,Float.NaN, Float.NaN, Float.NaN);
-			offboard.start(OffboardManager.MODE_LOITER);
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
+			control.writeLogMessage(new LogMessage("[msp] Autopilot disabled. Switched to hold mode.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 		}
+		offboard.stop();
 	}
 
 	public void rotate(float deg, ISeqAction completedAction) {
@@ -737,11 +746,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public void northAndBack() {
 		clearSequence();
 		if(control.isSimulation()) {
-		addToSequence(new SeqItem( 1f    , Float.NaN  , -0.5f, Float.NaN, SeqItem.REL,null,0));
-		addToSequence(new SeqItem(-1f    , Float.NaN  ,  0.5f, Float.NaN, SeqItem.REL,null,0));
+			addToSequence(new SeqItem( 1f    , Float.NaN  , -0.5f, Float.NaN, SeqItem.REL,null,0));
+			addToSequence(new SeqItem(-1f    , Float.NaN  ,  0.5f, Float.NaN, SeqItem.REL,null,0));
 		} else {
-		addToSequence(new SeqItem( 1f    , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
-		addToSequence(new SeqItem(-1f    , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
+			addToSequence(new SeqItem( 1f    , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
+			addToSequence(new SeqItem(-1f    , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
 		}
 		executeSequence();
 	}

@@ -203,9 +203,6 @@ public class OffboardManager implements Runnable {
 	public void stop() {
 		//	Thread.dumpStack();
 		enabled = false;
-		synchronized(this) {
-			notify();
-		}
 	}
 
 	public void setTarget(Vector4D_F32 t) {
@@ -549,15 +546,21 @@ public class OffboardManager implements Runnable {
 		}
 
 		action_listener = null;
-		abort();
 
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER, false);
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
+
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.INTERACTIVE, false);
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_AVOIDANCE, false);
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, false);
-		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
 
 		logger.writeLocalMsg("[msp] Offboard manager stopped",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+
+		synchronized(this) {
+			notify();
+		}
+
 		already_fired = false; valid_setpoint = false; new_setpoint = false;
 
 	}
