@@ -742,9 +742,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public void northAndBack() {
 		clearSequence();
 		if(control.isSimulation()) {
-			addToSequence(new SeqItem( Float.NaN, Float.NaN  , -1.0f, Float.NaN, SeqItem.REL,null,0));
+			addToSequence(new SeqItem( -0.5f    , -0.5f      , -1.0f, Float.NaN, SeqItem.REL,null,0));
 			addToSequence(new SeqItem( 2f       , Float.NaN  , -0.5f, Float.NaN, SeqItem.REL,null,0));
 			addToSequence(new SeqItem(-2f       , Float.NaN  ,  1.5f, Float.NaN, SeqItem.REL,null,0));
+			addToSequence(new SeqItem( 0.5f    ,       0.5f  , -2.0f, (float)(Math.PI), SeqItem.ABS,null,0));
 		} else {
 			addToSequence(new SeqItem( 1f       , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
 			addToSequence(new SeqItem(-1f       , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
