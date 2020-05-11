@@ -1,5 +1,8 @@
 package com.comino.mavcontrol.autopilot;
 
+import org.mavlink.messages.MAV_CMD;
+import org.mavlink.messages.MAV_MODE_FLAG;
+
 /****************************************************************************
  *
  *   Copyright (c) 2017,2020 Eike Mansfeld ecm@gmx.de. All rights reserved.
@@ -38,6 +41,7 @@ import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
@@ -232,7 +236,25 @@ public class BreakingPilot extends AutoPilotBase {
 	}
 
 
-
+//	private boolean safety_check() {
+//
+//		if(Math.abs(model.rc.s1 -1500) > RC_DEADBAND || Math.abs(model.rc.s2 -1500) > RC_DEADBAND) {
+//			logger.writeLocalMsg("[msp] OffboardUpdater stopped: RC",MAV_SEVERITY.MAV_SEVERITY_INFO);
+//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+//					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
+//			return false;
+//		}
+//
+//		// Safety: Channel 8 (Mid) triggers landing mode of PX4
+//		if(Math.abs(model.rc.get(RC_LAND_CHANNEL) - RC_LAND_THRESHOLD) < RC_DEADBAND) {
+//			logger.writeLocalMsg("[msp] Emergency landing triggered",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
+//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
+//			return false;
+//		}
+//		return true;
+//
+//	}
 
 
 

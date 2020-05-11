@@ -159,7 +159,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE,
-				config.getBoolProperty("autopilot_takeoff_procedure", "true"));
+				config.getBoolProperty("autopilot_takeoff_procedure", "false"));
 
 		//**********
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_TAKEOFF, StatusManager.EDGE_RISING, (n) -> {
@@ -267,10 +267,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		control.writeLogMessage(new LogMessage("[msp] Obstacle survey executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 		rotate(45,() -> {
 			control.writeLogMessage(new LogMessage("[msp] Takeoff procedure completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-
-			control.writeLogMessage(new LogMessage("[msp] TEST -> Landing immediately.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
-
 			return true;
 		});
 
@@ -734,10 +730,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		clearSequence();
 		//		addToSequence(new SeqItem(Float.NaN, Float.NaN, -1.0f, Float.NaN , SeqItem.ABS));
 		addToSequence(new SeqItem(0.5f     , 0.5f     , Float.NaN, Float.NaN, SeqItem.REL,null,0));
-		addToSequence(new SeqItem(Float.NaN, -1f      , Float.NaN, Float.NaN, SeqItem.REL,null,0));
+		addToSequence(new SeqItem(Float.NaN, -1f      , -1.5f, Float.NaN, SeqItem.REL,null,0));
 		addToSequence(new SeqItem(-1f      , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL,null,0));
 		addToSequence(new SeqItem(Float.NaN, 1f       , Float.NaN, Float.NaN, SeqItem.REL,null,0));
-		addToSequence(new SeqItem(1f       , Float.NaN, Float.NaN, Float.NaN, SeqItem.REL,null,0));
+		addToSequence(new SeqItem(1f       , Float.NaN, 1.5f, Float.NaN, SeqItem.REL,null,0));
 		addToSequence(new SeqItem(-0.5f    , -0.5f    , Float.NaN, Float.NaN, SeqItem.REL,null,0));
 		addToSequence(new SeqItem(Float.NaN, Float.NaN, Float.NaN,0         , SeqItem.ABS));
 		executeSequence();
@@ -746,11 +742,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public void northAndBack() {
 		clearSequence();
 		if(control.isSimulation()) {
-			addToSequence(new SeqItem( 1f    , Float.NaN  , -0.5f, Float.NaN, SeqItem.REL,null,0));
-			addToSequence(new SeqItem(-1f    , Float.NaN  ,  0.5f, Float.NaN, SeqItem.REL,null,0));
+			addToSequence(new SeqItem( Float.NaN, Float.NaN  , -1.0f, Float.NaN, SeqItem.REL,null,0));
+			addToSequence(new SeqItem( 2f       , Float.NaN  , -0.5f, Float.NaN, SeqItem.REL,null,0));
+			addToSequence(new SeqItem(-2f       , Float.NaN  ,  1.5f, Float.NaN, SeqItem.REL,null,0));
 		} else {
-			addToSequence(new SeqItem( 1f    , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
-			addToSequence(new SeqItem(-1f    , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
+			addToSequence(new SeqItem( 1f       , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
+			addToSequence(new SeqItem(-1f       , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
 		}
 		executeSequence();
 	}
