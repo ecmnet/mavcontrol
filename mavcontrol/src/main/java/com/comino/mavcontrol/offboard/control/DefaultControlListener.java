@@ -10,6 +10,8 @@ public class DefaultControlListener implements IOffboardExternalControl {
 	private static final float MAX_SPEED					        = 1.00f;          	      // Default Max speed in m/s
 	private static final float MIN_SPEED					        = 0.1f;          	      // Default Min speed in m/s
 
+	private static final float YAW_PV								= 0.005f;				  // P factor yaw control
+
 	private boolean isBreaking  = false;
 	private float   speed_incr  = 0;
 	private float   acc_incr    = 0;
@@ -24,7 +26,7 @@ public class DefaultControlListener implements IOffboardExternalControl {
 
 		// follow direction changes by a simple P controller
 		if(spd.value > 0.5) {
-		  ctl.angle_xy = ctl.angle_xy + delta_angle / delta_sec * 0.005f;
+		  ctl.angle_xy = ctl.angle_xy + delta_angle / delta_sec * YAW_PV;
 		  // slow down according to the path angle difference
 	      speed_incr = - MAX_ACCELERATION * delta_angle * delta_sec;
 		}
@@ -33,7 +35,7 @@ public class DefaultControlListener implements IOffboardExternalControl {
     	}
 
 		// start breaking 1.5 secs before reaching the goal
-		if(eta_sec < 2 )  {
+		if(eta_sec < 2.0 )  {
 			isBreaking = true;
 		}
 

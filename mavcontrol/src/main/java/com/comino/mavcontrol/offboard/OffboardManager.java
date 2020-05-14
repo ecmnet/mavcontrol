@@ -55,6 +55,7 @@ import com.comino.mavcontrol.offboard.control.DefaultConstraintListener;
 import com.comino.mavcontrol.offboard.control.DefaultControlListener;
 import com.comino.mavutils.MSPMathUtils;
 
+import georegression.struct.point.Vector3D_F32;
 import georegression.struct.point.Vector4D_F32;
 
 public class OffboardManager implements Runnable {
@@ -79,9 +80,9 @@ public class OffboardManager implements Runnable {
 	private static final long OFFBOARD_INIT_DELAY                   = 2*UPDATE_RATE;		  // initial delay
 
 
-	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(30); // Max YawSpeed rad/s
-	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(2);  // Min yawSpeed rad/s
-	private static final float RAMP_YAW_SPEED                       = MSPMathUtils.toRad(3);  // Ramp up Speed for yaw turning
+	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(45); // Max YawSpeed rad/s
+	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(4);  // Min yawSpeed rad/s
+	private static final float RAMP_YAW_SPEED                       = MSPMathUtils.toRad(30); // Ramp up Speed for yaw turning
 	private static final float MAX_TURN_SPEED               		= 0.3f;   	              // Max speed that allow turning before start in m/s
 	private static final float MIN_TURN_DISTANCE              		= 0.3f;   	              // Min distance to path target that allow z-Locking
 	private static final float MAX_SPEED							= 1.0f;					  // Max speed m/s
@@ -93,7 +94,7 @@ public class OffboardManager implements Runnable {
 
 	private static final int SETPOINT_TIMEOUT_MS         			= 75000;
 
-	private static final float YAW_PV								= 0.05f;                  // P factor for yaw speed control
+	private static final float YAW_PV								= 0.10f;                  // P factor for yaw speed control
 	private static final float YAW_P								= 0.40f;                  // P factor for yaw position control
 
 	private static final float YAW_ACCEPT                	    	= MSPMathUtils.toRad(0.3);// Acceptance yaw deviation
@@ -126,7 +127,7 @@ public class OffboardManager implements Runnable {
 
 	private float      max_speed                                    = MAX_SPEED;
 
-	private float	 	acceptance_radius_pos						= 0.05f;
+	private float	 	acceptance_radius_pos						= 0.10f;
 	private boolean    	already_fired			    				= false;
 	private boolean    	valid_setpoint                   			= false;
 	private boolean    	new_setpoint                   	 			= false;
@@ -385,8 +386,9 @@ public class OffboardManager implements Runnable {
 			case MODE_LOITER:
 				watch_tms = System.currentTimeMillis();
 
-				if(Float.isNaN(target.w))
+				if(Float.isNaN(target.w)) {
 					target.setW(MSPMathUtils.normAngle2(model.attitude.y));
+				}
 
 				yaw_diff = MSPMathUtils.normAngle2(target.w - current.w);
 
@@ -417,9 +419,13 @@ public class OffboardManager implements Runnable {
 					if(Math.abs(d_yaw)>MAX_YAW_SPEED)
 						d_yaw = MAX_YAW_SPEED * Math.signum(d_yaw_target);
 
+					cmd.set(target.x,target.y,target.z, current.w + d_yaw);
+
+				} else {
+
+					cmd.set(target.x,target.y,target.z, target.w);
 				}
 
-				cmd.set(target.x,target.y,target.z, current.w + d_yaw);
 
 				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 				toModel(target,null);
@@ -469,7 +475,7 @@ public class OffboardManager implements Runnable {
 				ext_constraints_listener.get(delta_sec, spd, path, ctl);
 
 				// target reached?
-				if(path.value < acceptance_radius_pos && valid_setpoint && eta_sec < 0.05
+				if(path.value < acceptance_radius_pos && valid_setpoint
 						// TODO: Triggers when radius is reached => middle never hit (especially: altitude)
 						// same for POSITION Mode
 						// How to do that?
@@ -479,13 +485,14 @@ public class OffboardManager implements Runnable {
 					trajectory_start_tms = 0;
 					path.clear(); ctl.clear();
 
-					if(Float.isNaN(target.w)) {
-						fireAction(model, path.value);
-						target.setW(MSPMathUtils.normAngle2(model.attitude.y));
-					} else {
-						mode = MODE_LOITER;
-						continue;
-					}
+						if(Float.isNaN(target.w) && valid_setpoint) {
+							fireAction(model, path.value);
+							target.setW(model.attitude.y);
+							continue;
+						} else {
+							mode = MODE_LOITER;
+							continue;
+						}
 				}
 
 				// Yaw difference - do not consider path direction if slope steeper than 45°
@@ -516,11 +523,11 @@ public class OffboardManager implements Runnable {
 
 				// ramp up/down yaw speed
 				if(d_yaw_target > 0) {
-					d_yaw = d_yaw + (RAMP_YAW_SPEED*0.1f);
+					d_yaw = d_yaw + (RAMP_YAW_SPEED*delta_sec);
 					if(d_yaw > d_yaw_target)
 						d_yaw = d_yaw_target;
 				} else if(d_yaw_target < 0)  {
-					d_yaw = d_yaw - (RAMP_YAW_SPEED*0.1f);
+					d_yaw = d_yaw - (RAMP_YAW_SPEED*delta_sec);
 					if(d_yaw < d_yaw_target)
 						d_yaw = d_yaw_target;
 				}
@@ -603,9 +610,6 @@ public class OffboardManager implements Runnable {
 
 		speed_cmd.target_component = 1;
 		speed_cmd.target_system    = 1;
-
-		// consider Z locking
-
 
 		switch(lock_mode) {
 		case LOCK_NONE:

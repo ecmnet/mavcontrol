@@ -188,7 +188,7 @@ public class MSPCommander  {
 
 	private void setOffboardPosition(msg_msp_command cmd) {
 		if(cmd.param3 == 0 || cmd.param3 == Float.NaN)
-			autopilot.moveto(cmd.param1, cmd.param2, model.state.l_z, cmd.param4);
+			autopilot.moveto(cmd.param1, cmd.param2, Float.NaN, cmd.param4);
 		else
 			autopilot.moveto(cmd.param1, cmd.param2, cmd.param3, cmd.param4);
 	}
