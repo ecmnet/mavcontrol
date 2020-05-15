@@ -475,7 +475,7 @@ public class OffboardManager implements Runnable {
 				ext_constraints_listener.get(delta_sec, spd, path, ctl);
 
 				// target reached?
-				if(path.value < acceptance_radius_pos && valid_setpoint
+				if(path.value < acceptance_radius_pos && valid_setpoint && !already_fired
 						// TODO: Triggers when radius is reached => middle never hit (especially: altitude)
 						// same for POSITION Mode
 						// How to do that?
@@ -483,7 +483,7 @@ public class OffboardManager implements Runnable {
 
 					// clear everything
 					trajectory_start_tms = 0;
-					path.clear(); ctl.clear();
+//					path.clear(); ctl.clear();
 
 						if(Float.isNaN(target.w) && valid_setpoint) {
 							fireAction(model, path.value);
@@ -499,7 +499,7 @@ public class OffboardManager implements Runnable {
 				if(( path.angle_xz >  0.78f || path.angle_xz < -0.78 ))
 					if(!Float.isNaN(target.w))
 						// only of target attitude was given
-						yaw_diff = MSPMathUtils.normAngle2(target.w - current.w) / delta_sec * YAW_PV;
+						yaw_diff = MSPMathUtils.normAngle2(target.w - current.w);
 					else
 						yaw_diff = 0;
 				else
@@ -635,7 +635,17 @@ public class OffboardManager implements Runnable {
 
 		case LOCK_XY:
 
-			return;
+			speed_cmd.type_mask    = MAV_MASK.MASK_POSITION_IGNORE_XYLOCK | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
+			                         MAV_MASK.MASK_YAW_IGNORE ;
+
+			speed_cmd.vx       = 0;
+			speed_cmd.vy       = 0;
+			speed_cmd.vz       = target.z;
+
+			speed_cmd.x        = lock.x;
+			speed_cmd.y        = lock.z;
+
+			break;
 
 		case LOCK_XYZ:
 

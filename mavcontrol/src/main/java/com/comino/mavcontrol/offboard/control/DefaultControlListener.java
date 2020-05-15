@@ -7,7 +7,7 @@ import com.comino.mavutils.MSPMathUtils;
 public class DefaultControlListener implements IOffboardExternalControl {
 
 	private static final float MAX_ACCELERATION		                = 0.3f;                   // Max acceleration in m/s2
-	private static final float MAX_SPEED					        = 1.00f;          	      // Default Max speed in m/s
+	private static final float MAX_SPEED					        = 3.00f;          	      // Absolute Max speed in m/s
 	private static final float MIN_SPEED					        = 0.1f;          	      // Default Min speed in m/s
 
 	private static final float YAW_PV								= 0.005f;				  // P factor yaw control

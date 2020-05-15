@@ -278,13 +278,16 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	protected void clearSequence() {
-		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE))
+		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
 			sequence.clear();
+			model.slam.wpcount = 0;
+		}
 	}
 
 	protected void abortSequence() {
 		if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
 			sequence.clear();
+			model.slam.wpcount = 0;
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
 			offboard.abort();
 			while(!future.isDone());
@@ -317,7 +320,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
 			control.writeLogMessage(new LogMessage("[msp] Sequence already in execution.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-			sequence.clear();
 			return;
 		}
 		if(sequence.isEmpty()) {
@@ -531,7 +533,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		abortSequence();
 
 		offboard.registerActionListener( (m,d) -> {
-			offboard.finalize();
+			offboard.start(OffboardManager.MODE_LOITER);
 			logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 		});
 		offboard.setTarget(target);
@@ -675,10 +677,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	public void emergency_stop_and_turn(float targetAngle) {
+		abortSequence();
+		clearAutopilotActions();
 		offboard.finalize();
 		offboard.setTarget(model.state.l_x, model.state.l_y, model.state.l_z, targetAngle);
 		offboard.start(OffboardManager.MODE_LOITER);
-		sequence.clear();
 		autopilot_mode = AUTOPILOT_MODE_ENABLED;
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 	}
