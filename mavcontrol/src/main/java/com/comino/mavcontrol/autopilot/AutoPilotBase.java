@@ -81,9 +81,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	/* TEST ONLY */
 	private PlannerTest planner = null;
 
-	public static final int   AUTOPILOT_MODE_NONE      = 0;
-	public static final int   AUTOPILOT_MODE_ENABLED   = 1;
-
 	protected static final int   CERTAINITY_THRESHOLD  = 100;
 	protected static final float WINDOWSIZE       	   = 3.0f;
 
@@ -114,7 +111,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	private final msg_msp_micro_slam            slam = new msg_msp_micro_slam(2,1);
 
-	protected int autopilot_mode = AUTOPILOT_MODE_NONE;
 
 	private Future<?> future;
 
@@ -221,29 +217,26 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		// offboard mode enabled action
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_OFFBOARD, StatusManager.EDGE_RISING, (n) -> {
 
-			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 			//control.writeLogMessage(new LogMessage("[msp] Offboard enabled.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
 		});
 
 		// Abort any sequence if PX4 landing is triggered
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
-			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 			abortSequence();
 			if(future!=null)
 				future.cancel(true);
 		});
 
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
-			if(offboard.isEnabled() && !model.sys.isStatus(Status.MSP_JOY_ATTACHED)) {
-				offboard.abort(); offboard.stop();
-			}
-			this.autopilot_mode = AUTOPILOT_MODE_NONE;
-		});
+//		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
+//			if(offboard.isEnabled() && !model.sys.isStatus(Status.MSP_JOY_ATTACHED)) {
+//				offboard.abort(); offboard.stop();
+//			}
+//		});
 
 		// Switch off offboard after disarmed
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
-			if(offboard.isEnabled() && !model.sys.isStatus(Status.MSP_JOY_ATTACHED)) {
+			if(offboard.isEnabled()) {
 				offboard.abort(); offboard.stop();
 				control.writeLogMessage(new LogMessage("[msp] Switched to manual mode.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
@@ -253,12 +246,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 				control.sendMAVLinkMessage(new msg_debug_vect(1,2));
 			}
-			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 		});
-	}
-
-	public int getAutopilotMode() {
-		return autopilot_mode;
 	}
 
 	protected void takeoffCompleted() {
@@ -355,8 +343,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 					break;
 				}
 			}
-				offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
-				offboard.start(OffboardManager.MODE_LOITER);
+			offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+			offboard.start(OffboardManager.MODE_LOITER);
 
 			model.slam.wpcount = 0;
 			sequence.clear();
@@ -486,18 +474,35 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 	public void setSpeed(boolean enable, float p, float r, float h, float y) {
+
 		if(enable) {
-			if(autopilot_mode == AUTOPILOT_MODE_NONE) {
-				model.sys.setStatus(Status.MSP_JOY_ATTACHED,true);
-				body_speed.set(p * 2f,r * 2f,h ,y);
+			model.sys.setStatus(Status.MSP_JOY_ATTACHED,true);
+			body_speed.set(
+					p == 0 && r == 0 ? Float.NaN : p * 1.5f,
+					p == 0 && r == 0 ? Float.NaN : r * 1.5f,
+					h == 0 ? Float.NaN : h,
+					y == 0 ? Float.NaN : y);
+
+			if(!offboard.isEnabled() || offboard.getMode()==OffboardManager.MODE_SPEED_POSITION) {
+				//abort any sequence if sticks moved
+				if(!MSP3DUtils.isNaN(body_speed))
+				  sequence.clear();
+				return;
+			}
+
+			// If sticks in initial position switch to LOITER mode
+			// TODO: should be done in OffboardManager as breaking should be controlled
+			if(MSP3DUtils.isNaN(body_speed)) {
+				offboard.enforceCurrentAsTarget();
+				offboard.start(OffboardManager.MODE_LOITER);
+			} else {
 				MSP3DUtils.rotateXY(body_speed, ned_speed, -model.attitude.y);
-				offboard.setTarget(ned_speed);
+				offboard.setSpeed(ned_speed);
 				offboard.start(OffboardManager.MODE_LOCAL_SPEED);
 			}
-		}
-		else {
+		} else {
 			model.sys.setStatus(Status.MSP_JOY_ATTACHED,false);
-			offboard.start(OffboardManager.MODE_LOITER);
+			logger.writeLocalMsg("[msp] Joystick control disabled",MAV_SEVERITY.MAV_SEVERITY_INFO);
 		}
 	}
 
@@ -570,7 +575,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 					}
 				}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
-				this.autopilot_mode = AUTOPILOT_MODE_NONE;
 			}
 		} else {
 			if(model.sys.nav_state==Status.NAVIGATION_STATE_OFFBOARD) {
@@ -597,7 +601,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
 			control.writeLogMessage(new LogMessage("[msp] Autopilot disabled. Switched to hold mode.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-			this.autopilot_mode = AUTOPILOT_MODE_NONE;
 		}
 		offboard.stop();
 	}
@@ -682,7 +685,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		offboard.finalize();
 		offboard.setTarget(model.state.l_x, model.state.l_y, model.state.l_z, targetAngle);
 		offboard.start(OffboardManager.MODE_LOITER);
-		autopilot_mode = AUTOPILOT_MODE_ENABLED;
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 	}
 

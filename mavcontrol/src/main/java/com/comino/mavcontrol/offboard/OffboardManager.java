@@ -115,7 +115,9 @@ public class OffboardManager implements Runnable {
 	private int						mode					  		= MODE_LOITER;		     // Offboard mode
 	private int                     old_mode                        = MODE_IDLE;
 
-	private final Vector4D_F32		target					  		= new Vector4D_F32();	 // target state (coordinates/speeds) incl. yaw
+	private final Vector4D_F32		target					  		= new Vector4D_F32();	 // target state
+	private final Vector4D_F32		target_speed					= new Vector4D_F32();	 // target state
+
 	private final Vector4D_F32		current					  		= new Vector4D_F32();	 // current state incl. yaw
 	private final Vector4D_F32		current_sp					  	= new Vector4D_F32();	 // current state incl. yaw
 	private final Vector4D_F32      start                     		= new Vector4D_F32();    // state, when setpoint was set incl. yaw
@@ -235,6 +237,20 @@ public class OffboardManager implements Runnable {
 		}
 	}
 
+	public void setSpeed(Vector4D_F32 t) {
+		synchronized(this) {
+			target_speed.set(t);
+			valid_setpoint = true;
+			new_setpoint = true;
+			already_fired = false;
+			setpoint_tms = System.currentTimeMillis();
+		}
+	}
+
+	public void enforceCurrentAsTarget() {
+		this.setTarget(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
+	}
+
 	public void updateTarget(Vector4D_F32 t) {
 
 		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT))
@@ -325,8 +341,12 @@ public class OffboardManager implements Runnable {
 		while(enabled) {
 
 			if(old_mode != mode) {
-				old_mode = mode;
 				logger.writeLocalMsg("[msp] Offboard: Switched to "+mode_string[mode],MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+				if(MSP3DUtils.isNaN(target)) {
+					logger.writeLocalMsg("[msp] Offboard: Using current as target",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+					MSP3DUtils.convertCurrentState(model, target);
+				}
+				old_mode = mode;
 			}
 
 			if(model.sys.isStatus(Status.MSP_RC_ATTACHED) && !safety_check()) {
@@ -343,7 +363,6 @@ public class OffboardManager implements Runnable {
 
 			MSP3DUtils.convertCurrentState(model, current);
 			MSP3DUtils.convertCurrentSpeed(model, spd);
-			path.set(target, current);
 
 			// safety: if no valid setpoint, use current as target
 			if(!valid_setpoint && mode != MODE_IDLE && mode<7 ) {
@@ -363,10 +382,14 @@ public class OffboardManager implements Runnable {
 				start.set(current);
 				ctl.set(spd);
 
-				// Safety: handle NaN targets for position
-				MSP3DUtils.replaceNaN(target, current_sp);
-				// if still not valid use current
-				MSP3DUtils.replaceNaN(target, current);
+				if(mode==MODE_SPEED_POSITION || mode == MODE_LOITER) {
+
+					// Safety: handle NaN targets for position
+					MSP3DUtils.replaceNaN(target, current_sp);
+					// if still not valid use current
+					MSP3DUtils.replaceNaN(target, current);
+
+				}
 
 			}
 
@@ -426,41 +449,49 @@ public class OffboardManager implements Runnable {
 					cmd.set(target.x,target.y,target.z, target.w);
 				}
 
-
 				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
-				toModel(target,null);
+
+				updateMSPModel(target,null);
+
 				break;
 
 			case MODE_LOCAL_SPEED:
 
-				ctl.set(target.x, target.y, target.z);
-				path.angle_xy = ctl.angle_xy;
+				path.set(target_speed.x, target_speed.y, target_speed.z);
 
-				//TODO: check external constraints,
+				lock = LOCK_NONE;
 
-				//				// check external constraints
-				ext_constraints_listener.get(delta_sec, spd, path, ctl);
+				if(Float.isNaN(target_speed.z))
+					lock = LOCK_Z;
 
-				ctl.get(cmd);
+				if(Float.isNaN(target_speed.x) && Float.isNaN(target_speed.y))
+					lock = LOCK_XY;
 
-				// manual yaw control
-				cmd.w = target.w;
+				if(Float.isNaN(target_speed.x) && Float.isNaN(target_speed.y) && Float.isNaN(target_speed.z))
+					lock = LOCK_XYZ;
 
-				// use Z-Lock for XY control
-				// TODO: Check up/down control speed -> remove Z-Lock
+				//TODO: Take current speed into account and control acceleration
 
-				sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED,LOCK_Z);
-				//toModel(spd.value,target,current);
+				cmd.set(target_speed);
+
+				//TODO: check external constraints (breaking, emergency stop)
+
+				sendSpeedControlToVehice(cmd, target, MAV_FRAME.MAV_FRAME_LOCAL_NED,lock);
+
 
 				if((System.currentTimeMillis()- setpoint_tms) > 1000)
 					valid_setpoint = false;
 				else
 					watch_tms = System.currentTimeMillis();
+
+				updateMSPModel(null,spd);
+
 				break;
 
 			case MODE_SPEED_POSITION:
 
 				watch_tms = System.currentTimeMillis();
+				path.set(target, current);
 
 				if(trajectory_start_tms > 0)
 					ela_sec = (System.currentTimeMillis() - trajectory_start_tms) / 1000f;
@@ -483,16 +514,16 @@ public class OffboardManager implements Runnable {
 
 					// clear everything
 					trajectory_start_tms = 0;
-//					path.clear(); ctl.clear();
+					//					path.clear(); ctl.clear();
 
-						if(Float.isNaN(target.w) && valid_setpoint) {
-							fireAction(model, path.value);
-							target.setW(model.attitude.y);
-							continue;
-						} else {
-							mode = MODE_LOITER;
-							continue;
-						}
+					if(Float.isNaN(target.w) && valid_setpoint) {
+						fireAction(model, path.value);
+						target.setW(model.attitude.y);
+						continue;
+					} else {
+						mode = MODE_LOITER;
+						continue;
+					}
 				}
 
 				// Yaw difference - do not consider path direction if slope steeper than 45°
@@ -539,13 +570,14 @@ public class OffboardManager implements Runnable {
 				// get Cartesian speeds from polar
 				ctl.get(cmd);
 
+				sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED, lock);
+
+				updateMSPModel(target,path);
+
 				debug.x = yaw_diff;
 				debug.y = ctl.value;
 				debug.z = cmd.z;
-
-				sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED, lock);
-
-				toModel(target,path);
+				control.sendMAVLinkMessage(debug);
 
 				break;
 
@@ -611,6 +643,8 @@ public class OffboardManager implements Runnable {
 		speed_cmd.target_component = 1;
 		speed_cmd.target_system    = 1;
 
+		checkAbsoluteSpeeds(target);
+
 		switch(lock_mode) {
 		case LOCK_NONE:
 			speed_cmd.type_mask    = MAV_MASK.MASK_POSITION_IGNORE | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
@@ -636,7 +670,7 @@ public class OffboardManager implements Runnable {
 		case LOCK_XY:
 
 			speed_cmd.type_mask    = MAV_MASK.MASK_POSITION_IGNORE_XYLOCK | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
-			                         MAV_MASK.MASK_YAW_IGNORE ;
+			MAV_MASK.MASK_YAW_IGNORE ;
 
 			speed_cmd.vx       = 0;
 			speed_cmd.vy       = 0;
@@ -663,20 +697,14 @@ public class OffboardManager implements Runnable {
 			break;
 		}
 
-
-		// safety constraints
-		checkAbsoluteSpeeds(target);
-
-
 		speed_cmd.yaw_rate = target.w;
+
 
 		speed_cmd.coordinate_frame = frame;
 
 
 		if(!control.sendMAVLinkMessage(speed_cmd))
 			enabled = false;
-
-		control.sendMAVLinkMessage(debug);
 
 	}
 
@@ -707,26 +735,38 @@ public class OffboardManager implements Runnable {
 
 	}
 
-	private void toModel(Vector4D_F32 target, Polar3D_F32 path ) {
-		if(valid_setpoint && path!=null) {
+	private void updateMSPModel(Vector4D_F32 target, Polar3D_F32 path ) {
+
+		model.slam.tms = model.sys.getSynchronizedPX4Time_us();
+
+		if(valid_setpoint && path!=null && target!=null) {
 			model.slam.px = target.getX();
 			model.slam.py = target.getY();
 			model.slam.pz = target.getZ();
 			model.slam.pd = path.angle_xy;
 			model.slam.di = path.value;
-			model.slam.pv = model.state.getSpeed();
-		} else {
+			model.slam.pv = model.state.getXYSpeed();
+			return;
+		}
+
+		if(valid_setpoint && path!=null && target==null) {
 			model.slam.px = Float.NaN;
 			model.slam.py = Float.NaN;
 			model.slam.pz = Float.NaN;
-			model.slam.pd = Float.NaN;
-			model.slam.di = 0;
-			model.slam.pv = 0;
+			model.slam.pd = path.angle_xy;
+			model.slam.di = Float.NaN;
+			model.slam.pv = model.state.getXYSpeed();
+			return;
 		}
-		model.slam.tms = model.sys.getSynchronizedPX4Time_us();
+
+		model.slam.px = Float.NaN;
+		model.slam.py = Float.NaN;
+		model.slam.pz = Float.NaN;
+		model.slam.pd = Float.NaN;
+		model.slam.di = Float.NaN;
+		model.slam.pv = 0;
 
 	}
-
 	private boolean safety_check() {
 
 		if(Math.abs(model.rc.s1 -1500) > RC_DEADBAND || Math.abs(model.rc.s2 -1500) > RC_DEADBAND) {
