@@ -322,6 +322,7 @@ public class OffboardManager implements Runnable {
 		float ela_sec    = 0;
 
 		Polar3D_F32 path = new Polar3D_F32(); // planned direct path
+		Polar3D_F32 way  = new Polar3D_F32(); // travelled direct path
 		Polar3D_F32 spd  = new Polar3D_F32(); // current speed
 		Polar3D_F32 ctl  = new Polar3D_F32(); // speed control
 
@@ -492,6 +493,7 @@ public class OffboardManager implements Runnable {
 
 				watch_tms = System.currentTimeMillis();
 				path.set(target, current);
+				way.set(current, start);
 
 				if(trajectory_start_tms > 0)
 					ela_sec = (System.currentTimeMillis() - trajectory_start_tms) / 1000f;
@@ -529,16 +531,18 @@ public class OffboardManager implements Runnable {
 				// Yaw difference - do not consider path direction if slope steeper than 45°
 				if(( path.angle_xz >  0.78f || path.angle_xz < -0.78 ))
 					if(!Float.isNaN(target.w))
-						// only of target attitude was given
+						// only if target attitude was given
 						yaw_diff = MSPMathUtils.normAngle2(target.w - current.w);
 					else
 						yaw_diff = 0;
-				else
+				else {
 					yaw_diff = MSPMathUtils.normAngle2(ctl.angle_xy - current.w);
+				}
 
 				// if vehicle is not moving or close to target and turn angle > 60° => turn before moving
 				if( Math.abs(yaw_diff) > Math.PI/3 &&
-						ctl.value < MAX_TURN_SPEED  &&  path.value > MIN_TURN_DISTANCE) {
+						ctl.value < MAX_TURN_SPEED  && way.value < acceptance_radius_pos) {
+					//path.value > MIN_TURN_DISTANCE) {
 					// reduce XY speeds
 					ctl.value = 0;
 					//  Lock XYZ Position while turning
@@ -549,23 +553,24 @@ public class OffboardManager implements Runnable {
 				if(ctl.value > 0 && trajectory_start_tms == 0)
 					trajectory_start_tms = System.currentTimeMillis();
 
-				//  simple P controller for yaw
-				d_yaw_target = yaw_diff / delta_sec * YAW_PV;
+				if(path.value > acceptance_radius_pos * 3) {
+					//  simple P controller for yaw, but only of target further away that 3 * acceptance radius.
+					d_yaw_target = yaw_diff / delta_sec * YAW_PV;
 
-				// ramp up/down yaw speed
-				if(d_yaw_target > 0) {
-					d_yaw = d_yaw + (RAMP_YAW_SPEED*delta_sec);
-					if(d_yaw > d_yaw_target)
-						d_yaw = d_yaw_target;
-				} else if(d_yaw_target < 0)  {
-					d_yaw = d_yaw - (RAMP_YAW_SPEED*delta_sec);
-					if(d_yaw < d_yaw_target)
-						d_yaw = d_yaw_target;
-				}
-				cmd.w = d_yaw;
-
-				// do not go below min yaw speed
-				if(Math.abs(cmd.w)< MIN_YAW_SPEED) cmd.w = MIN_YAW_SPEED * Math.signum(cmd.w);
+					// ramp up/down yaw speed
+					if(d_yaw_target > 0) {
+						d_yaw = d_yaw + (RAMP_YAW_SPEED*delta_sec);
+						if(d_yaw > d_yaw_target)
+							d_yaw = d_yaw_target;
+					} else if(d_yaw_target < 0)  {
+						d_yaw = d_yaw - (RAMP_YAW_SPEED*delta_sec);
+						if(d_yaw < d_yaw_target)
+							d_yaw = d_yaw_target;
+					}
+					cmd.w = d_yaw;
+				} else
+					// if near the target do not control yaw anymore
+					cmd.w = 0;
 
 				// get Cartesian speeds from polar
 				ctl.get(cmd);
@@ -778,7 +783,7 @@ public class OffboardManager implements Runnable {
 			return false;
 		}
 
-		// TODO: Move to Autopilot -->
+		// TODO: Move failsave to Autopilot to take action also if no autopilot is active
 
 		// Safety: Channel 8 (Mid) triggers landing mode of PX4
 		if(Math.abs(model.rc.get(RC_LAND_CHANNEL) - RC_LAND_THRESHOLD) < RC_DEADBAND) {

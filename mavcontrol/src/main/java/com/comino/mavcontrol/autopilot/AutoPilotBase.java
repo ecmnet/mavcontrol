@@ -228,11 +228,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				future.cancel(true);
 		});
 
-//		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
-//			if(offboard.isEnabled() && !model.sys.isStatus(Status.MSP_JOY_ATTACHED)) {
-//				offboard.abort(); offboard.stop();
-//			}
-//		});
+		//		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
+		//			if(offboard.isEnabled() && !model.sys.isStatus(Status.MSP_JOY_ATTACHED)) {
+		//				offboard.abort(); offboard.stop();
+		//			}
+		//		});
 
 		// Switch off offboard after disarmed
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
@@ -479,19 +479,19 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			model.sys.setStatus(Status.MSP_JOY_ATTACHED,true);
 			body_speed.set(
 					p == 0 && r == 0 ? Float.NaN : MSPMathUtils.expo(p,0.3f) * 2f,
-					p == 0 && r == 0 ? Float.NaN : MSPMathUtils.expo(r,0.3f) * 2f,
-					h == 0 ? Float.NaN : h,
-					y == 0 ? Float.NaN : y);
+							p == 0 && r == 0 ? Float.NaN : MSPMathUtils.expo(r,0.3f) * 2f,
+									h == 0 ? Float.NaN : h,
+											y == 0 ? Float.NaN : y);
 
 			if(!offboard.isEnabled() || offboard.getMode()==OffboardManager.MODE_SPEED_POSITION) {
 				//abort any sequence if sticks moved
 				if(!MSP3DUtils.isNaN(body_speed))
-				  sequence.clear();
+					sequence.clear();
 				return;
 			}
 
 			// If sticks in initial position switch to LOITER mode
-			// TODO: should be done in OffboardManager as breaking should be controlled
+			// TODO: Should be done in OffboardManager as breaking should be controlled
 			if(MSP3DUtils.isNaN(body_speed)) {
 				offboard.enforceCurrentAsTarget();
 				offboard.start(OffboardManager.MODE_LOITER);
@@ -746,15 +746,18 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	public void northAndBack() {
 		clearSequence();
-		if(control.isSimulation()) {
-			addToSequence(new SeqItem( -0.5f    , -0.5f      , -1.0f, Float.NaN, SeqItem.REL,null,0));
-			addToSequence(new SeqItem( 2f       , Float.NaN  , -0.5f, Float.NaN, SeqItem.REL,null,0));
-			addToSequence(new SeqItem(-2f       , Float.NaN  ,  1.5f, Float.NaN, SeqItem.REL,null,0));
-			addToSequence(new SeqItem( 0.5f    ,       0.5f  , -2.0f, (float)(Math.PI), SeqItem.ABS,null,0));
-		} else {
+//		if(control.isSimulation()) {
+//
+//			for(int i=1;i<10;i++)
+//				addToSequence(new SeqItem((float)(Math.random()*4-2),
+//						(float)(Math.random()*4-2),
+//						(float)(-Math.random()*0.5+0.2),
+//						Float.NaN, SeqItem.REL, null,0));
+//			addToSequence(new SeqItem( 0.5f    ,       0.5f  , -2.0f, (float)(Math.PI), SeqItem.ABS,null,0));
+//		} else {
 			addToSequence(new SeqItem( 1f       , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
 			addToSequence(new SeqItem(-1f       , Float.NaN  , Float.NaN, Float.NaN, SeqItem.REL,null,0));
-		}
+//		}
 		executeSequence();
 	}
 

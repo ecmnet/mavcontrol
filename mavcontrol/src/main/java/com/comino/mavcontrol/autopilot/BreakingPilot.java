@@ -87,7 +87,6 @@ public class BreakingPilot extends AutoPilotBase {
 
 		this.obstacle.value = Float.POSITIVE_INFINITY;
 
-		// TODO: EDGE_FALLING does not work for AUTOPILOT_MODE
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_AUTOPILOT, MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT, StatusManager.EDGE_BOTH, (n) -> {
 			if(n.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT)) {
 				smooth_target_initialized = false;
