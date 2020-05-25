@@ -130,6 +130,7 @@ public class OffboardManager implements Runnable {
 	private float      max_speed                                    = MAX_SPEED;
 
 	private float	 	acceptance_radius_pos						= 0.10f;
+	private float	 	acceptance_radius_pos_out					= 0.10f;
 	private boolean    	already_fired			    				= false;
 	private boolean    	valid_setpoint                   			= false;
 	private boolean    	new_setpoint                   	 			= false;
@@ -152,6 +153,8 @@ public class OffboardManager implements Runnable {
 
 		acceptance_radius_pos = config.getFloatProperty("autopilot_acceptance_radius", String.valueOf(acceptance_radius_pos));
 		System.out.println("Autopilot: acceptance radius: "+acceptance_radius_pos+" m");
+
+		acceptance_radius_pos_out = acceptance_radius_pos * 3;
 
 		max_speed = config.getFloatProperty("autopilot_max_speed", String.valueOf(max_speed));
 		System.out.println("Autopilot: maximum speed: "+max_speed+" m/s");
@@ -204,12 +207,15 @@ public class OffboardManager implements Runnable {
 	}
 
 	public void abort() {
+		if(!enabled)
+			return;
 		already_fired = false;
 		if(action_listener!=null)
 			mode = MODE_LOITER;
 		synchronized(this) {
 			notify();
 		}
+		logger.writeLocalMsg("[msp] Offboard action aborted. Loitering.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 	}
 
 
@@ -452,6 +458,9 @@ public class OffboardManager implements Runnable {
 
 				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 
+				debug.x = debug.y = debug.z = 0;
+				control.sendMAVLinkMessage(debug);
+
 				updateMSPModel(target,null);
 
 				break;
@@ -541,7 +550,7 @@ public class OffboardManager implements Runnable {
 
 				// if vehicle is not moving or close to target and turn angle > 60° => turn before moving
 				if( Math.abs(yaw_diff) > Math.PI/3 &&
-						ctl.value < MAX_TURN_SPEED  && way.value < acceptance_radius_pos) {
+						ctl.value < MAX_TURN_SPEED  && way.value < acceptance_radius_pos_out) {
 					//path.value > MIN_TURN_DISTANCE) {
 					// reduce XY speeds
 					ctl.value = 0;
@@ -553,7 +562,7 @@ public class OffboardManager implements Runnable {
 				if(ctl.value > 0 && trajectory_start_tms == 0)
 					trajectory_start_tms = System.currentTimeMillis();
 
-				if(path.value > acceptance_radius_pos * 3) {
+				if(path.value > acceptance_radius_pos_out) {
 					//  simple P controller for yaw, but only of target further away that 3 * acceptance radius.
 					d_yaw_target = yaw_diff / delta_sec * YAW_PV;
 
@@ -581,8 +590,6 @@ public class OffboardManager implements Runnable {
 
 				debug.x = yaw_diff;
 				debug.y = ctl.value;
-				debug.z = cmd.z;
-				control.sendMAVLinkMessage(debug);
 
 				break;
 
@@ -710,6 +717,14 @@ public class OffboardManager implements Runnable {
 
 		if(!control.sendMAVLinkMessage(speed_cmd))
 			enabled = false;
+
+		switch(lock_mode) {
+		case LOCK_NONE: debug.z = 0; break;
+		case LOCK_Z:    debug.z = 1f; break;
+		case LOCK_XY:   debug.z = 2; break;
+		case LOCK_XYZ:  debug.z = 3f; break;
+		}
+		control.sendMAVLinkMessage(debug);
 
 	}
 
