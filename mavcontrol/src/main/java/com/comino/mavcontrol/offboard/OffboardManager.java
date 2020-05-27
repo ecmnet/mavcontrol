@@ -348,11 +348,11 @@ public class OffboardManager implements Runnable {
 		while(enabled) {
 
 			if(old_mode != mode) {
-				logger.writeLocalMsg("[msp] Offboard: Switched to "+mode_string[mode],MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				if(MSP3DUtils.isNaN(target)) {
-					logger.writeLocalMsg("[msp] Offboard: Using current as target",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 					MSP3DUtils.convertCurrentState(model, target);
+					logger.writeLocalMsg("[msp] Offboard: Using current as target",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				}
+				logger.writeLocalMsg("[msp] Offboard: Switched to "+mode_string[mode],MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				old_mode = mode;
 			}
 
