@@ -6,9 +6,6 @@ import georegression.struct.point.Vector4D_F32;
 
 public class SeqItem {
 
-	public static final int          ABS           = 0;
-	public static final int          REL           = 1;
-
 	public static final int ITEM_TIMEOUT_MS = 60000;
 
 
@@ -19,7 +16,7 @@ public class SeqItem {
 
 
 	public SeqItem(float x, float y, float z, float w) {
-		this(x,y,z,w,REL,null,0);
+		this(x,y,z,w,ISeqAction.REL,null,0);
 	}
 
 	public SeqItem(float x, float y, float z, float w, int mode) {
@@ -41,24 +38,24 @@ public class SeqItem {
 	}
 
 	public SeqItem(ISeqAction action, int delay_ms) {
-		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,REL,action, delay_ms);
+		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,ISeqAction.REL,action, delay_ms);
 	}
 
 	public SeqItem(ISeqAction action) {
-		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,REL,action, 0);
+		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,ISeqAction.REL,action, 0);
 	}
 
 	public Vector4D_F32 getTarget(DataModel model) {
 
 		switch(mode) {
 		// Note: If NaN use current PX4 setpoint for XYZ, for Yaw use current yaw
-		case REL:
+		case ISeqAction.REL:
 			target.x = Float.isNaN(target.x) ? model.target_state.l_x : target.x + model.state.l_x;
 			target.y = Float.isNaN(target.y) ? model.target_state.l_y : target.y + model.state.l_y;
 			target.z = Float.isNaN(target.z) ? model.target_state.l_z : target.z + model.state.l_z;
 			target.w = Float.isNaN(target.w) ? Float.NaN : target.w + model.attitude.y;
 			break;
-		case ABS:
+		case ISeqAction.ABS:
 			target.x = Float.isNaN(target.x) ? model.target_state.l_x : target.x ;
 			target.y = Float.isNaN(target.y) ? model.target_state.l_y : target.y ;
 			target.z = Float.isNaN(target.z) ? model.target_state.l_z : target.z ;
@@ -75,7 +72,7 @@ public class SeqItem {
 	}
 
 	public boolean isRelative() {
-		return mode == REL;
+		return mode == ISeqAction.REL;
 	}
 
 	public long getTimeout_ms() {

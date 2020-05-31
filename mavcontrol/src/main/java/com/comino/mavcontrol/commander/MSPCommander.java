@@ -173,6 +173,10 @@ public class MSPCommander  {
 		return map;
 	}
 
+	public long getTimeSinceTakeoff() {
+		return autopilot.getTimeSinceTakeoff();
+	}
+
 
 	private void restartCompanion(msg_msp_command cmd) {
 		MSPLogger.getInstance().writeLocalMsg("[msp] Flight control restarted",
