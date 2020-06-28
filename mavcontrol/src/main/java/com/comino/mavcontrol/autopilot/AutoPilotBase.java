@@ -77,6 +77,18 @@ import georegression.struct.point.Vector3D_F32;
 import georegression.struct.point.Vector4D_F32;
 
 
+/**
+ * @author ecmnet
+ *
+ */
+/**
+ * @author ecmnet
+ *
+ */
+/**
+ * @author ecmnet
+ *
+ */
 public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	/* TEST ONLY */
@@ -87,6 +99,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	private static final float MAX_REL_DELTA_HEIGHT    = 0.10f;
 	private static final float MAX_TAKEOFF_VZ          = 0.1f;
+
+	private static final int   RC_DEADBAND             = 20;				      // RC Deadband
+	private static final int   RC_LAND_CHANNEL		   = 8;                       // RC channel 8 landing
+	private static final int   RC_LAND_THRESHOLD       = 2010;		              // RC channel 8 landing threshold
 
 	private static AutoPilotBase  autopilot    = null;
 
@@ -100,6 +116,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected boolean                      flowCheck = false;
 
 	protected boolean                      isRunning = false;
+	protected boolean               emergencyLanding = false;
 
 	protected LinkedList<SeqItem>           sequence = null;
 
@@ -238,7 +255,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		// Switch off offboard after disarmed
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
-			takeoff_ms = 0;
+			takeoff_ms = 0; emergencyLanding = false;
 			if(future!=null) future.cancel(true);
 			if(offboard.isEnabled()) {
 				offboard.abort(); offboard.stop();
@@ -419,6 +436,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 
+
+
 	@Override
 	public abstract void run();
 
@@ -575,6 +594,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 
+	/**
+	 * AutopilotAction: Offboard position hold
+	 * @param enable
+	 */
 	public void offboardPosHold(boolean enable) {
 		if(enable) {
 			offboard.start();
@@ -601,6 +624,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 
+	/**
+	 * AutopilotAction: Aborts current AutoPilot sequence
+	 */
 	public void abort() {
 		abortSequence();
 		clearAutopilotActions();
@@ -619,6 +645,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		offboard.stop();
 	}
 
+	/**
+	 * AutopilotAction: Rotates forth and back by a given angle and executes completed action
+	 * @param deg
+	 * @param completedAction
+	 */
 	public void rotate(float deg, ISeqAction completedAction) {
 		clearSequence();
 		float rad = MSPMathUtils.toRad(deg);
@@ -628,6 +659,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		executeSequence(completedAction);
 	}
 
+	/**
+	 * AutopilotAction: Turn to a given angle
+	 * @param deg
+	 */
 	public void turn_to(float deg) {
 		clearSequence();
 		float rad = MSPMathUtils.toRad(deg);
@@ -635,6 +670,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		executeSequence();
 	}
 
+	/**
+	 * AutopilotAction: Return to takoff location and land vehicle
+	 * @param enable
+	 */
 	public void returnToLand(boolean enable) {
 
 		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
@@ -659,42 +698,22 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			return true;
 		},200));
 		executeSequence();
-
-
-		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
-
-		//		autopilot_mode = AUTOPILOT_MODE_ENABLED;
-		//		abortSequence();
-		//
-		//		if(enable) {
-		//
-		//			if((takeoff.x == 0 && takeoff.y == 0) || takeoff.isNaN()) {
-		//				logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-		//				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
-		//				return;
-		//			}
-		//
-		//			logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-		//
-		//			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
-		//			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT, false);
-		//
-		//			offboard.registerActionListener((m,d) -> {
-		//				logger.writeLocalMsg("[msp] Home reached.Landing now.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-		//				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
-		//			});
-		//			offboard.setTarget(takeoff);
-		//			offboard.start(OffboardManager.MODE_SPEED_POSITION);
-		//		} else {
-		//			logger.writeLocalMsg("[msp] Return to launch aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-		//			offboard.setCurrentAsTarget();
-		//			offboard.start(OffboardManager.MODE_LOITER);
-		//			this.autopilot_mode = AUTOPILOT_MODE_NONE;
-		//		}
 	}
 
+	/**
+	 * AutopilotAction: Count down and takeoff
+	 * @param seconds
+	 * @param enable
+	 */
 	public void countDownAndTakeoff(int seconds, boolean enable) {
+		if(!model.sys.isStatus(Status.MSP_ARMED)) {
+			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
+			logger.writeLocalMsg("[msp] CountDown not initiated. Not armed.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+			return;
+		}
+
 		if(enable ) {
+			logger.writeLocalMsg("[msp] CountDown initiated.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 			takeoff_ms = System.currentTimeMillis() + seconds*1000;
 			future = ExecutorService.get().schedule(() -> {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_TAKEOFF, -1, 0, 0, Float.NaN, Float.NaN, Float.NaN,Float.NaN);
@@ -703,12 +722,16 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		} else {
 			if(future!=null) future.cancel(true);
+			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,0 );
 			logger.writeLocalMsg("[msp] CountDown aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 		}
-		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
 	}
 
+	/**
+	 * AutopilotAction: stops and turns to given angle
+	 * @param targetAngle
+	 */
 	public void emergency_stop_and_turn(float targetAngle) {
 		abortSequence();
 		clearAutopilotActions();
@@ -716,6 +739,25 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		offboard.setTarget(model.state.l_x, model.state.l_y, model.state.l_z, targetAngle);
 		offboard.start(OffboardManager.MODE_LOITER);
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
+	}
+
+	//*******************************************************************************/
+	// Safety
+
+	/**
+	 * performs autopilot safety checks:
+	 * 1. Check RC channel 8 for emergency landing
+	 */
+	protected boolean safetyChecks() {
+
+		// Safety: Channel 8 (Mid) triggers landing mode of PX4
+		if(Math.abs(model.rc.get(RC_LAND_CHANNEL) - RC_LAND_THRESHOLD) < RC_DEADBAND && !emergencyLanding) {
+			emergencyLanding = true;
+			logger.writeLocalMsg("[msp] Emergency landing triggered by RC",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
+			return false;
+		}
+		return true;
 	}
 
 
@@ -727,7 +769,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 
-	/*******************************************************************************/
+	//*******************************************************************************/
 	// Map management
 
 	public void resetMap() {

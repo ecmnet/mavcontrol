@@ -47,6 +47,7 @@ import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavutils.MSPMathUtils;
+import com.ochafik.lang.jnaerator.runtime.This;
 
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector4D_F32;
@@ -136,10 +137,16 @@ public class BreakingPilot extends AutoPilotBase {
 
 	public void run() {
 
+		System.out.println(this.getClass().getSimpleName()+" started");
+
 		while(isRunning) {
 
 
 			try { Thread.sleep(CYCLE_MS); } catch(Exception s) { }
+
+			if(!super.safetyChecks()) {
+
+			}
 
 			// Apply filter first
 			if(mapForget && mapFilter != null)
@@ -233,28 +240,5 @@ public class BreakingPilot extends AutoPilotBase {
 	//	System.out.println(MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +":"+ MSPMathUtils.fromRad(obstacle.angle_xy)+":"+MSPMathUtils.fromRad(plannedPath.angle_xy));
 		super.moveto(x, y, z, yaw);
 	}
-
-
-//	private boolean safety_check() {
-//
-//		if(Math.abs(model.rc.s1 -1500) > RC_DEADBAND || Math.abs(model.rc.s2 -1500) > RC_DEADBAND) {
-//			logger.writeLocalMsg("[msp] OffboardUpdater stopped: RC",MAV_SEVERITY.MAV_SEVERITY_INFO);
-//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-//					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
-//			return false;
-//		}
-//
-//		// Safety: Channel 8 (Mid) triggers landing mode of PX4
-//		if(Math.abs(model.rc.get(RC_LAND_CHANNEL) - RC_LAND_THRESHOLD) < RC_DEADBAND) {
-//			logger.writeLocalMsg("[msp] Emergency landing triggered",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
-//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
-//			return false;
-//		}
-//		return true;
-//
-//	}
-
-
 
 }
