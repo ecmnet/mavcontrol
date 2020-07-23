@@ -41,6 +41,7 @@ import org.mavlink.messages.MSP_CMD;
 import org.mavlink.messages.MSP_COMPONENT_CTRL;
 import org.mavlink.messages.lquac.msg_msp_command;
 import org.mavlink.messages.lquac.msg_set_gps_global_origin;
+import org.mavlink.messages.lquac.msg_set_home_position;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVMSPController;
@@ -99,6 +100,13 @@ public class MSPCommander  {
 			gor.target_system = 1;
 			gor.time_usec = model.sys.getSynchronizedPX4Time_us();
 
+			msg_set_home_position pos = new msg_set_home_position(1,1);
+			pos.x = 0;
+			pos.y = 0;
+			pos.z = 0;
+			pos.altitude = (int)(altitude * 1000);
+			pos.time_usec = model.sys.getSynchronizedPX4Time_us();
+
 			//
 			//			msg_hil_gps gps = new msg_hil_gps(1,1);
 			//			gps.lat = (long)(lat * 1e7);
@@ -114,6 +122,7 @@ public class MSPCommander  {
 					&& (System.currentTimeMillis() - tms) < MAX_GPOS_SET_MS) {
 				//				control.sendMAVLinkMessage(gps);
 				control.sendMAVLinkMessage(gor);
+				control.sendMAVLinkMessage(pos);
 				try {
 					Thread.sleep(200);
 				} catch (InterruptedException e) { }
@@ -123,6 +132,8 @@ public class MSPCommander  {
 			//			gps.satellites_visible = 0;
 			//			gps.fix_type = 0;
 			//			control.sendMAVLinkMessage(gps);
+
+			System.out.println("Setting reference position finalized");
 
 			if(model.sys.isStatus(Status.MSP_GPOS_VALID))
 				MSPLogger.getInstance().writeLocalMsg("[msp] Reference position set from MAVGCL",
@@ -179,6 +190,7 @@ public class MSPCommander  {
 
 
 	private void restartCompanion(msg_msp_command cmd) {
+        control.sendShellCommand("reboot");
 		MSPLogger.getInstance().writeLocalMsg("[msp] Flight control restarted",
 				MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 		if(model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_ARMED))
