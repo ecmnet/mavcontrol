@@ -1,6 +1,7 @@
 package com.comino.mavcontrol.struct;
 
 import com.comino.mavcom.model.DataModel;
+import com.comino.mavcontrol.offboard.IOffboardExternalControl;
 
 import georegression.struct.point.Vector4D_F32;
 
@@ -9,24 +10,23 @@ public class SeqItem {
 	public static final int ITEM_TIMEOUT_MS = 60000;
 
 
-	private Vector4D_F32          target = null;
-	private int                     mode = 0;
-	private ISeqAction            action = null;
-	private int                 delay_ms = 0;
+	private Vector4D_F32              target = null;
+	private int                          mode = 0;
+	private ISeqAction                 action = null;
+	private IOffboardExternalControl  control = null;
+	private int                      delay_ms = 0;
 
 
-	public SeqItem(float x, float y, float z, float w) {
-		this(x,y,z,w,ISeqAction.REL,null,0);
-	}
-
-	public SeqItem(float x, float y, float z, float w, int mode) {
-		this(x,y,z,w,mode,null,0);
-	}
 
 	public SeqItem(float x, float y, float z, float w, int mode, ISeqAction action, int delay_ms) {
+		this(x,y,z,w,ISeqAction.REL,action,null,delay_ms);
+	}
+
+	public SeqItem(float x, float y, float z, float w, int mode, ISeqAction action, IOffboardExternalControl control, int delay_ms) {
 		this.target    = new Vector4D_F32(x,y,z,w);
 		this.mode      = mode;
 		this.action    = action;
+		this.control   = control;
 		this.delay_ms  = delay_ms;
 	}
 
@@ -37,12 +37,20 @@ public class SeqItem {
 		this.delay_ms  = delay_ms;
 	}
 
+	public SeqItem(float x, float y, float z, float w) {
+		this(x,y,z,w,ISeqAction.REL,null,null,0);
+	}
+
+	public SeqItem(float x, float y, float z, float w, int mode) {
+		this(x,y,z,w,mode,null,null, 0);
+	}
+
 	public SeqItem(ISeqAction action, int delay_ms) {
-		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,ISeqAction.REL,action, delay_ms);
+		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,ISeqAction.REL,action, null, delay_ms);
 	}
 
 	public SeqItem(ISeqAction action) {
-		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,ISeqAction.REL,action, 0);
+		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,ISeqAction.REL,action, null, 0);
 	}
 
 	public Vector4D_F32 getTarget(DataModel model) {
@@ -77,6 +85,10 @@ public class SeqItem {
 
 	public long getTimeout_ms() {
 		return ITEM_TIMEOUT_MS + delay_ms;
+	}
+
+	public IOffboardExternalControl getControlListener() {
+		return control;
 	}
 
 	public boolean executeAction() {

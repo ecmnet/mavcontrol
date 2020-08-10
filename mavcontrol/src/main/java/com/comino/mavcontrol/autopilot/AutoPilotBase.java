@@ -359,6 +359,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				control.writeLogMessage(new LogMessage("[msp] Step "+i+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				SeqItem item = sequence.poll();
 				if(item.hasTarget()) {
+					if(item.getControlListener()!=null)
+					   offboard.registerExternalControlListener(item.getControlListener());
 					offboard.setTarget(item.getTarget(model));
 					if(!offboard.start_wait(OffboardManager.MODE_SPEED_POSITION, item.getTimeout_ms())) {
 						model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
@@ -716,6 +718,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		}
 
 		model.vision.setStatus(Vision.FIDUCIAL_ACTIVE, true);
+		model.vision.py = 0.3f;
 		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 		addToSequence(new SeqItem(takeoff,ISeqAction.ABS, null,0));
 		addToSequence(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
@@ -725,8 +728,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				clearAutopilotActions();
 			} else {
 				logger.writeLocalMsg("[msp] Perform precision landing.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-				// TODO: Initiate precision landing
-				addToSequence(new SeqItem(takeoff,ISeqAction.ABS, null,0));
+				// Move according to precision_offset
+				landing_preparation.plusIP(new Vector4D_F32(model.vision.px, model.vision.py,0,0));
+
+				// TODO: Should not turn to target
+				addToSequence(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
 				addToSequence(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, ISeqAction.ABS, () -> {
 					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
 					return true;
