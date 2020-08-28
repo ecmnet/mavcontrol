@@ -179,6 +179,15 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE,
 				config.getBoolProperty("autopilot_takeoff_procedure", "false"));
 
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK,
+				config.getBoolProperty("autopilot_precision_lock", "false"));
+
+//		control.getStatusManager().addListener( StatusManager.TYPE_MSP_SERVICES, Status.MSP_FIDUCIAL, StatusManager.EDGE_RISING, (n) -> {
+//			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK)) {
+//				control.writeLogMessage(new LogMessage("[msp] Precision locking initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+//			}
+//		});
+
 		//**********
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_TAKEOFF, StatusManager.EDGE_RISING, (n) -> {
 
