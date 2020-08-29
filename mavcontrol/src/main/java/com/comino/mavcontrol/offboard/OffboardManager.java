@@ -68,23 +68,24 @@ public class OffboardManager implements Runnable {
 	public static final int MODE_LOCAL_SPEED                		= 3;
 	public static final int MODE_SPEED_POSITION	 	    			= 4;
 	public static final int MODE_BEZIER                             = 5;
+	public static final int MODE_ADJUST_XY                          = 6;
 
-	private static final String[] mode_string                       = { "INIT", "IDLE", "LOITER","SPEED","SPEEDPOS","BEZIER" };
+	private static final String[] mode_string                       = { "INIT", "IDLE", "LOITER","SPEED","SPEEDPOS","BEZIER","ADJUST" };
 
 	private static final int  LOCK_NONE								= 0;
 	private static final int  LOCK_Z                                = 1;
 	private static final int  LOCK_XY                               = 2;
 	private static final int  LOCK_XYZ                              = 3;
 
-	private static final int  UPDATE_RATE                 			= 50;					  // offboard update rate in ms
-	private static final long OFFBOARD_INIT_DELAY                   = 2*UPDATE_RATE;		  // initial delay
+	private static final int  UPDATE_RATE                 			= 33;					  // offboard update rate in ms
+	private static final long OFFBOARD_INIT_DELAY                   = 3*UPDATE_RATE;		  // initial delay
 
 
 	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(45); // Max YawSpeed rad/s
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(4);  // Min yawSpeed rad/s
 	private static final float RAMP_YAW_SPEED                       = MSPMathUtils.toRad(30); // Ramp up Speed for yaw turning
 	private static final float MAX_TURN_SPEED               		= 0.3f;   	              // Max speed that allow turning before start in m/s
-	private static final float MIN_TURN_DISTANCE              		= 0.3f;   	              // Min distance to path target that allow z-Locking
+	private static final float MIN_TURN_DISTANCE              		= 0.6f;   	              // Min distance to path that allow turning
 	private static final float MAX_SPEED							= 1.0f;					  // Max speed m/s
 
 	private static final int   RC_DEADBAND             				= 20;				      // RC XY deadband for safety check
@@ -127,7 +128,7 @@ public class OffboardManager implements Runnable {
 	private float      max_speed                                    = MAX_SPEED;
 
 	private float	 	acceptance_radius_pos						= 0.10f;
-	private float	 	acceptance_radius_pos_out					= 0.10f;
+	private float	 	acceptance_radius_pos_out					= MIN_TURN_DISTANCE;
 	private boolean    	already_fired			    				= false;
 	private boolean    	valid_setpoint                   			= false;
 	private boolean    	new_setpoint                   	 			= false;
@@ -150,8 +151,6 @@ public class OffboardManager implements Runnable {
 
 		acceptance_radius_pos = config.getFloatProperty("autopilot_acceptance_radius", String.valueOf(acceptance_radius_pos));
 		System.out.println("Autopilot: acceptance radius: "+acceptance_radius_pos+" m");
-
-		acceptance_radius_pos_out = acceptance_radius_pos * 3;
 
 		max_speed = config.getFloatProperty("autopilot_max_speed", String.valueOf(max_speed));
 		System.out.println("Autopilot: maximum speed: "+max_speed+" m/s");
@@ -184,14 +183,15 @@ public class OffboardManager implements Runnable {
 		if(!enabled) {
 			enabled = true;
 			new Thread(this).start();
-			System.out.println("Offboard updater started..");
-			try { Thread.sleep(OFFBOARD_INIT_DELAY); } catch (InterruptedException e) { }
 		}
+		try { Thread.sleep(OFFBOARD_INIT_DELAY); } catch (InterruptedException e) { }
 
 	}
 
 	public boolean start_wait(int m, long timeout) {
 		start(m);
+		control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED
+				| MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED, MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
 		synchronized(this) {
 			if(!already_fired) {
 				long tstart = System.currentTimeMillis();
@@ -455,9 +455,6 @@ public class OffboardManager implements Runnable {
 
 				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 
-				debug.x = debug.y = debug.z = 0;
-				control.sendMAVLinkMessage(debug);
-
 				updateMSPModel(target,null);
 
 				break;
@@ -560,7 +557,7 @@ public class OffboardManager implements Runnable {
 					trajectory_start_tms = System.currentTimeMillis();
 
 				if(path.value > acceptance_radius_pos_out) {
-					//  simple P controller for yaw, but only of target further away that 3 * acceptance radius.
+					//  simple P controller for yaw, but only of target further away.
 					d_yaw_target = yaw_diff / delta_sec * YAW_PV;
 
 					// ramp up/down yaw speed
@@ -585,15 +582,56 @@ public class OffboardManager implements Runnable {
 
 				updateMSPModel(target,path);
 
-				debug.x = yaw_diff;
-				debug.y = ctl.value;
-
 				break;
 
 			case MODE_BEZIER:
 
 				logger.writeLocalMsg("[msp] Offboard manager bezier mode not supported",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				mode = MODE_LOITER;
+
+				break;
+
+
+
+			case MODE_ADJUST_XY:
+
+				watch_tms = System.currentTimeMillis();
+
+				yaw_diff = MSPMathUtils.normAngle2(target.w - current.w);
+
+				if(MSP3DUtils.distance2D(target, current) < 0.05f && valid_setpoint && !already_fired) {
+					mode = MODE_LOITER;
+					fireAction(model, path.value);
+				} else {
+
+					d_yaw_target = yaw_diff * YAW_P;
+					if(d_yaw_target > 0) {
+						d_yaw = d_yaw + (RAMP_YAW_SPEED * delta_sec);
+						if(d_yaw > d_yaw_target)
+							d_yaw = d_yaw_target;
+					} else if(d_yaw_target < 0) {
+						d_yaw = d_yaw - (RAMP_YAW_SPEED * delta_sec );
+						if(d_yaw < d_yaw_target)
+							d_yaw = d_yaw_target;
+					}
+
+
+					// limit min yaw speed if action not fired yet
+					if(Math.abs(d_yaw)< MIN_YAW_SPEED)
+						d_yaw = MIN_YAW_SPEED * Math.signum(d_yaw_target);
+
+					if(Math.abs(d_yaw)>MAX_YAW_SPEED)
+						d_yaw = MAX_YAW_SPEED * Math.signum(d_yaw_target);
+
+					ctl.angle_xy = MSP3DUtils.angleXY(target, current);
+					ctl.angle_xz = 0;
+					ctl.value = 0.1f;
+
+					ctl.get(cmd);
+					cmd.w = d_yaw;
+					sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED, LOCK_Z);
+
+				}
 
 				break;
 
@@ -714,14 +752,6 @@ public class OffboardManager implements Runnable {
 
 		if(!control.sendMAVLinkMessage(speed_cmd))
 			enabled = false;
-
-		switch(lock_mode) {
-		case LOCK_NONE: debug.z = 0; break;
-		case LOCK_Z:    debug.z = 1f; break;
-		case LOCK_XY:   debug.z = 2; break;
-		case LOCK_XYZ:  debug.z = 3f; break;
-		}
-		control.sendMAVLinkMessage(debug);
 
 	}
 

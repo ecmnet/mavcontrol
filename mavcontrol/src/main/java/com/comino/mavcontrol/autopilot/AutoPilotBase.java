@@ -182,11 +182,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK,
 				config.getBoolProperty("autopilot_precision_lock", "false"));
 
-//		control.getStatusManager().addListener( StatusManager.TYPE_MSP_SERVICES, Status.MSP_FIDUCIAL, StatusManager.EDGE_RISING, (n) -> {
-//			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK)) {
-//				control.writeLogMessage(new LogMessage("[msp] Precision locking initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-//			}
-//		});
+		//		control.getStatusManager().addListener( StatusManager.TYPE_MSP_SERVICES, Status.MSP_FIDUCIAL, StatusManager.EDGE_RISING, (n) -> {
+		//			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK)) {
+		//				control.writeLogMessage(new LogMessage("[msp] Precision locking initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+		//			}
+		//		});
 
 		//**********
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_TAKEOFF, StatusManager.EDGE_RISING, (n) -> {
@@ -238,17 +238,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
 
+			control.writeLogMessage(new LogMessage("[msp] Setting home position.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
+
 			try { Thread.sleep(200); } catch(Exception e) { }
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))
 				this.takeoffCompleted();
-
-		});
-
-		// offboard mode enabled action
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_OFFBOARD, StatusManager.EDGE_RISING, (n) -> {
-			control.writeLogMessage(new LogMessage("[msp] Setting home position.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
-			//control.writeLogMessage(new LogMessage("[msp] Offboard enabled.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
 		});
 
@@ -300,9 +295,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			appended.add(item);
 	}
 
-//	protected void appendToRunningSequence(SeqItem item) {
-//		appended.add(item);
-//	}
+	//	protected void appendToRunningSequence(SeqItem item) {
+	//		appended.add(item);
+	//	}
 
 	protected void clearSequence() {
 		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
@@ -362,14 +357,14 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 			try { Thread.sleep(50); } catch (InterruptedException e) { }
 
-	//		final ListIterator<SeqItem> i = sequence.listIterator();
+			//		final ListIterator<SeqItem> i = sequence.listIterator();
 			while(!sequence.isEmpty() && model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
 				model.slam.wpcount  = ++i;
 				control.writeLogMessage(new LogMessage("[msp] Step "+i+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				SeqItem item = sequence.poll();
 				if(item.hasTarget()) {
 					if(item.getControlListener()!=null)
-					   offboard.registerExternalControlListener(item.getControlListener());
+						offboard.registerExternalControlListener(item.getControlListener());
 					offboard.setTarget(item.getTarget(model));
 					if(!offboard.start_wait(OffboardManager.MODE_SPEED_POSITION, item.getTimeout_ms())) {
 						model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
@@ -507,6 +502,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		case MSP_AUTOCONTROL_ACTION.ROTATE:
 			System.out.println("Turn to "+param);
 			turn_to(param);
+			break;
+		case MSP_AUTOCONTROL_ACTION.LOCK:
+			execute_lock(false);
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
 			planner.enable(enable);
@@ -646,7 +644,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
 			}
 		} else {
-			if(model.sys.nav_state==Status.NAVIGATION_STATE_OFFBOARD) {
+			if(model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
@@ -703,6 +701,42 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	/**
+	 * AutopilotAction: Execute lock
+	 */
+	public void execute_lock(boolean land) {
+
+		if(control.isSimulation()) {
+			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
+			model.vision.px = model.state.l_x + 0.3f;
+			model.vision.py = model.state.l_y + 0.3f;
+		}
+
+		final boolean is_offboard = model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD);
+
+		if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED) && !model.sys.isStatus(Status.MSP_LANDED)) {
+			ExecutorService.get().submit(() -> {
+				control.writeLogMessage(new LogMessage("[msp] Executing lock procedure.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+				offboard.setTarget(model.vision.px, model.vision.py, model.target_state.l_z, model.attitude.y);
+				offboard.start_wait(OffboardManager.MODE_ADJUST_XY, 10000);
+				if(land) {
+					control.writeLogMessage(new LogMessage("[msp] Executing lock finalized. Landing.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
+					return;
+				}
+				if(!is_offboard) {
+					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+							MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+							MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
+					offboard.stop();
+				}
+				control.writeLogMessage(new LogMessage("[msp] Executing lock finalized.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+			});
+		} else
+			control.writeLogMessage(new LogMessage("[msp] Executing lock procedure refused.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+
+	}
+
+	/**
 	 * AutopilotAction: Return to takoff location and land vehicle with fiducial support
 	 * @param enable
 	 */
@@ -726,8 +760,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			return;
 		}
 
-		model.vision.setStatus(Vision.FIDUCIAL_ACTIVE, true);
-		model.vision.py = 0.3f;
 		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 		addToSequence(new SeqItem(takeoff,ISeqAction.ABS, null,0));
 		addToSequence(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
@@ -806,7 +838,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		if(Math.abs(model.rc.get(RC_LAND_CHANNEL) - RC_LAND_THRESHOLD) < RC_DEADBAND && !emergencyLanding) {
 			emergencyLanding = true;
 			logger.writeLocalMsg("[msp] Emergency landing triggered by RC",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
+			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED))
+				execute_lock(true);
+			else
+			    control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
 			return false;
 		}
 		return true;
