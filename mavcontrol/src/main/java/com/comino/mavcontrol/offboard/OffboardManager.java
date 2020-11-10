@@ -48,7 +48,9 @@ import com.comino.mavcom.log.MSPLogger;
 import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.mavlink.MAV_MASK;
 import com.comino.mavcom.model.DataModel;
+import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard.control.DefaultConstraintListener;
@@ -162,15 +164,20 @@ public class OffboardManager implements Runnable {
 
 		MSP3DUtils.setNaN(target);
 
+		// set to manual mode when armed/disarmed
 		control.getStatusManager().addListener(Status.MSP_ARMED, (n) -> {
 			model.slam.clear();
 			model.slam.tms = model.sys.getSynchronizedPX4Time_us();
 
-			// set to manual mode when armed/disarmed
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
 
+		});
+		
+		// Switch off OffboardManager if PX4 LoiterMode entered
+		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LOITER, StatusManager.EDGE_RISING, (n) -> {
+             stop();		
 		});
 	}
 
