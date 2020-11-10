@@ -98,8 +98,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected static final int   CERTAINITY_THRESHOLD  = 100;
 	protected static final float WINDOWSIZE       	   = 3.0f;
 
-	private static final float MAX_REL_DELTA_HEIGHT    = 0.10f;
-	private static final float MAX_TAKEOFF_VZ          = 0.1f;
+	protected static final float MAX_REL_DELTA_HEIGHT  = 0.10f;
+	protected static final float MAX_TAKEOFF_VZ        = 0.1f;
 
 	private static final int   RC_DEADBAND             = 20;				      // RC Deadband
 	private static final int   RC_LAND_CHANNEL		   = 8;                       // RC channel 8 landing
@@ -112,6 +112,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected IMAVController                control  = null;
 	protected ILocalMap				        map      = null;
 	protected OffboardManager               offboard = null;
+	protected PX4Parameters                 params   = null;
 
 	protected boolean			           mapForget = false;
 	protected boolean                      flowCheck = false;
@@ -163,9 +164,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.control  = control;
 		this.model    = control.getCurrentModel();
 		this.logger   = MSPLogger.getInstance();
-		this.offboard = new OffboardManager(control);
+		this.params   = PX4Parameters.getInstance();
 		this.sequence = new LinkedList<SeqItem>();
 		this.appended = new LinkedList<SeqItem>();
+		
+		this.offboard = new OffboardManager(control);
 
 		this.map      = new LocalMap2DRaycast(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
 		this.mapForget = config.getBoolProperty("autopilot_forget_map", "true");
@@ -181,21 +184,66 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK,
 				config.getBoolProperty("autopilot_precision_lock", "false"));
+		
+		// Register actions
 
-		//		control.getStatusManager().addListener( StatusManager.TYPE_MSP_SERVICES, Status.MSP_FIDUCIAL, StatusManager.EDGE_RISING, (n) -> {
-		//			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK)) {
-		//				control.writeLogMessage(new LogMessage("[msp] Precision locking initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-		//			}
-		//		});
+		registerTakeoff();
+		registerLanding();
+		registerDisarm();
+		
+		// Limit offboard max speed to PX4 speed limit
+		control.getStatusManager().addListener(Status.MSP_PARAMS_LOADED, (n) -> {
+			if(n.isStatus(Status.MSP_PARAMS_LOADED)) {	
+				final ParameterAttributes  speed_limit_param   = params.getParam("MPC_XY_VEL_MAX");
+				offboard.setMaxSpeed(speed_limit_param.value);
+			}
+		});
 
-		//**********
+
+
+	}
+
+	protected void registerDisarm() {
+
+		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
+
+			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
+			takeoff_ms = 0; emergencyLanding = false;
+			if(future!=null) future.cancel(true);
+
+			if(offboard.isEnabled()) {
+				offboard.abort(); offboard.stop();
+				control.writeLogMessage(new LogMessage("[msp] Switched to manual mode.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
+				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
+
+				control.sendMAVLinkMessage(new msg_debug_vect(1,2));
+			}
+		});
+
+	}
+
+	protected void registerLanding() {
+
+		// Abort any sequence if PX4 landing is triggered
+		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
+			abortSequence();
+			if(future!=null) future.cancel(true);
+		});
+
+	}
+
+	protected void registerTakeoff() {
+
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_TAKEOFF, StatusManager.EDGE_RISING, (n) -> {
 
-			final ParameterAttributes  takeoff_alt_param   = PX4Parameters.getInstance().getParam("MIS_TAKEOFF_ALT");
-			final ParameterAttributes  takeoff_speed_param = PX4Parameters.getInstance().getParam("MPC_TKO_SPEED");
+			final ParameterAttributes  takeoff_alt_param   = params.getParam("MIS_TAKEOFF_ALT");
+			final ParameterAttributes  takeoff_speed_param = params.getParam("MPC_TKO_SPEED");
 
 			// calculate maximum takeoff time
-			final int max_tko_time_ms = (int)(takeoff_alt_param.value / takeoff_speed_param.value ) * 1000 + 10000;
+			final int max_tko_time_ms = (int)(takeoff_alt_param.value / takeoff_speed_param.value ) * 1000 + 15000;
 
 			control.writeLogMessage(new LogMessage("[msp] Takeoff proecdure initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
@@ -243,41 +291,14 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 			try { Thread.sleep(200); } catch(Exception e) { }
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))
-				this.takeoffCompleted();
+				this.takeoffCompletedAction();
 
 		});
 
-		// Abort any sequence if PX4 landing is triggered
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
-			abortSequence();
-			if(future!=null) future.cancel(true);
-		});
-
-		//		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
-		//			if(offboard.isEnabled() && !model.sys.isStatus(Status.MSP_JOY_ATTACHED)) {
-		//				offboard.abort(); offboard.stop();
-		//			}
-		//		});
-
-		// Switch off offboard after disarmed
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
-			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
-			takeoff_ms = 0; emergencyLanding = false;
-			if(future!=null) future.cancel(true);
-			if(offboard.isEnabled()) {
-				offboard.abort(); offboard.stop();
-				control.writeLogMessage(new LogMessage("[msp] Switched to manual mode.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
-				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
-
-				control.sendMAVLinkMessage(new msg_debug_vect(1,2));
-			}
-		});
 	}
 
-	protected void takeoffCompleted() {
+
+	protected void takeoffCompletedAction() {
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, true);
 		control.writeLogMessage(new LogMessage("[msp] Obstacle survey executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -841,7 +862,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED))
 				execute_lock(true);
 			else
-			    control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
 			return false;
 		}
 		return true;

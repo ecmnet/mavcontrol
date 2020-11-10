@@ -86,9 +86,13 @@ public class OffboardManager implements Runnable {
 	private static final float RAMP_YAW_SPEED                       = MSPMathUtils.toRad(30); // Ramp up Speed for yaw turning
 	private static final float MAX_TURN_SPEED               		= 0.3f;   	              // Max speed that allow turning before start in m/s
 	private static final float MIN_TURN_DISTANCE              		= 0.6f;   	              // Min distance to path that allow turning
-	private static final float MAX_SPEED							= 1.0f;					  // Max speed m/s
 
-	private static final int   RC_DEADBAND             				= 20;				      // RC XY deadband for safety check
+	private static final float MAX_SPEED							= 0.5f;					  // Max speed m/s
+	private static final float MIN_SPEED							= 0.1f;					  // Min speed m/s
+
+
+
+	private static final int   RC_DEADBAND             				= 10;				      // RC XY deadband for safety check
 
 	private static final int SETPOINT_TIMEOUT_MS         			= 75000;
 
@@ -126,6 +130,7 @@ public class OffboardManager implements Runnable {
 	private final msg_debug_vect  debug                             = new msg_debug_vect(1,2);
 
 	private float      max_speed                                    = MAX_SPEED;
+	private float      min_speed                                    = MIN_SPEED;
 
 	private float	 	acceptance_radius_pos						= 0.10f;
 	private float	 	acceptance_radius_pos_out					= MIN_TURN_DISTANCE;
@@ -153,7 +158,7 @@ public class OffboardManager implements Runnable {
 		System.out.println("Autopilot: acceptance radius: "+acceptance_radius_pos+" m");
 
 		max_speed = config.getFloatProperty("autopilot_max_speed", String.valueOf(max_speed));
-		System.out.println("Autopilot: maximum speed: "+max_speed+" m/s");
+		System.out.println("Autopilot: MSP maximum speed: "+max_speed+" m/s");
 
 		MSP3DUtils.setNaN(target);
 
@@ -186,6 +191,13 @@ public class OffboardManager implements Runnable {
 		}
 		try { Thread.sleep(OFFBOARD_INIT_DELAY); } catch (InterruptedException e) { }
 
+	}
+
+	public void setMaxSpeed(double speed_limit) {
+		if(max_speed > speed_limit) {
+			max_speed = (float)speed_limit;
+			System.out.println("Autopilot: maximum speed limited to PX4 speed: "+max_speed+" m/s");
+		} 
 	}
 
 	public boolean start_wait(int m, long timeout) {
@@ -505,6 +517,7 @@ public class OffboardManager implements Runnable {
 
 				// external speed control via control callback ?
 				ext_control_listener.determineSpeedAnDirection(delta_sec, ela_sec, eta_sec, spd, path, ctl);
+				ctl.value = MSPMathUtils.constraint(ctl.value, max_speed, min_speed);
 
 
 				// check external constraints
