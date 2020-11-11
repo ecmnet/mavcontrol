@@ -5,6 +5,8 @@ import java.util.ListIterator;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import org.mavlink.messages.MAV_BATTERY_CHARGE_STATE;
+
 /****************************************************************************
  *
  *   Copyright (c) 2017,2020 Eike Mansfeld ecm@gmx.de. All rights reserved.
@@ -190,17 +192,36 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		registerTakeoff();
 		registerLanding();
 		registerDisarm();
+		registerLowBattery();
 		
 		// Limit offboard max speed to PX4 speed limit
 		control.getStatusManager().addListener(Status.MSP_PARAMS_LOADED, (n) -> {
 			if(n.isStatus(Status.MSP_PARAMS_LOADED)) {	
-				final ParameterAttributes  speed_limit_param   = params.getParam("MPC_XY_VEL_MAX");
+				final ParameterAttributes  speed_limit_param = params.getParam("MPC_XY_VEL_MAX");
 				offboard.setMaxSpeed(speed_limit_param.value);
 			}
 		});
 
 
 
+	}
+	
+	protected void registerLowBattery() {
+		control.getStatusManager().addListener(StatusManager.TYPE_BATTERY, MAV_BATTERY_CHARGE_STATE.MAV_BATTERY_CHARGE_STATE_LOW, (n) -> {
+			logger.writeLocalMsg("[msp] Battery low procedure triggered",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+			
+			// Different actions depending on the current mode, e.g.
+			// Shutdown MSP, Switch off SLAM, RTL, Landing, etc
+			
+		});
+		
+		control.getStatusManager().addListener(StatusManager.TYPE_BATTERY, MAV_BATTERY_CHARGE_STATE.MAV_BATTERY_CHARGE_STATE_CRITICAL, (n) -> {
+			logger.writeLocalMsg("[msp] Battery critical procedure triggered",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
+			
+			// Different actions depending on the current mode, e.g.
+			// Shutdown MSP, Switch off SLAM, RTL, Landing, etc
+			
+		});
 	}
 
 	protected void registerDisarm() {
@@ -286,7 +307,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
 
-			control.writeLogMessage(new LogMessage("[msp] Setting home position.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			control.writeLogMessage(new LogMessage("[msp] Setting takeoff position.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
 
 			try { Thread.sleep(200); } catch(Exception e) { }
