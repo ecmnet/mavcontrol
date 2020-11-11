@@ -215,8 +215,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		
 		registerDisarm();
 		
-		registerLowBattery();
-		
 		// Limit offboard max speed to PX4 speed limit
 		control.getStatusManager().addListener(Status.MSP_PARAMS_LOADED, (n) -> {
 			if(n.isStatus(Status.MSP_PARAMS_LOADED)) {	
@@ -229,23 +227,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	}
 	
-	protected void registerLowBattery() {
-		control.getStatusManager().addListener(StatusManager.TYPE_BATTERY, MAV_BATTERY_CHARGE_STATE.MAV_BATTERY_CHARGE_STATE_LOW, (n) -> {
-			logger.writeLocalMsg("[msp] Battery low procedure triggered",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-			
-			// Different actions depending on the current mode, e.g.
-			// Shutdown MSP, Switch off SLAM, RTL, Landing, etc
-			
-		});
-		
-		control.getStatusManager().addListener(StatusManager.TYPE_BATTERY, MAV_BATTERY_CHARGE_STATE.MAV_BATTERY_CHARGE_STATE_CRITICAL, (n) -> {
-			logger.writeLocalMsg("[msp] Battery critical procedure triggered",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
-			
-			// Different actions depending on the current mode, e.g.
-			// Shutdown MSP, Switch off SLAM, RTL, Landing, etc
-			
-		});
-	}
 
 	protected void registerDisarm() {
 

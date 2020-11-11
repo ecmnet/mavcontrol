@@ -35,7 +35,9 @@
 package com.comino.mavcontrol.commander;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
+import org.mavlink.messages.MAV_BATTERY_CHARGE_STATE;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_CMD;
 import org.mavlink.messages.MSP_COMPONENT_CTRL;
@@ -49,6 +51,7 @@ import com.comino.mavcom.log.MSPLogger;
 import com.comino.mavcom.mavlink.IMAVLinkListener;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavmap.map.map2D.ILocalMap;
 import com.comino.mavutils.legacy.ExecutorService;
@@ -60,18 +63,20 @@ public class MSPCommander  {
 	private AutoPilotBase           autopilot 	= null;
 	private DataModel                  model 	= null;
 	private ILocalMap                	map  	= null;
+	private MSPLogger                  logger   = null;
 
 	public MSPCommander(IMAVMSPController control, MSPConfig config) {
 
 
 		this.control = control;
 		this.model   = control.getCurrentModel();
+		this.logger  = MSPLogger.getInstance();
 
 		registerCommands();
 
 		System.out.println("Commander initialized");
 
-//		String autopilot_class = config.getProperty("autopilot_class", "com.comino.mavcontrol.autopilot.TrajectoryPilot");
+		//		String autopilot_class = config.getProperty("autopilot_class", "com.comino.mavcontrol.autopilot.TrajectoryPilot");
 		String autopilot_class = config.getProperty("autopilot_class", "com.comino.mavcontrol.autopilot.BreakingPilot");
 
 		this.autopilot =  AutoPilotBase.getInstance(autopilot_class,control,config);
@@ -142,6 +147,30 @@ public class MSPCommander  {
 
 		}, ExecutorService.LOW );
 
+		registerLowBattery();
+
+	}
+
+	private void registerLowBattery() {
+		control.getStatusManager().addListener(StatusManager.TYPE_BATTERY, MAV_BATTERY_CHARGE_STATE.MAV_BATTERY_CHARGE_STATE_LOW, (n) -> {
+			logger.writeLocalMsg("[msp] Battery low procedure triggered",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+
+			// Different actions depending on the current mode, e.g.
+			// Shutdown MSP, Switch off SLAM, RTL, Landing, etc
+
+		});
+
+		control.getStatusManager().addListener(StatusManager.TYPE_BATTERY, MAV_BATTERY_CHARGE_STATE.MAV_BATTERY_CHARGE_STATE_CRITICAL, (n) -> {
+			logger.writeLocalMsg("[msp] Battery critical procedure triggered",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
+
+			// Shutdown MSP if vehicle is not armed
+			if(!model.sys.isStatus(Status.MSP_ARMED) && model.sys.isStatus(Status.MSP_LANDED))
+				shutdownCompanion();	
+
+			// Different actions depending on the current mode, e.g.
+			// Shutdown MSP, Switch off SLAM, RTL, Landing, etc
+
+		});
 	}
 
 	private void registerCommands() {
@@ -155,7 +184,7 @@ public class MSPCommander  {
 					msg_msp_command cmd = (msg_msp_command)o;
 					switch(cmd.command) {
 					case MSP_CMD.MSP_CMD_RESTART:
-						restartCompanion(cmd);
+						restartCompanion();
 						break;
 					case MSP_CMD.MSP_CMD_OFFBOARD_SETLOCALPOS:
 						setOffboardPosition(cmd);
@@ -190,16 +219,26 @@ public class MSPCommander  {
 	}
 
 
-	private void restartCompanion(msg_msp_command cmd) {
-        control.sendShellCommand("reboot");
+	private void restartCompanion() {
+		control.sendShellCommand("reboot");
 		MSPLogger.getInstance().writeLocalMsg("[msp] Flight control restarted",
 				MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 		if(model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_ARMED))
 			executeConsoleCommand("service flightcontrol restart");
 		else
-			MSPLogger.getInstance().writeLocalMsg("[msp] Linux command rejected.",
+			MSPLogger.getInstance().writeLocalMsg("[msp] Restart command rejected.",
 					MAV_SEVERITY.MAV_SEVERITY_WARNING);
+	}
 
+	private void shutdownCompanion() {
+
+		logger.writeLocalMsg("[msp] Shutdown of MSP companion in 10 seconds.",MAV_SEVERITY.MAV_SEVERITY_INFO);	
+		ExecutorService.get().schedule(() -> {
+			logger.writeLocalMsg("[msp] Shutdown of MSP companion now!",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);	
+			if(!control.isSimulation() && !model.sys.isStatus(Status.MSP_ARMED)) {
+				executeConsoleCommand("shutdown -h now");
+			}
+		}, 10, TimeUnit.SECONDS);
 	}
 
 
