@@ -42,6 +42,7 @@ import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.mavlink.MAV_CUST_MODE;
+import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
@@ -87,6 +88,11 @@ public class BreakingPilot extends AutoPilotBase {
 		super(control,config);
 
 		this.obstacle.value = Float.POSITIVE_INFINITY;
+		
+		control.getStatusManager().addListener(Status.MSP_PARAMS_LOADED, (n) -> {
+			if(n.isStatus(Status.MSP_PARAMS_LOADED))		
+				params.sendParameter("COM_OBS_AVOID", 0.0f);
+		});
 
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_AUTOPILOT, MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT, StatusManager.EDGE_BOTH, (n) -> {
 			if(n.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT)) {
@@ -203,8 +209,8 @@ public class BreakingPilot extends AutoPilotBase {
 		}
 	}
 
-	protected void takeoffCompleted() {
-		super.takeoffCompleted();
+	protected void takeoffCompletedAction() {
+		super.takeoffCompletedAction();
 	}
 
 

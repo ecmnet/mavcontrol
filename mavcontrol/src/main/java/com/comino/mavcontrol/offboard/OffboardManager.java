@@ -176,7 +176,8 @@ public class OffboardManager implements Runnable {
 		});
 		
 		// Switch off OffboardManager if PX4 LoiterMode entered
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LOITER, StatusManager.EDGE_RISING, (n) -> {
+		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, 
+				                  Status.NAVIGATION_STATE_AUTO_LOITER, StatusManager.EDGE_RISING, (n) -> {
              stop();		
 		});
 	}

@@ -71,6 +71,7 @@ public class MSPCommander  {
 
 		System.out.println("Commander initialized");
 
+//		String autopilot_class = config.getProperty("autopilot_class", "com.comino.mavcontrol.autopilot.TrajectoryPilot");
 		String autopilot_class = config.getProperty("autopilot_class", "com.comino.mavcontrol.autopilot.BreakingPilot");
 
 		this.autopilot =  AutoPilotBase.getInstance(autopilot_class,control,config);
