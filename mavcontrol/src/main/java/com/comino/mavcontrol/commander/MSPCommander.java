@@ -73,6 +73,7 @@ public class MSPCommander  {
 		this.logger  = MSPLogger.getInstance();
 
 		registerCommands();
+		registerLowBattery();
 
 		System.out.println("Commander initialized");
 
@@ -147,22 +148,21 @@ public class MSPCommander  {
 
 		}, ExecutorService.LOW );
 
-		registerLowBattery();
 
 	}
 
 	private void registerLowBattery() {
 		
-		control.getStatusManager().addListener(StatusManager.TYPE_BATTERY, MAV_BATTERY_CHARGE_STATE.MAV_BATTERY_CHARGE_STATE_CRITICAL, (n) -> {
-			logger.writeLocalMsg("[msp] Battery critical procedure triggered",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+		control.getStatusManager().addListener(StatusManager.TYPE_BATTERY, MAV_BATTERY_CHARGE_STATE.MAV_BATTERY_CHARGE_STATE_LOW, (n) -> {
+			logger.writeLocalMsg("[msp] Battery low procedure triggered",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 
 			// Different actions depending on the current mode, e.g.
 			// Shutdown MSP, Switch off SLAM, RTL, Landing, etc
 
 		});
 
-		control.getStatusManager().addListener(StatusManager.TYPE_BATTERY, MAV_BATTERY_CHARGE_STATE.MAV_BATTERY_CHARGE_STATE_EMERGENCY, (n) -> {
-			logger.writeLocalMsg("[msp] Battery emergency procedure triggered",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
+		control.getStatusManager().addListener(StatusManager.TYPE_BATTERY, MAV_BATTERY_CHARGE_STATE.MAV_BATTERY_CHARGE_STATE_CRITICAL, (n) -> {
+			logger.writeLocalMsg("[msp] Battery critical procedure triggered",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 
 			// Shutdown MSP if vehicle is not armed
 			if(!model.sys.isStatus(Status.MSP_ARMED) && model.sys.isStatus(Status.MSP_LANDED))
