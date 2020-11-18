@@ -121,7 +121,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected static final float WINDOWSIZE       	   = 3.0f;
 
 	protected static final float MAX_REL_DELTA_HEIGHT  = 0.10f;
-	protected static final float MAX_TAKEOFF_VZ        = 0.1f;
 
 	private static final int   RC_DEADBAND             = 20;				      // RC Deadband
 	private static final int   RC_LAND_CHANNEL		   = 8;                       // RC channel 8 landing
@@ -189,7 +188,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.params   = PX4Parameters.getInstance();
 		this.sequence = new LinkedList<SeqItem>();
 		this.appended = new LinkedList<SeqItem>();
-		
+
 		this.offboard = new OffboardManager(control);
 
 		this.map      = new LocalMap2DRaycast(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
@@ -206,27 +205,27 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK,
 				config.getBoolProperty("autopilot_precision_lock", "false"));
-		
+
 		// Register actions
 
 		registerTakeoff();
-		
+
 		registerLanding();
-		
+
 		registerDisarm();
-		
+
 		// Limit offboard max speed to PX4 speed limit
 		control.getStatusManager().addListener(Status.MSP_PARAMS_LOADED, (n) -> {
 			if(n.isStatus(Status.MSP_PARAMS_LOADED)) {	
 				final ParameterAttributes  speed_limit_param = params.getParam("MPC_XY_VEL_MAX");
 				offboard.setMaxSpeed(speed_limit_param.value);
-	    	}
+			}
 		});
 
 
 
 	}
-	
+
 
 	protected void registerDisarm() {
 
@@ -248,6 +247,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}
 		});
 
+	}
+
+	public int getAutopilotStatus() {
+		return offboard.getMode();
 	}
 
 	protected void registerLanding() {
@@ -287,8 +290,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				}
 			}
 
-			// Phase 2: Wait for VZ is small enough to switch to offboard
-			while(Math.abs(model.state.l_vz) > MAX_TAKEOFF_VZ) {
+
+			// Phase 2: Wait for LOITER NavState to indicate that takeoff has completed
+			while(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER)) {
 				try { Thread.sleep(50); } catch(Exception e) { }
 				if((System.currentTimeMillis() - takeoff_start_tms) > max_tko_time_ms) {
 					control.writeLogMessage(new LogMessage("[msp] Takeoff did not complete within "+(max_tko_time_ms/1000)+" secs",
@@ -689,14 +693,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
 			}
-		} else {
-			if(model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
-			}
-			offboard.stop();
-		}
+		} else 
+			abort();
 	}
 
 
@@ -707,16 +705,18 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		abortSequence();
 		clearAutopilotActions();
 		model.sys.autopilot &= 0b11000000000000000000000000000001;
-		if(model.sys.isStatus(Status.MSP_RC_ATTACHED)) {
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
-			control.writeLogMessage(new LogMessage("[msp] Autopilot disabled. Return control to pilot.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-		} else {
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
-			control.writeLogMessage(new LogMessage("[msp] Autopilot disabled. Switched to hold mode.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+		if(model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
+			if(model.sys.isStatus(Status.MSP_RC_ATTACHED)) {
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
+				control.writeLogMessage(new LogMessage("[msp] Autopilot disabled. Return control to pilot.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+			} else {
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
+				control.writeLogMessage(new LogMessage("[msp] Autopilot disabled. Switched to hold mode.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+			}
 		}
 		offboard.stop();
 	}

@@ -154,7 +154,7 @@ public class MSPCommander  {
 	private void registerLowBattery() {
 		
 		control.getStatusManager().addListener(StatusManager.TYPE_BATTERY, MAV_BATTERY_CHARGE_STATE.MAV_BATTERY_CHARGE_STATE_LOW, (n) -> {
-			logger.writeLocalMsg("[msp] Battery low procedure triggered",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+			logger.writeLocalMsg("[msp] Battery low procedure triggered.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 
 			// Different actions depending on the current mode, e.g.
 			// Shutdown MSP, Switch off SLAM, RTL, Landing, etc
@@ -162,11 +162,18 @@ public class MSPCommander  {
 		});
 
 		control.getStatusManager().addListener(StatusManager.TYPE_BATTERY, MAV_BATTERY_CHARGE_STATE.MAV_BATTERY_CHARGE_STATE_CRITICAL, (n) -> {
-			logger.writeLocalMsg("[msp] Battery critical procedure triggered",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
+			logger.writeLocalMsg("[msp] Battery critical procedure triggered.",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 
 			// Shutdown MSP if vehicle is not armed
 			if(!model.sys.isStatus(Status.MSP_ARMED) && model.sys.isStatus(Status.MSP_LANDED))
-				shutdownCompanion();	
+				logger.writeLocalMsg("[msp] Shutdown simulated",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
+				//shutdownCompanion();	
+			
+			if(model.sys.isStatus(Status.MSP_RC_ATTACHED) && model.sys.isStatus(Status.MSP_ARMED)) {
+				logger.writeLocalMsg("[msp] Switching to ... (Test). Ap Status = "+autopilot.getAutopilotStatus(),MAV_SEVERITY.MAV_SEVERITY_INFO);
+			}
+			
+				
 
 			// Different actions depending on the current mode, e.g.
 			// Shutdown MSP, Switch off SLAM, RTL, Landing, etc
@@ -236,8 +243,11 @@ public class MSPCommander  {
 		logger.writeLocalMsg("[msp] Shutdown of MSP companion in 10 seconds.",MAV_SEVERITY.MAV_SEVERITY_INFO);	
 		ExecutorService.get().schedule(() -> {
 			logger.writeLocalMsg("[msp] Shutdown of MSP companion now!",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);	
+			System.out.println("Companion shutdown now!");
 			if(!control.isSimulation() && !model.sys.isStatus(Status.MSP_ARMED)) {
 				executeConsoleCommand("shutdown -h now");
+			} else {
+				System.exit(0);
 			}
 		}, 10, TimeUnit.SECONDS);
 	}
