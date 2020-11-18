@@ -175,11 +175,6 @@ public class OffboardManager implements Runnable {
 
 		});
 		
-		// Switch off OffboardManager if PX4 LoiterMode entered
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, 
-				                  Status.NAVIGATION_STATE_AUTO_LOITER, StatusManager.EDGE_RISING, (n) -> {
-             stop();		
-		});
 	}
 
 	public void start() {
@@ -390,7 +385,7 @@ public class OffboardManager implements Runnable {
 
 			// safety: if no valid setpoint, use current as target
 			if(!valid_setpoint && mode != MODE_IDLE && mode<7 ) {
-				target.set(current_sp);
+				target.set(current);
 				new_setpoint = true;
 				valid_setpoint = true;
 				mode = MODE_LOITER;
