@@ -49,6 +49,7 @@ import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.mavlink.MAV_MASK;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
+import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
@@ -151,7 +152,7 @@ public class OffboardManager implements Runnable {
 		this.logger         = MSPLogger.getInstance();
 
 		this.ext_constraints_listener = new DefaultConstraintListener();
-		this.ext_control_listener  = new DefaultControlListener();
+		this.ext_control_listener  = new DefaultControlListener(model);
 		//	this.ext_control_listener  = new TimebasedControlListener();
 
 		MSPConfig config	= MSPConfig.getInstance();
@@ -232,7 +233,7 @@ public class OffboardManager implements Runnable {
 
 
 	public void stop() {
-		//	Thread.dumpStack();
+		model.slam.flags = Slam.OFFBOARD_FLAG_NONE;
 		enabled = false;
 		synchronized(this) {
 			notify();
@@ -418,14 +419,17 @@ public class OffboardManager implements Runnable {
 			switch(mode) {
 
 			case MODE_INIT:
+				model.slam.flags = Slam.OFFBOARD_FLAG_NONE;
 				watch_tms = System.currentTimeMillis();
 				sendTypeControlToVehice(MAV_MASK.MASK_LOITER_SETPOINT_TYPE);
 				break;
 			case MODE_IDLE:
+				model.slam.flags = Slam.OFFBOARD_FLAG_NONE;
 				watch_tms = System.currentTimeMillis();
 				sendTypeControlToVehice(MAV_MASK.MASK_IDLE_SETPOINT_TYPE);
 				break;
 			case MODE_LOITER:
+				model.slam.flags = Slam.OFFBOARD_FLAG_HOLD;
 				watch_tms = System.currentTimeMillis();
 
 				if(Float.isNaN(target.w)) {
@@ -475,7 +479,7 @@ public class OffboardManager implements Runnable {
 				break;
 
 			case MODE_LOCAL_SPEED:
-
+				model.slam.flags = Slam.OFFBOARD_FLAG_SPEED;
 				path.set(target_speed.x, target_speed.y, target_speed.z);
 
 				lock = LOCK_NONE;
@@ -509,6 +513,7 @@ public class OffboardManager implements Runnable {
 
 			case MODE_SPEED_POSITION:
 
+				model.slam.flags = Slam.OFFBOARD_FLAG_MOVE;
 				watch_tms = System.currentTimeMillis();
 				path.set(target, current);
 				way.set(current, start);
@@ -520,6 +525,8 @@ public class OffboardManager implements Runnable {
 
 				// external speed control via control callback ?
 				ext_control_listener.determineSpeedAnDirection(delta_sec, ela_sec, eta_sec, spd, path, ctl);
+				if(ctl.value > max_speed)
+					model.slam.flags = Slam.OFFBOARD_FLAG_MOVE;
 				ctl.value = MSPMathUtils.constraint(ctl.value, max_speed, min_speed);
 
 
@@ -561,6 +568,7 @@ public class OffboardManager implements Runnable {
 				// if vehicle is not moving or close to target and turn angle > 60° => turn before moving
 				if( Math.abs(yaw_diff) > Math.PI/3 &&
 						ctl.value < MAX_TURN_SPEED  && way.value < acceptance_radius_pos_out) {
+					model.slam.flags = Slam.OFFBOARD_FLAG_TURN;
 					//path.value > MIN_TURN_DISTANCE) {
 					// reduce XY speeds
 					ctl.value = 0;
@@ -611,6 +619,7 @@ public class OffboardManager implements Runnable {
 
 			case MODE_ADJUST_XY:
 
+				model.slam.flags = Slam.OFFBOARD_FLAG_ADJUST;
 				watch_tms = System.currentTimeMillis();
 
 				yaw_diff = MSPMathUtils.normAngle2(target.w - current.w);

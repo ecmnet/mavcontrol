@@ -33,6 +33,8 @@
 
 package com.comino.mavcontrol.offboard.control;
 
+import com.comino.mavcom.model.DataModel;
+import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcontrol.offboard.IOffboardExternalControl;
 import com.comino.mavutils.MSPMathUtils;
@@ -48,6 +50,12 @@ public class DefaultControlListener implements IOffboardExternalControl {
 	private float   speed_incr  = 0;
 	private float   acc_incr    = 0;
 	private float   delta_angle = 0;
+
+	private DataModel model;
+	
+	public DefaultControlListener(DataModel model) {
+		this.model = model;
+	}
 
 
 	public boolean determineSpeedAnDirection(float delta_sec, float ela_sec, float eta_sec, Polar3D_F32 spd, Polar3D_F32 path, Polar3D_F32 ctl) {
@@ -72,9 +80,10 @@ public class DefaultControlListener implements IOffboardExternalControl {
 		}
 
 		if(isBreaking) {
+			model.slam.flags = Slam.OFFBOARD_FLAG_SLOWDOWN;
 			speed_incr = - spd.value / ( 2 * eta_sec ) * delta_sec;
 		} else {
-			
+			model.slam.flags = Slam.OFFBOARD_FLAG_SPEEDUP;
 			acc_incr = acc_incr + MAX_ACCELERATION / 2f * delta_sec;
 			speed_incr = Math.min(MAX_ACCELERATION, acc_incr) * delta_sec;
 		}

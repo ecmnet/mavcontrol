@@ -483,6 +483,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		slam.pv = model.slam.pv;
 		slam.md = model.slam.di;
 		slam.quality = model.slam.quality;
+		slam.flags   = model.slam.flags;
 		slam.fps = model.slam.fps;
 
 		if(obstacle!=null) {
