@@ -33,14 +33,11 @@
 
 package com.comino.mavcontrol.offboard;
 
-import com.comino.mavcom.struct.Polar3D_F32;
+import com.comino.mavcom.model.DataModel;
 
-public interface IOffboardExternalControl {
+public interface ITargetAction {
 
-	public boolean determineSpeedAnDirection(float delta_sec, float ela_sec, float eta_sec, Polar3D_F32 spd, Polar3D_F32 path , Polar3D_F32 ctl);
 
-	public void reset();
-
-	public void initialize( Polar3D_F32 spd, Polar3D_F32 path);
+	public void action(DataModel model, float delta);
 
 }

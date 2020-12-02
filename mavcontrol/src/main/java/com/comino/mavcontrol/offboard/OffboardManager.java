@@ -112,9 +112,10 @@ public class OffboardManager implements Runnable {
 	private DataModel 				 model							= null;
 	private IMAVController         	 control      			       	= null;
 
-	private IOffboardTargetAction        action_listener     	    = null;		// CB target reached
-	private IOffboardExternalControl     ext_control_listener       = null;		// CB external angle+speed control in MODE_SPEED_POSITION
-	private IOffboardExternalConstraints ext_constraints_listener   = null;		// CB Constrains in MODE_SPEED_POSITION
+	private ITargetAction        action_listener     	    = null;		// CB target reached
+	private IExtSpeedControl     ext_control_listener       = null;		// CB external angle+speed control in MODE_SPEED_POSITION
+	private IExtSpeedControl default_control_listener       = null;		// Default MODE_SPEED_POSITION controller
+	private IExtConstraints ext_constraints_listener   = null;		// CB Constrains in MODE_SPEED_POSITION
 
 	private boolean					enabled					  		= false;
 	private int						mode					  		= MODE_LOITER;		     // Offboard mode
@@ -152,8 +153,8 @@ public class OffboardManager implements Runnable {
 		this.logger         = MSPLogger.getInstance();
 
 		this.ext_constraints_listener = new DefaultConstraintListener();
-		this.ext_control_listener  = new DefaultControlListener(model);
-		//	this.ext_control_listener  = new TimebasedControlListener();
+		this.default_control_listener = new DefaultControlListener(model);
+		this.ext_control_listener     = default_control_listener;
 
 		MSPConfig config	= MSPConfig.getInstance();
 
@@ -295,11 +296,11 @@ public class OffboardManager implements Runnable {
 	}
 
 
-	public void registerExternalControlListener(IOffboardExternalControl control_listener) {
+	public void registerExternalControlListener(IExtSpeedControl control_listener) {
 		this.ext_control_listener = control_listener;
 	}
 
-	public void registerExternalConstraintsListener(IOffboardExternalConstraints constraints) {
+	public void registerExternalConstraintsListener(IExtConstraints constraints) {
 		this.ext_constraints_listener = constraints;
 	}
 
@@ -311,7 +312,7 @@ public class OffboardManager implements Runnable {
 		return mode;
 	}
 
-	public void registerActionListener(IOffboardTargetAction listener) {
+	public void registerActionListener(ITargetAction listener) {
 		this.action_listener = listener;
 	}
 
@@ -319,7 +320,7 @@ public class OffboardManager implements Runnable {
 		this.action_listener = null;
 	}
 
-	public IOffboardTargetAction getActionListener() {
+	public ITargetAction getActionListener() {
 		return action_listener;
 	}
 
@@ -365,7 +366,7 @@ public class OffboardManager implements Runnable {
 					MSP3DUtils.convertCurrentState(model, target);
 					logger.writeLocalMsg("[msp] Offboard: Using current as target",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				}
-				logger.writeLocalMsg("[msp] Offboard: Switched to "+mode_string[mode],MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+			//	logger.writeLocalMsg("[msp] Offboard: Switched to "+mode_string[mode],MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				old_mode = mode;
 			}
 
@@ -430,6 +431,7 @@ public class OffboardManager implements Runnable {
 				break;
 			case MODE_LOITER:
 				model.slam.flags = Slam.OFFBOARD_FLAG_HOLD;
+				this.ext_control_listener = default_control_listener;
 				watch_tms = System.currentTimeMillis();
 
 				if(Float.isNaN(target.w)) {
@@ -558,22 +560,26 @@ public class OffboardManager implements Runnable {
 				if(( path.angle_xz >  0.78f || path.angle_xz < -0.78 ))
 					if(!Float.isNaN(target.w))
 						// only if target attitude was given
-						yaw_diff = MSPMathUtils.normAngle2(target.w - current.w);
+						yaw_diff = MSPMathUtils.normAngle(target.w - current.w);
 					else
 						yaw_diff = 0;
 				else {
-					yaw_diff = MSPMathUtils.normAngle2(ctl.angle_xy - current.w);
+					yaw_diff = MSPMathUtils.normAngle(ctl.angle_xy - current.w);
 				}
 
 				// if vehicle is not moving or close to target and turn angle > 60° => turn before moving
 				if( Math.abs(yaw_diff) > Math.PI/3 &&
-						ctl.value < MAX_TURN_SPEED  && way.value < acceptance_radius_pos_out) {
+						ctl.value < MAX_TURN_SPEED && 
+						way.value < acceptance_radius_pos_out && 
+						path.value > acceptance_radius_pos_out) {
+					
 					model.slam.flags = Slam.OFFBOARD_FLAG_TURN;
 					//path.value > MIN_TURN_DISTANCE) {
 					// reduce XY speeds
 					ctl.value = 0;
 					//  Lock XYZ Position while turning
 					lock = LOCK_XYZ;
+					
 				} else
 					lock = LOCK_NONE;
 
@@ -655,6 +661,8 @@ public class OffboardManager implements Runnable {
 					ctl.get(cmd);
 					cmd.w = d_yaw;
 					sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED, LOCK_Z);
+					
+					updateMSPModel(target,path);
 
 				}
 

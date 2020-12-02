@@ -43,7 +43,7 @@ import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.struct.Polar3D_F32;
-import com.comino.mavcontrol.offboard.IOffboardExternalControl;
+import com.comino.mavcontrol.offboard.IExtSpeedControl;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavmap.libs.TrajMathLib;
 import com.comino.mavmap.trajectory.vfh.LocalVFH2D;
@@ -204,7 +204,7 @@ public class LVH2DPilot extends AutoPilotBase {
 		offboard.setTarget(projected);
 
 		// determine velocity setpoint via callback
-		offboard.registerExternalControlListener(new IOffboardExternalControl() {
+		offboard.registerExternalControlListener(new IExtSpeedControl() {
 
 			public boolean determineSpeedAnDirection(float delta_sec, float ela_sec, float eta_sec, Polar3D_F32 spd, Polar3D_F32 path, Polar3D_F32 ctl) {
 

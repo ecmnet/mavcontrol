@@ -555,6 +555,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			turn_to(param);
 			break;
 		case MSP_AUTOCONTROL_ACTION.LOCK:
+			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
+				control.writeLogMessage(new LogMessage("[msp] Lock not executed. Sequence in progress.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				return;
+			}
 			execute_lock(false);
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
@@ -751,7 +755,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	 * AutopilotAction: Execute lock
 	 */
 	public void execute_lock(boolean land) {
-
+		
 		if(control.isSimulation()) {
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
 			model.vision.px = model.state.l_x + 0.3f;

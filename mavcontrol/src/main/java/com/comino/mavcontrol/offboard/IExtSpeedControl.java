@@ -35,8 +35,12 @@ package com.comino.mavcontrol.offboard;
 
 import com.comino.mavcom.struct.Polar3D_F32;
 
-public interface IOffboardExternalConstraints {
+public interface IExtSpeedControl {
 
-	public boolean get(float delta_sec, Polar3D_F32 speed, Polar3D_F32 path , Polar3D_F32 control);
+	public boolean determineSpeedAnDirection(float delta_sec, float ela_sec, float eta_sec, Polar3D_F32 spd, Polar3D_F32 path , Polar3D_F32 ctl);
+
+	public void reset();
+
+	public void initialize( Polar3D_F32 spd, Polar3D_F32 path);
 
 }

@@ -1,11 +1,11 @@
 package com.comino.mavcontrol.offboard.control;
 
-import com.comino.mavcontrol.offboard.IOffboardExternalControl;
+import com.comino.mavcom.struct.Polar3D_F32;
+import com.comino.mavcontrol.offboard.IExtSpeedControl;
 import com.comino.mavmap.libs.TrajMathLib;
-import com.comino.mavmap.struct.Polar3D_F32;
 import com.comino.mavutils.MSPMathUtils;
 
-public class TimebasedControlListener implements IOffboardExternalControl {
+public class TimebasedControlListener implements IExtSpeedControl {
 
 	private static final float MAX_ACCELERATION		                = 0.5f;                   // Max acceleration in m/s2
 	private static final float MAX_SPEED					        = 1.00f;          	      // Default Max speed in m/s
@@ -71,7 +71,7 @@ public class TimebasedControlListener implements IOffboardExternalControl {
 
        }
 
-       System.out.println(ela_sec+" :: " + phase+":"+delta_time+" of "+timestamps[phase]+ " => "+ctl.value+ " / "+a+" / "+a_phase);
+       System.out.println(ela_sec+" :: \t" + phase+":"+delta_time+"\tof "+timestamps[phase]+ "\t=> "+ctl.value+ "\t/ "+a+"\t/ "+a_phase);
 
        ctl.value = MSPMathUtils.constraint(ctl.value, MAX_SPEED, 0);
 
@@ -88,7 +88,7 @@ public class TimebasedControlListener implements IOffboardExternalControl {
 	public void initialize(Polar3D_F32 spd, Polar3D_F32 path) {
 		timestamps = TrajMathLib.computeTrajectoryTimepoints(MAX_ACCELERATION, MAX_SPEED, path.value);
 		phase = 0; phase_time = 0; a = 0; a_phase= 0; ela_phase = 0;
-		System.out.println(path.value);
+		System.out.println("New setpoint with distance: "+path.value);
 		for(int i=0; i<timestamps.length;i++)
 			System.out.println(timestamps[i]);
 		System.out.println();

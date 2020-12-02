@@ -36,10 +36,10 @@ package com.comino.mavcontrol.offboard.control;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.struct.Polar3D_F32;
-import com.comino.mavcontrol.offboard.IOffboardExternalControl;
+import com.comino.mavcontrol.offboard.IExtSpeedControl;
 import com.comino.mavutils.MSPMathUtils;
 
-public class DefaultControlListener implements IOffboardExternalControl {
+public class DefaultControlListener implements IExtSpeedControl {
 
 	private static final float MAX_ACCELERATION		                = 0.3f;                   // Max acceleration in m/s2
 

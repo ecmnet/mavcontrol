@@ -34,9 +34,9 @@
 package com.comino.mavcontrol.offboard.control;
 
 import com.comino.mavcom.struct.Polar3D_F32;
-import com.comino.mavcontrol.offboard.IOffboardExternalConstraints;
+import com.comino.mavcontrol.offboard.IExtConstraints;
 
-public class DefaultConstraintListener implements IOffboardExternalConstraints {
+public class DefaultConstraintListener implements IExtConstraints {
 
 	@Override
 	public boolean get(float delta_sec, Polar3D_F32 speed, Polar3D_F32 path, Polar3D_F32 control) {

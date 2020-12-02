@@ -92,65 +92,78 @@ public class MSPCommander  {
 
 	public void setGlobalOrigin(double lat, double lon, double altitude) {
 
-		final long MAX_GPOS_SET_MS = 20000;
 
 		if(model.sys.isStatus(Status.MSP_GPOS_VALID) || lat == 0.0 || lon == 0.0 ||
 				model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY)) 
 			return;
 
-		ExecutorService.submit(() -> {
+		msg_gps_global_origin gor = new msg_gps_global_origin(1,2);
+		gor.latitude = (long)(lat * 1e7);
+		gor.longitude = (long)(lon * 1e7);
+		gor.altitude = (int)(altitude * 1000);
+		gor.time_usec = model.sys.getSynchronizedPX4Time_us();
+		
+		control.sendMAVLinkMessage(gor);
 
-			long tms = System.currentTimeMillis();
+		MSPLogger.getInstance().writeLocalMsg("[msp] Reference position can not be set from MAVGCL",
+				MAV_SEVERITY.MAV_SEVERITY_INFO);
 
-//			msg_gps_global_origin gor = new msg_gps_global_origin(1,2);
-//			gor.latitude = (long)(lat * 1e7);
-//			gor.longitude = (long)(lon * 1e7);
-//			gor.altitude = (int)(altitude * 1000);
-//			gor.time_usec = tms*1000;
+		// HIL does not work as this requires GPS active in EKF2. But if GPS is active in EKF2 Vision position
+		// is not considered anymore.
 
-
-			msg_hil_gps gps = new msg_hil_gps(1,1);
-			gps.lat = (long)(lat * 1e7);
-			gps.lon = (long)(lon * 1e7);
-			gps.alt = (int)(altitude * 1000);
-			gps.satellites_visible = 10;
-			gps.eph = 30;
-			gps.epv = 30;
-			gps.fix_type = 4;
-			gps.cog = 0;
-			gps.time_usec = model.sys.getSynchronizedPX4Time_us();
-			
-			msg_set_home_position pos = new msg_set_home_position(1,2);
-			pos.x = 0;
-			pos.y = 0;
-			pos.z = 0;
-			pos.altitude = (int)(altitude * 1000);
-			pos.time_usec = model.sys.getSynchronizedPX4Time_us();
-
-			while(!model.sys.isStatus(Status.MSP_GPOS_VALID)
-					&& (System.currentTimeMillis() - tms) < MAX_GPOS_SET_MS) {
-				
-				if(!control.isConnected())
-					return;
-				
-				control.sendMAVLinkMessage(gps);
-				control.sendMAVLinkMessage(pos);
-				
-				try {
-					Thread.sleep(200);
-				} catch (InterruptedException e) { }
-			}
-			
-			if(model.sys.isStatus(Status.MSP_GPOS_VALID)) {
-				control.sendMAVLinkMessage(pos);
-				MSPLogger.getInstance().writeLocalMsg("[msp] Reference position set from MAVGCL",
-						MAV_SEVERITY.MAV_SEVERITY_INFO);
-			}
-			else
-				MSPLogger.getInstance().writeLocalMsg("[msp] Setting reference position failed",
-						MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-
-		}, ExecutorService.LOW );
+		//		ExecutorService.submit(() -> {
+		//
+		//			long tms = System.currentTimeMillis();
+		//
+		////			msg_gps_global_origin gor = new msg_gps_global_origin(1,2);
+		////			gor.latitude = (long)(lat * 1e7);
+		////			gor.longitude = (long)(lon * 1e7);
+		////			gor.altitude = (int)(altitude * 1000);
+		////			gor.time_usec = tms*1000;
+		//
+		//
+		//			msg_hil_gps gps = new msg_hil_gps(1,1);
+		//			gps.lat = (long)(lat * 1e7);
+		//			gps.lon = (long)(lon * 1e7);
+		//			gps.alt = (int)(altitude * 1000);
+		//			gps.satellites_visible = 10;
+		//			gps.eph = 30;
+		//			gps.epv = 30;
+		//			gps.fix_type = 4;
+		//			gps.cog = 0;
+		//			gps.time_usec = model.sys.getSynchronizedPX4Time_us();
+		//			
+		//			msg_set_home_position pos = new msg_set_home_position(1,2);
+		//			pos.x = 0;
+		//			pos.y = 0;
+		//			pos.z = 0;
+		//			pos.altitude = (int)(altitude * 1000);
+		//			pos.time_usec = model.sys.getSynchronizedPX4Time_us();
+		//
+		//			while(!model.sys.isStatus(Status.MSP_GPOS_VALID)
+		//					&& (System.currentTimeMillis() - tms) < MAX_GPOS_SET_MS) {
+		//				
+		//				if(!control.isConnected())
+		//					return;
+		//				
+		//				control.sendMAVLinkMessage(gps);
+		//				control.sendMAVLinkMessage(pos);
+		//				
+		//				try {
+		//					Thread.sleep(200);
+		//				} catch (InterruptedException e) { }
+		//			}
+		//			
+		//			if(model.sys.isStatus(Status.MSP_GPOS_VALID)) {
+		//				control.sendMAVLinkMessage(pos);
+		//				MSPLogger.getInstance().writeLocalMsg("[msp] Reference position set from MAVGCL",
+		//						MAV_SEVERITY.MAV_SEVERITY_INFO);
+		//			}
+		//			else
+		//				MSPLogger.getInstance().writeLocalMsg("[msp] Setting reference position failed",
+		//						MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+		//
+		//		}, ExecutorService.LOW );
 
 
 	}
