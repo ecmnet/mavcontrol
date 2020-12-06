@@ -36,6 +36,7 @@ package com.comino.mavcontrol.offboard;
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_FRAME;
 import org.mavlink.messages.MAV_MODE_FLAG;
+import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
@@ -72,17 +73,16 @@ public class OffboardManager implements Runnable {
 	public static final int MODE_SPEED_POSITION	 	    			= 4;
 	public static final int MODE_BEZIER                             = 5;
 	public static final int MODE_ADJUST_XY                          = 6;
+	public static final int MODE_LAND                               = 7;
 
-	private static final String[] mode_string                       = { "INIT", "IDLE", "LOITER","SPEED","SPEEDPOS","BEZIER","ADJUST" };
+	//	private static final String[] mode_string                       = { "INIT", "IDLE", "LOITER","SPEED","SPEEDPOS","BEZIER","ADJUST" };
 
 	private static final int  LOCK_NONE								= 0;
 	private static final int  LOCK_Z                                = 1;
 	private static final int  LOCK_XY                               = 2;
 	private static final int  LOCK_XYZ                              = 3;
 
-	private static final int  UPDATE_RATE                 			= 33;					  // offboard update rate in ms
-	private static final long OFFBOARD_INIT_DELAY                   = 3*UPDATE_RATE;		  // initial delay
-
+	private static final int  UPDATE_RATE                 			= 50;					  // offboard update rate in ms
 
 	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(45); // Max YawSpeed rad/s
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(4);  // Min yawSpeed rad/s
@@ -115,8 +115,10 @@ public class OffboardManager implements Runnable {
 	private ITargetAction        action_listener     	    = null;		// CB target reached
 	private IExtSpeedControl     ext_control_listener       = null;		// CB external angle+speed control in MODE_SPEED_POSITION
 	private IExtSpeedControl default_control_listener       = null;		// Default MODE_SPEED_POSITION controller
-	private IExtConstraints ext_constraints_listener   = null;		// CB Constrains in MODE_SPEED_POSITION
+	private IExtConstraints ext_constraints_listener        = null;		// CB Constrains in MODE_SPEED_POSITION
 
+	private long                    sent_count                      = 0;
+	
 	private boolean					enabled					  		= false;
 	private int						mode					  		= MODE_LOITER;		     // Offboard mode
 	private int                     old_mode                        = MODE_IDLE;
@@ -176,7 +178,7 @@ public class OffboardManager implements Runnable {
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
 
 		});
-		
+
 	}
 
 	public void start() {
@@ -192,10 +194,9 @@ public class OffboardManager implements Runnable {
 		setpoint_timeout = SETPOINT_TIMEOUT_MS;
 		if(!enabled) {
 			enabled = true;
-			new Thread(this).start();
+			Thread t = new Thread(this);
+			t.start();
 		}
-		try { Thread.sleep(OFFBOARD_INIT_DELAY); } catch (InterruptedException e) { }
-
 	}
 
 	public void setMaxSpeed(double speed_limit) {
@@ -206,16 +207,36 @@ public class OffboardManager implements Runnable {
 	}
 
 	public boolean start_wait(int m, long timeout) {
+		long tstart = System.currentTimeMillis();
 		start(m);
-		control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED
-				| MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED, MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
-		synchronized(this) {
-			if(!already_fired) {
-				long tstart = System.currentTimeMillis();
-				try { 	wait(timeout); } catch (InterruptedException e) { }
-				if((System.currentTimeMillis() - tstart) >= timeout)
-					return false;
+		if(!model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
+			
+			while(sent_count < 5) {
+				  try { Thread.sleep(UPDATE_RATE); } catch (InterruptedException e) { }
+				  if((System.currentTimeMillis() - tstart) > 500) {
+					  control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed (Send timeout).", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+					  enabled = false;
+					  return false;
+				  }
 			}
+			
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
+				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
+					stop();
+					control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+").", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+							MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+							MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
+				}
+			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 1 );
+		}
+		synchronized(this) {
+			//	if(!already_fired) {
+			try { 	wait(timeout); } catch (InterruptedException e) { }
+			if((System.currentTimeMillis() - tstart) >= timeout)
+				return false;
+			//	}
 		}
 		return true;
 	}
@@ -340,6 +361,8 @@ public class OffboardManager implements Runnable {
 		float delta_sec  = 0;
 		float eta_sec    = 0;
 		float ela_sec    = 0;
+		
+		float tmp        = 0;
 
 		Polar3D_F32 path = new Polar3D_F32(); // planned direct path
 		Polar3D_F32 way  = new Polar3D_F32(); // travelled direct path
@@ -366,7 +389,7 @@ public class OffboardManager implements Runnable {
 					MSP3DUtils.convertCurrentState(model, target);
 					logger.writeLocalMsg("[msp] Offboard: Using current as target",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				}
-			//	logger.writeLocalMsg("[msp] Offboard: Switched to "+mode_string[mode],MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+				//	logger.writeLocalMsg("[msp] Offboard: Switched to "+mode_string[mode],MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				old_mode = mode;
 			}
 
@@ -572,14 +595,14 @@ public class OffboardManager implements Runnable {
 						ctl.value < MAX_TURN_SPEED && 
 						way.value < acceptance_radius_pos_out && 
 						path.value > acceptance_radius_pos_out) {
-					
+
 					model.slam.flags = Slam.OFFBOARD_FLAG_TURN;
 					//path.value > MIN_TURN_DISTANCE) {
 					// reduce XY speeds
 					ctl.value = 0;
 					//  Lock XYZ Position while turning
 					lock = LOCK_XYZ;
-					
+
 				} else
 					lock = LOCK_NONE;
 
@@ -661,10 +684,40 @@ public class OffboardManager implements Runnable {
 					ctl.get(cmd);
 					cmd.w = d_yaw;
 					sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED, LOCK_Z);
-					
+
 					updateMSPModel(target,path);
 
 				}
+
+				break;
+
+			case MODE_LAND:
+
+				path.clear();
+				model.slam.flags = Slam.OFFBOARD_FLAG_LAND;
+				watch_tms = System.currentTimeMillis();
+				lock = LOCK_XY;
+				
+				if(Float.isFinite(model.hud.at))
+				  tmp =  Math.abs(model.hud.al - model.hud.at) - 0.12f;
+				else
+				tmp = model.hud.al - 0.12f;
+
+				cmd.w = 0;
+				cmd.z = tmp / 3.0f;
+
+				if(cmd.z < 0.10) cmd.z = 0.10f;
+
+				if(tmp < 0.10) {
+					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );			
+					stop();
+				} 
+				
+				//System.out.println(Math.abs(model.hud.al - model.hud.at));
+
+				sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED, lock);
+
+				updateMSPModel(target,path);
 
 				break;
 
@@ -672,6 +725,8 @@ public class OffboardManager implements Runnable {
 
 			try { Thread.sleep(UPDATE_RATE); 	} catch (InterruptedException e) { }
 		}
+		
+		sent_count = 0;
 
 		action_listener = null;
 		abort();
@@ -681,6 +736,7 @@ public class OffboardManager implements Runnable {
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_AVOIDANCE, false);
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, false);
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
+
 
 		logger.writeLocalMsg("[msp] Offboard manager stopped",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 		already_fired = false; valid_setpoint = false; new_setpoint = false;
@@ -719,10 +775,11 @@ public class OffboardManager implements Runnable {
 	}
 
 	private void sendSpeedControlToVehice(Vector4D_F32 target, Vector4D_F32 lock, int frame, int lock_mode) {
-
+		
 		speed_cmd.target_component = 1;
 		speed_cmd.target_system    = 1;
-
+		speed_cmd.time_boot_ms     = model.sys.t_boot_ms;
+	   
 		checkAbsoluteSpeeds(target);
 
 		switch(lock_mode) {
@@ -785,6 +842,8 @@ public class OffboardManager implements Runnable {
 
 		if(!control.sendMAVLinkMessage(speed_cmd))
 			enabled = false;
+		else
+		    sent_count++;
 
 	}
 

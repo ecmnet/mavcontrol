@@ -95,6 +95,7 @@ import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.autopilot.tests.PlannerTest;
+import com.comino.mavcontrol.commander.MSPUtils;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavcontrol.struct.ISeqAction;
 import com.comino.mavcontrol.struct.SeqItem;
@@ -567,7 +568,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
 			if(enable)
 				//square();
-				northAndBack();
+				//			randomSequence();
+				offboardLand();
 			else
 				abortSequence();
 			break;
@@ -755,7 +757,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	 * AutopilotAction: Execute lock
 	 */
 	public void execute_lock(boolean land) {
-		
+
 		if(control.isSimulation()) {
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
 			model.vision.px = model.state.l_x + 0.3f;
@@ -889,10 +891,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		if(Math.abs(model.rc.get(RC_LAND_CHANNEL) - RC_LAND_THRESHOLD) < RC_DEADBAND && !emergencyLanding) {
 			emergencyLanding = true;
 			logger.writeLocalMsg("[msp] Emergency landing triggered by RC",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
-			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED))
-				execute_lock(true);
-			else
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
+			//			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED))
+			//				execute_lock(true);
+			//			else
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
 			return false;
 		}
 		return true;
@@ -954,7 +956,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		executeSequence();
 	}
 
-	public void northAndBack() {
+	public void randomSequence() {
 		clearSequence();
 		if(control.isSimulation()) {
 
@@ -968,6 +970,28 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			addToSequence(new SeqItem( 1f       , Float.NaN  , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
 			addToSequence(new SeqItem(-1f       , Float.NaN  , Float.NaN, Float.NaN, ISeqAction.REL,null,0));		}
 		executeSequence();
+	}
+
+	public void offboardLand() {
+		
+		if(model.sys.isStatus(Status.MSP_LANDED))
+			return;
+
+		abortSequence();
+
+		ExecutorService.get().submit(() -> {
+			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED) || control.isSimulation()) {
+				control.writeLogMessage(new LogMessage("[msp] Offboard landing procedure started.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+				offboard.enforceCurrentAsTarget();
+				if(!offboard.start_wait(OffboardManager.MODE_LAND, 20000)) {
+					control.writeLogMessage(new LogMessage("[msp] Offboard landing procedure failed", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				}
+			} else {
+				control.writeLogMessage(new LogMessage("[msp] No Lock. PX4 Landing triggered", MAV_SEVERITY.MAV_SEVERITY_INFO));
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
+			}
+		});
+
 	}
 
 
