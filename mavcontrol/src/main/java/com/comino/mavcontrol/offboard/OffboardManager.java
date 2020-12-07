@@ -208,9 +208,13 @@ public class OffboardManager implements Runnable {
 
 	public boolean start_wait(int m, long timeout) {
 		long tstart = System.currentTimeMillis();
+		if(!valid_setpoint) {
+			MSP3DUtils.convertCurrentState(model, current);
+			setTarget(current);
+		}
 		start(m);
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
-			
+			control.writeLogMessage(new LogMessage("[msp] Try to switch to offboard.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 			while(sent_count < 5) {
 				  try { Thread.sleep(UPDATE_RATE); } catch (InterruptedException e) { }
 				  if((System.currentTimeMillis() - tstart) > 500) {
@@ -229,13 +233,15 @@ public class OffboardManager implements Runnable {
 							MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
 				}
 			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 1 );
+					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
 		}
 		synchronized(this) {
 			//	if(!already_fired) {
 			try { 	wait(timeout); } catch (InterruptedException e) { }
-			if((System.currentTimeMillis() - tstart) >= timeout)
+			if((System.currentTimeMillis() - tstart) >= timeout) {
+				System.out.println("Offboard wait timeout");
 				return false;
+			}
 			//	}
 		}
 		return true;
@@ -409,7 +415,7 @@ public class OffboardManager implements Runnable {
 			MSP3DUtils.convertCurrentSpeed(model, spd);
 
 			// safety: if no valid setpoint, use current as target
-			if(!valid_setpoint && mode != MODE_IDLE && mode<7 ) {
+			if(!valid_setpoint && mode != MODE_IDLE) {
 				target.set(current);
 				new_setpoint = true;
 				valid_setpoint = true;
@@ -698,6 +704,8 @@ public class OffboardManager implements Runnable {
 				watch_tms = System.currentTimeMillis();
 				lock = LOCK_XY;
 				
+				// TODO: a) adjust XY according to lock
+				
 				if(Float.isFinite(model.hud.at))
 				  tmp =  Math.abs(model.hud.al - model.hud.at) - 0.12f;
 				else
@@ -713,7 +721,7 @@ public class OffboardManager implements Runnable {
 					stop();
 				} 
 				
-				//System.out.println(Math.abs(model.hud.al - model.hud.at));
+			//	System.out.println(Math.abs(model.hud.al - model.hud.at));
 
 				sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED, lock);
 

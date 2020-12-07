@@ -202,11 +202,8 @@ public class BreakingPilot extends AutoPilotBase {
 			map.nearestObstacle(obstacle);
 
 			// Control only in affected offboard modes
-			switch(offboard.getMode()) {
-			case OffboardManager.MODE_LOITER:
+			if(offboard.getMode() != OffboardManager.MODE_SPEED_POSITION)
 				continue;
-			default:
-			}
 
 
 		//	relAngle = Math.abs(MSPMathUtils.normAngle2(Math.abs(obstacle.angle_xy-plannedPath.angle_xy)));

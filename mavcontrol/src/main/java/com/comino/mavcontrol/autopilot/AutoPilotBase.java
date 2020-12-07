@@ -982,7 +982,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		ExecutorService.get().submit(() -> {
 			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED) || control.isSimulation()) {
 				control.writeLogMessage(new LogMessage("[msp] Offboard landing procedure started.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-				offboard.enforceCurrentAsTarget();
 				if(!offboard.start_wait(OffboardManager.MODE_LAND, 20000)) {
 					control.writeLogMessage(new LogMessage("[msp] Offboard landing procedure failed", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				}
