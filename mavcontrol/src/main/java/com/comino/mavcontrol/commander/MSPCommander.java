@@ -93,10 +93,18 @@ public class MSPCommander  {
 	public void setGlobalOrigin(double lat, double lon, double altitude) {
 
 
-		if(model.sys.isStatus(Status.MSP_GPOS_VALID) || lat == 0.0 || lon == 0.0 ||
-				model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY)) 
-			return;
+//		if(model.sys.isStatus(Status.MSP_GPOS_VALID) || lat == 0.0 || lon == 0.0 ||
+//				model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY)) 
+//			return;
 
+//		msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,2);
+//		gor.latitude = (long)(lat * 1e7);
+//		gor.longitude = (long)(lon * 1e7);
+//		gor.altitude = (int)(altitude * 1000);
+//		gor.time_usec = model.sys.getSynchronizedPX4Time_us();
+//		
+//		control.sendMAVLinkMessage(gor);
+		
 		msg_gps_global_origin gor = new msg_gps_global_origin(1,2);
 		gor.latitude = (long)(lat * 1e7);
 		gor.longitude = (long)(lon * 1e7);
@@ -105,7 +113,7 @@ public class MSPCommander  {
 		
 		control.sendMAVLinkMessage(gor);
 
-		MSPLogger.getInstance().writeLocalMsg("[msp] Reference position can not be set from MAVGCL",
+		MSPLogger.getInstance().writeLocalMsg("[msp] Try to set reference position",
 				MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 		// HIL does not work as this requires GPS active in EKF2. But if GPS is active in EKF2 Vision position

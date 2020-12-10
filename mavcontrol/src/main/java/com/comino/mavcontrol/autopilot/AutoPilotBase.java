@@ -78,8 +78,8 @@ import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
-import org.mavlink.messages.lquac.msg_debug_vect;
 import org.mavlink.messages.lquac.msg_msp_micro_slam;
+import org.mavlink.messages.lquac.msg_msp_vision;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
@@ -243,8 +243,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
 				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
-
-				control.sendMAVLinkMessage(new msg_debug_vect(1,2));
+				
 			}
 		});
 
@@ -556,11 +555,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			turn_to(param);
 			break;
 		case MSP_AUTOCONTROL_ACTION.LOCK:
+		
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
 				control.writeLogMessage(new LogMessage("[msp] Lock not executed. Sequence in progress.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				return;
 			}
 			execute_lock(false);
+			
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
 			planner.enable(enable);
@@ -981,7 +982,20 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		ExecutorService.get().submit(() -> {
 			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED) || control.isSimulation()) {
-				control.writeLogMessage(new LogMessage("[msp] Offboard landing procedure started.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+				
+				if(control.isSimulation()) {
+					model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
+					model.vision.px = model.state.l_x + ((float)Math.random()-0.5f)*1.2f;
+					model.vision.py = model.state.l_y + ((float)Math.random()-0.5f)*1.2f;
+					
+					msg_msp_vision msg = new msg_msp_vision(2,1);
+					msg.px =  model.vision.px;
+					msg.py =  model.vision.py;
+					msg.pz =  model.vision.pz;
+					control.sendMAVLinkMessage(msg);
+				}
+				
+				control.writeLogMessage(new LogMessage("[msp] Precision landing triggered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 				if(!offboard.start_wait(OffboardManager.MODE_LAND, 20000)) {
 					control.writeLogMessage(new LogMessage("[msp] Offboard landing procedure failed", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				}

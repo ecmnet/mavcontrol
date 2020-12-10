@@ -52,14 +52,13 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.model.segment.Status;
-import com.comino.mavcom.status.StatusManager;
+import com.comino.mavcom.model.segment.Vision;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard.control.DefaultConstraintListener;
 import com.comino.mavcontrol.offboard.control.DefaultControlListener;
 import com.comino.mavutils.MSPMathUtils;
 
-import georegression.struct.point.Vector3D_F32;
 import georegression.struct.point.Vector4D_F32;
 
 public class OffboardManager implements Runnable {
@@ -118,7 +117,7 @@ public class OffboardManager implements Runnable {
 	private IExtConstraints ext_constraints_listener        = null;		// CB Constrains in MODE_SPEED_POSITION
 
 	private long                    sent_count                      = 0;
-	
+
 	private boolean					enabled					  		= false;
 	private int						mode					  		= MODE_LOITER;		     // Offboard mode
 	private int                     old_mode                        = MODE_IDLE;
@@ -133,6 +132,7 @@ public class OffboardManager implements Runnable {
 
 	private final msg_set_position_target_local_ned pos_cmd   		= new msg_set_position_target_local_ned(1,2);
 	private final msg_set_position_target_local_ned speed_cmd 		= new msg_set_position_target_local_ned(1,2);
+
 	private final msg_debug_vect  debug                             = new msg_debug_vect(1,2);
 
 	private float      max_speed                                    = MAX_SPEED;
@@ -216,14 +216,14 @@ public class OffboardManager implements Runnable {
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
 			control.writeLogMessage(new LogMessage("[msp] Try to switch to offboard.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 			while(sent_count < 5) {
-				  try { Thread.sleep(UPDATE_RATE); } catch (InterruptedException e) { }
-				  if((System.currentTimeMillis() - tstart) > 500) {
-					  control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed (Send timeout).", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-					  enabled = false;
-					  return false;
-				  }
+				try { Thread.sleep(UPDATE_RATE); } catch (InterruptedException e) { }
+				if((System.currentTimeMillis() - tstart) > 500) {
+					control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed (Send timeout).", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+					enabled = false;
+					return false;
+				}
 			}
-			
+
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
 				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
 					stop();
@@ -261,6 +261,7 @@ public class OffboardManager implements Runnable {
 
 
 	public void stop() {
+		valid_setpoint = false;
 		model.slam.flags = Slam.OFFBOARD_FLAG_NONE;
 		enabled = false;
 		synchronized(this) {
@@ -367,8 +368,9 @@ public class OffboardManager implements Runnable {
 		float delta_sec  = 0;
 		float eta_sec    = 0;
 		float ela_sec    = 0;
-		
+
 		float tmp        = 0;
+		float max        = 0;
 
 		Polar3D_F32 path = new Polar3D_F32(); // planned direct path
 		Polar3D_F32 way  = new Polar3D_F32(); // travelled direct path
@@ -435,7 +437,7 @@ public class OffboardManager implements Runnable {
 				if(mode==MODE_SPEED_POSITION || mode == MODE_LOITER) {
 
 					// Safety: handle NaN targets for position
-					MSP3DUtils.replaceNaN(target, current_sp);
+					//	MSP3DUtils.replaceNaN(target, current_sp);
 					// if still not valid use current
 					MSP3DUtils.replaceNaN(target, current);
 
@@ -699,29 +701,82 @@ public class OffboardManager implements Runnable {
 
 			case MODE_LAND:
 
-				path.clear();
+				ctl.clear();
 				model.slam.flags = Slam.OFFBOARD_FLAG_LAND;
 				watch_tms = System.currentTimeMillis();
-				lock = LOCK_XY;
+
+				target.set(model.vision.px,model.vision.py,model.state.l_z,model.attitude.y);
+				path.set(target, current);
+				ctl.set(target, current);
 				
-				// TODO: a) adjust XY according to lock
+				// Just for first tests: Safety
+				if(path.value > 0.8f) {
+					logger.writeLocalMsg("[msp] Aborted. Landing target not in reach. Loitering",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
+					valid_setpoint = false;
+					mode = MODE_LOITER;
+					synchronized(this) {
+						already_fired = true;
+						notify();
+					}
+					continue;	
+				}
 				
+				// TODO: Align YAW with fiducial orientation
+
+
 				if(Float.isFinite(model.hud.at))
-				  tmp =  Math.abs(model.hud.al - model.hud.at) - 0.12f;
+					tmp =  Math.abs(model.hud.al - model.hud.at) -0.12f;
 				else
-				tmp = model.hud.al - 0.12f;
-
-				cmd.w = 0;
-				cmd.z = tmp / 3.0f;
-
-				if(cmd.z < 0.10) cmd.z = 0.10f;
-
-				if(tmp < 0.10) {
-					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );			
-					stop();
-				} 
+					tmp = model.hud.al - 0.12f;
 				
-			//	System.out.println(Math.abs(model.hud.al - model.hud.at));
+				// Calculate max XY adjustment speed depending on the height and current z-speed
+				// but minimum max speed is 0.10m/s
+				max = 3.0f * path .value * model.state.l_vz / tmp ;
+				if(max < 0.10f) max = 0.10f;
+
+
+				// No XY adjustment anymore if height < 0.2f or no fiducial 
+				if(tmp < 0.2f || !model.vision.isStatus(Vision.FIDUCIAL_LOCKED))	 {
+					
+					ctl.value = 0; 
+					ctl.get(cmd);
+					lock = LOCK_XY;
+				}
+				else {
+					
+					// Simple P controller to adjust XY according to fiducial
+					valid_setpoint = true;
+					ctl.value =  ctl.value * 0.6f;
+					
+					// Maximum adjustment speed is determined max speed or absolute value of 0.3m/s
+					if(ctl.value > max) ctl.value = max;
+					if(ctl.value > 0.3) ctl.value = 0.3f;
+					
+					ctl.get(cmd);
+		         	lock = LOCK_NONE;
+				}
+				
+				cmd.w = 0;
+				cmd.z = tmp / 2.0f;
+
+				if(cmd.z < 0.20) cmd.z = 0.20f;
+
+				// Todo: Check abort condition and abort landing if necessary (gain height of 1m and loiter)
+				//       e.g. if landing target not reachable, or current z-speed is upwards
+				
+
+				debug.x = (float)ctl.value;
+				debug.y = (float)max;
+				debug.z = (float)tmp;
+
+				control.sendMAVLinkMessage(debug);
+							
+
+				if(tmp < 0.07) {
+					stop();
+					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );		
+					continue;
+				} 
 
 				sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED, lock);
 
@@ -733,7 +788,7 @@ public class OffboardManager implements Runnable {
 
 			try { Thread.sleep(UPDATE_RATE); 	} catch (InterruptedException e) { }
 		}
-		
+
 		sent_count = 0;
 
 		action_listener = null;
@@ -756,6 +811,11 @@ public class OffboardManager implements Runnable {
 		pos_cmd.target_component = 1;
 		pos_cmd.target_system    = 1;
 		pos_cmd.type_mask        = mask;
+
+		pos_cmd.x   = Float.NaN;
+		pos_cmd.y   = Float.NaN;
+		pos_cmd.z   = Float.NaN;
+
 
 		if(!control.sendMAVLinkMessage(pos_cmd))
 			enabled = false;
@@ -783,11 +843,11 @@ public class OffboardManager implements Runnable {
 	}
 
 	private void sendSpeedControlToVehice(Vector4D_F32 target, Vector4D_F32 lock, int frame, int lock_mode) {
-		
+
 		speed_cmd.target_component = 1;
 		speed_cmd.target_system    = 1;
 		speed_cmd.time_boot_ms     = model.sys.t_boot_ms;
-	   
+
 		checkAbsoluteSpeeds(target);
 
 		switch(lock_mode) {
@@ -822,7 +882,7 @@ public class OffboardManager implements Runnable {
 			speed_cmd.vz       = target.z;
 
 			speed_cmd.x        = lock.x;
-			speed_cmd.y        = lock.z;
+			speed_cmd.y        = lock.y;
 
 			break;
 
@@ -851,7 +911,7 @@ public class OffboardManager implements Runnable {
 		if(!control.sendMAVLinkMessage(speed_cmd))
 			enabled = false;
 		else
-		    sent_count++;
+			sent_count++;
 
 	}
 
