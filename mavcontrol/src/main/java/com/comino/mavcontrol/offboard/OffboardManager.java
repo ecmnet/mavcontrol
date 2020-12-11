@@ -709,7 +709,7 @@ public class OffboardManager implements Runnable {
 				path.set(target, current);
 				ctl.set(target, current);
 				
-				// Just for first tests: Safety
+				// Just for first tests: Safety -> should be removed
 				if(path.value > 0.8f) {
 					logger.writeLocalMsg("[msp] Aborted. Landing target not in reach. Loitering",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 					valid_setpoint = false;
@@ -746,7 +746,7 @@ public class OffboardManager implements Runnable {
 					
 					// Simple P controller to adjust XY according to fiducial
 					valid_setpoint = true;
-					ctl.value =  ctl.value * 0.6f;
+					ctl.value =  ctl.value * 0.7f; // Maybe increase P by 0.1
 					
 					// Maximum adjustment speed is determined max speed or absolute value of 0.3m/s
 					if(ctl.value > max) ctl.value = max;
@@ -772,6 +772,7 @@ public class OffboardManager implements Runnable {
 				control.sendMAVLinkMessage(debug);
 							
 
+				// check Lock Flag eventually to use locking as long as possible
 				if(tmp < 0.07) {
 					stop();
 					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );		
