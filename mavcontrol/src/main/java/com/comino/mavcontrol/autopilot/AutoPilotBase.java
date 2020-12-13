@@ -243,7 +243,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
 				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
-				
+
 			}
 		});
 
@@ -316,7 +316,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
 
 			control.writeLogMessage(new LogMessage("[msp] Setting takeoff position.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
+			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z, model.attitude.y);
 
 			try { Thread.sleep(200); } catch(Exception e) { }
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))
@@ -328,6 +328,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 	protected void takeoffCompletedAction() {
+		
+		if(control.isSimulation()) {
+			try { Thread.sleep(1000); } catch(Exception e) { }
+			precisionLand(true);
+			return;
+		}
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, true);
 		control.writeLogMessage(new LogMessage("[msp] Obstacle survey executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -555,24 +561,16 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			turn_to(param);
 			break;
 		case MSP_AUTOCONTROL_ACTION.LOCK:
-		
-			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
-				control.writeLogMessage(new LogMessage("[msp] Lock not executed. Sequence in progress.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-				return;
-			}
-			execute_lock(false);
-			
+            if(control.isSimulation()) {
+            	takeoff_land_test();
+            }
+
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
 			planner.enable(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
-			if(enable)
-				//square();
-				//			randomSequence();
-				offboardLand();
-			else
-				abortSequence();
+			precisionLand(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TAKEOFF:
 			countDownAndTakeoff(5,enable);
@@ -755,40 +753,42 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	/**
-	 * AutopilotAction: Execute lock
+	 * AutopilotAction: Execute precision landing
 	 */
-	public void execute_lock(boolean land) {
 
-		if(control.isSimulation()) {
-			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
-			model.vision.px = model.state.l_x + 0.3f;
-			model.vision.py = model.state.l_y + 0.3f;
+	public void precisionLand(boolean enable) {
+
+		if(model.sys.isStatus(Status.MSP_LANDED) || !enable) {
+			offboard.abort();
+			return;
 		}
 
-		final boolean is_offboard = model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD);
+		ExecutorService.get().submit(() -> {
 
-		if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED) && !model.sys.isStatus(Status.MSP_LANDED)) {
-			ExecutorService.get().submit(() -> {
-				control.writeLogMessage(new LogMessage("[msp] Executing lock procedure.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-				offboard.setTarget(model.vision.px, model.vision.py, model.target_state.l_z, model.attitude.y);
-				offboard.start_wait(OffboardManager.MODE_ADJUST_XY, 10000);
-				if(land) {
-					control.writeLogMessage(new LogMessage("[msp] Executing lock finalized. Landing.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
-					return;
+				if(control.isSimulation()) {
+					model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
+					model.vision.px = model.state.l_x + ((float)Math.random()-0.5f)*2.2f;
+					model.vision.py = model.state.l_y + ((float)Math.random()-0.5f)*2.2f;
+					model.vision.pw = ((float)Math.random()-0.5f)*12f;
+			//		model.vision.pw = Float.NaN;
+
+					msg_msp_vision msg = new msg_msp_vision(2,1);
+					msg.px =  model.vision.px;
+					msg.py =  model.vision.py;
+					msg.pz =  model.vision.pz;
+					msg.pw =  model.vision.pw;
+					control.sendMAVLinkMessage(msg);
 				}
-				if(!is_offboard) {
-					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-							MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-							MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
-					offboard.stop();
+
+				control.writeLogMessage(new LogMessage("[msp] Precision landing triggered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+				if(!offboard.start_wait(OffboardManager.MODE_LAND, 30000)) {
+					control.writeLogMessage(new LogMessage("[msp] Precision landing procedure aborted", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				}
-				control.writeLogMessage(new LogMessage("[msp] Executing lock finalized.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-			});
-		} else
-			control.writeLogMessage(new LogMessage("[msp] Executing lock procedure refused.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+			
+		});
 
 	}
+
 
 	/**
 	 * AutopilotAction: Return to takoff location and land vehicle with fiducial support
@@ -895,7 +895,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			//			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED))
 			//				execute_lock(true);
 			//			else
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0, Float.NaN );
 			return false;
 		}
 		return true;
@@ -943,6 +943,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	/*******************************************************************************/
 	// SITL testing
 
+	private void takeoff_land_test() {
+		
+	}
 
 	public void square() {
 		clearSequence();
@@ -973,39 +976,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		executeSequence();
 	}
 
-	public void offboardLand() {
-		
-		if(model.sys.isStatus(Status.MSP_LANDED))
-			return;
-
-		abortSequence();
-
-		ExecutorService.get().submit(() -> {
-			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED) || control.isSimulation()) {
-				
-				if(control.isSimulation()) {
-					model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
-					model.vision.px = model.state.l_x + ((float)Math.random()-0.5f)*1.2f;
-					model.vision.py = model.state.l_y + ((float)Math.random()-0.5f)*1.2f;
-					
-					msg_msp_vision msg = new msg_msp_vision(2,1);
-					msg.px =  model.vision.px;
-					msg.py =  model.vision.py;
-					msg.pz =  model.vision.pz;
-					control.sendMAVLinkMessage(msg);
-				}
-				
-				control.writeLogMessage(new LogMessage("[msp] Precision landing triggered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-				if(!offboard.start_wait(OffboardManager.MODE_LAND, 20000)) {
-					control.writeLogMessage(new LogMessage("[msp] Offboard landing procedure failed", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-				}
-			} else {
-				control.writeLogMessage(new LogMessage("[msp] No Lock. PX4 Landing triggered", MAV_SEVERITY.MAV_SEVERITY_INFO));
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0.05f );
-			}
-		});
-
-	}
 
 
 	public void buildvirtualWall(float distance_m) {
