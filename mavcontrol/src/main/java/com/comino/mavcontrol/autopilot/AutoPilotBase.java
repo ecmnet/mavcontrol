@@ -328,7 +328,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 	protected void takeoffCompletedAction() {
-		
+
 		if(control.isSimulation()) {
 			try { Thread.sleep(1000); } catch(Exception e) { }
 			precisionLand(true);
@@ -561,9 +561,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			turn_to(param);
 			break;
 		case MSP_AUTOCONTROL_ACTION.LOCK:
-            if(control.isSimulation()) {
-            	takeoff_land_test();
-            }
+			if(control.isSimulation()) {
+				takeoff_land_test();
+			}
 
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
@@ -765,26 +765,33 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		ExecutorService.get().submit(() -> {
 
-				if(control.isSimulation()) {
-					model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
-					model.vision.px = model.state.l_x + ((float)Math.random()-0.5f)*2.2f;
-					model.vision.py = model.state.l_y + ((float)Math.random()-0.5f)*2.2f;
-					model.vision.pw = ((float)Math.random()-0.5f)*12f;
-			//		model.vision.pw = Float.NaN;
+			if(control.isSimulation()) {
+				model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
+				model.vision.setStatus(Vision.FIDUCIAL_ACTIVE, true);
+				model.vision.px = model.state.l_x + ((float)Math.random()-0.5f)*2.2f;
+				model.vision.py = model.state.l_y + ((float)Math.random()-0.5f)*2.2f;
+				model.vision.pw = ((float)Math.random()-0.5f)*12f;
+				//		model.vision.pw = Float.NaN;
 
-					msg_msp_vision msg = new msg_msp_vision(2,1);
-					msg.px =  model.vision.px;
-					msg.py =  model.vision.py;
-					msg.pz =  model.vision.pz;
-					msg.pw =  model.vision.pw;
-					control.sendMAVLinkMessage(msg);
-				}
+				msg_msp_vision msg = new msg_msp_vision(2,1);
+				msg.px =  model.vision.px;
+				msg.py =  model.vision.py;
+				msg.pz =  model.vision.pz;
+				msg.pw =  model.vision.pw;
+				control.sendMAVLinkMessage(msg);
+			}
+
+			if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
+				control.writeLogMessage(new LogMessage("[msp] Precision landing refused. No lock", MAV_SEVERITY.MAV_SEVERITY_CRITICAL));
+				offboardPosHold(true);
+			} else {
 
 				control.writeLogMessage(new LogMessage("[msp] Precision landing triggered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 				if(!offboard.start_wait(OffboardManager.MODE_LAND, 30000)) {
 					control.writeLogMessage(new LogMessage("[msp] Precision landing procedure aborted", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				}
-			
+			}
+
 		});
 
 	}
@@ -810,28 +817,21 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		if((takeoff.x == 0 && takeoff.y == 0) || takeoff.isNaN()) {
 			logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, Float.NaN );
 			return;
 		}
 
 		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 		addToSequence(new SeqItem(takeoff,ISeqAction.ABS, null,0));
-		addToSequence(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
+		if(!model.vision.isStatus(Vision.FIDUCIAL_ACTIVE))
+		    addToSequence(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
 		addToSequence(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, ISeqAction.ABS, () -> {
 			if(!model.vision.isStatus(Vision.FIDUCIAL_ACTIVE)) {
-				logger.writeLocalMsg("[msp] Auto-Landing refused. No fiducial.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+				logger.writeLocalMsg("[msp] No precision landing.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, Float.NaN );
 				clearAutopilotActions();
 			} else {
-				logger.writeLocalMsg("[msp] Perform precision landing.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-				// Move according to precision_offset
-				landing_preparation.plusIP(new Vector4D_F32(model.vision.px, model.vision.py,0,0));
-
-				// TODO: Should not turn to target
-				addToSequence(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
-				addToSequence(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, ISeqAction.ABS, () -> {
-					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 1f, 0, 0, 0.05f );
-					return true;
-				},200));
+				precisionLand(true);
 			}
 			return true;
 		},200));
@@ -944,7 +944,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	// SITL testing
 
 	private void takeoff_land_test() {
-		
+
 	}
 
 	public void square() {
