@@ -91,6 +91,7 @@ public class OffboardManager implements Runnable {
 	private static final float MIN_SPEED							= 0.1f;					  // Min speed m/s
 	
 	private static final float LAND_MODE_ALT                        = 0.07f;                  // rel. altitude to switch to PX4 landing
+	private static final float LAND_MODE_MIN_SPEED                  = 0.20f;                  // Minimum landing speed in offboard phase
 
 
 
@@ -711,8 +712,8 @@ public class OffboardManager implements Runnable {
 					cmd.w = 0;
 				}
 
-				// Minimum landing speed TODO: Should be constant
-				if(cmd.z < 0.20) cmd.z = 0.20f;
+				// Check minimum landing speed
+				if(cmd.z < LAND_MODE_MIN_SPEED) cmd.z = LAND_MODE_MIN_SPEED;
 
 				// Todo: Check abort condition and abort landing if necessary (gain height of 1m and loiter)
 				//       e.g. if landing target not reachable, or current z-speed is upwards
