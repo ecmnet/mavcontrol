@@ -31,7 +31,7 @@
  *
  ****************************************************************************/
 
-package com.comino.mavcontrol.offboard;
+package com.comino.mavcontrol.struct;
 
 
 

@@ -1,4 +1,4 @@
-package com.comino.mavcontrol.struct;
+package com.comino.mavcontrol.sequencer;
 
 public interface ISeqAction {
 

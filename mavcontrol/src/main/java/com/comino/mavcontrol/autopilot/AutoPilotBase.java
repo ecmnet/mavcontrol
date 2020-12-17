@@ -97,8 +97,8 @@ import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.autopilot.tests.PlannerTest;
 import com.comino.mavcontrol.commander.MSPUtils;
 import com.comino.mavcontrol.offboard.OffboardManager;
+import com.comino.mavcontrol.sequencer.ISeqAction;
 import com.comino.mavcontrol.sequencer.Sequencer;
-import com.comino.mavcontrol.struct.ISeqAction;
 import com.comino.mavcontrol.struct.SeqItem;
 import com.comino.mavmap.map.map2D.ILocalMap;
 import com.comino.mavmap.map.map2D.filter.ILocalMapFilter;
@@ -142,7 +142,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected boolean                      isRunning = false;
 	protected boolean               emergencyLanding = false;
-	
+
 	protected Sequencer                    sequencer = null;
 
 	protected final Vector4D_F32             takeoff = new Vector4D_F32();
@@ -183,13 +183,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		System.out.println(instanceName+" instantiated");
 
-		this.control  = control;
-		this.model    = control.getCurrentModel();
-		this.logger   = MSPLogger.getInstance();
-		this.params   = PX4Parameters.getInstance();
-		this.offboard = new OffboardManager(control);
-		
+		this.control   = control;
+		this.model     = control.getCurrentModel();
+		this.logger    = MSPLogger.getInstance();
+		this.params    = PX4Parameters.getInstance();
+		this.offboard  = new OffboardManager(control);
 		this.sequencer = new Sequencer(offboard,logger,model,control);
+
 
 		this.map      = new LocalMap2DRaycast(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
 		this.mapForget = config.getBoolProperty("autopilot_forget_map", "true");
@@ -639,12 +639,16 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			offboard.abort();
 			return;
 		}
+		
+
+		if(control.isSimulation()) {
+			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
+			model.vision.setStatus(Vision.FIDUCIAL_ACTIVE, true);
+		}
 
 		ExecutorService.get().submit(() -> {
 
 			if(control.isSimulation()) {
-				model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
-				model.vision.setStatus(Vision.FIDUCIAL_ACTIVE, true);
 				model.vision.px = model.state.l_x + ((float)Math.random()-0.5f)*2.2f;
 				model.vision.py = model.state.l_y + ((float)Math.random()-0.5f)*2.2f;
 				model.vision.pw = ((float)Math.random()-0.5f)*12f;
@@ -657,6 +661,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				msg.pw =  model.vision.pw;
 				control.sendMAVLinkMessage(msg);
 			}
+			
+			sequencer.clear();
 
 			if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
 				control.writeLogMessage(new LogMessage("[msp] Precision landing refused. No lock", MAV_SEVERITY.MAV_SEVERITY_CRITICAL));
@@ -683,6 +689,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		Vector4D_F32 landing_preparation = takeoff.copy();
 		landing_preparation.z = -0.8f;
 		landing_preparation.w = Float.NaN;
+
+		if(control.isSimulation()) {
+			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
+			model.vision.setStatus(Vision.FIDUCIAL_ACTIVE, true);
+		}
 
 		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
 

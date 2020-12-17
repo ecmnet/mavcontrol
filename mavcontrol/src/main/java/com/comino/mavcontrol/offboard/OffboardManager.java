@@ -82,6 +82,7 @@ public class OffboardManager implements Runnable {
 	private static final int  LOCK_Z                                = 2;
 	private static final int  LOCK_XY                               = 3;
 	private static final int  LOCK_XYZ                              = 4;
+	private static final int  LOCK_XYZY                             = 5;
 
 
 	private static final int  UPDATE_RATE                 			= 50;					  // offboard update rate in ms
@@ -111,21 +112,18 @@ public class OffboardManager implements Runnable {
 	private static final float YAW_ACCEPT                	    	= MSPMathUtils.toRad(0.3);// Acceptance yaw deviation
 
 
+	private MSPLogger 				logger							= null;
+	private DataModel 			    model							= null;
+	private IMAVController          control      			       	= null;
 
-	//
-
-	private MSPLogger 				 logger							= null;
-	private DataModel 				 model							= null;
-	private IMAVController         	 control      			       	= null;
-
-	private ITargetAction        action_listener     	    = null;		// CB target reached
+	private ITargetAction           action_listener     	        = null;		// CB target reached
 
 	private long                    sent_count                      = 0;
 
 	// ControlLib
-	private IYawSpeedControl       yawSpeedControl                       = null;
-	private ISpeedControl     speedControl                          = null;		
-	private IConstraints      constraintControl                     = null;		
+	private IYawSpeedControl        yawSpeedControl                  = null;
+	private ISpeedControl           speedControl                     = null;		
+	private IConstraints            constraintControl                = null;		
 
 	private boolean					enabled					  		= false;
 	private int						mode					  		= MODE_LOITER;		     // Offboard mode
@@ -491,10 +489,10 @@ public class OffboardManager implements Runnable {
 				watch_tms = System.currentTimeMillis();
 
 				if(Float.isNaN(target.w)) {
-					target.setW(MSPMathUtils.normAngle2(model.attitude.y));
+					target.setW(MSPMathUtils.normAngle(model.attitude.y));
 				}
 
-				yaw_diff = MSPMathUtils.normAngle2(target.w - current.w);
+				yaw_diff = MSPMathUtils.normAngle(target.w - current.w);
 
 				if(valid_setpoint && Math.abs(yaw_diff) < YAW_ACCEPT) {
 					d_yaw=0;

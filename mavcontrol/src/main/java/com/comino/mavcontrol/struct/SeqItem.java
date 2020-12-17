@@ -2,6 +2,7 @@ package com.comino.mavcontrol.struct;
 
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcontrol.controllib.ISpeedControl;
+import com.comino.mavcontrol.sequencer.ISeqAction;
 
 import georegression.struct.point.Vector4D_F32;
 

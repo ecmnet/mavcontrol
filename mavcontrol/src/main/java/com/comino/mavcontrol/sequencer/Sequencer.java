@@ -12,7 +12,6 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcontrol.offboard.OffboardManager;
-import com.comino.mavcontrol.struct.ISeqAction;
 import com.comino.mavcontrol.struct.SeqItem;
 import com.comino.mavutils.legacy.ExecutorService;
 
