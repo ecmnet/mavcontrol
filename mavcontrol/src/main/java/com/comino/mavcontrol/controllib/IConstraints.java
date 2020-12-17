@@ -31,12 +31,12 @@
  *
  ****************************************************************************/
 
-package com.comino.mavcontrol.offboard;
+package com.comino.mavcontrol.controllib;
 
 import com.comino.mavcom.struct.Polar3D_F32;
 
-public interface IExtConstraints {
+public interface IConstraints {
 
-	public boolean get(float delta_sec, Polar3D_F32 speed, Polar3D_F32 path , Polar3D_F32 control);
+	public boolean update(float delta_sec, Polar3D_F32 speed, Polar3D_F32 path , Polar3D_F32 control);
 
 }

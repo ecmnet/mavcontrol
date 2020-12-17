@@ -54,9 +54,12 @@ import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
-import com.comino.mavcontrol.controllib.YawSpeedControl;
-import com.comino.mavcontrol.offboard.control.DefaultConstraintListener;
-import com.comino.mavcontrol.offboard.control.DefaultControlListener;
+import com.comino.mavcontrol.controllib.IYawSpeedControl;
+import com.comino.mavcontrol.controllib.IConstraints;
+import com.comino.mavcontrol.controllib.ISpeedControl;
+import com.comino.mavcontrol.controllib.impl.ContraintControl;
+import com.comino.mavcontrol.controllib.impl.XYZSpeedControl;
+import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.point.Vector4D_F32;
@@ -72,6 +75,8 @@ public class OffboardManager implements Runnable {
 	public static final int MODE_SPEED_POSITION	 	    			= 4;
 	public static final int MODE_BEZIER                             = 5;
 	public static final int MODE_LAND                               = 6;
+	
+	// PX4 speed control locks
 
 	private static final int  LOCK_NONE								= 1;
 	private static final int  LOCK_Z                                = 2;
@@ -114,14 +119,13 @@ public class OffboardManager implements Runnable {
 	private IMAVController         	 control      			       	= null;
 
 	private ITargetAction        action_listener     	    = null;		// CB target reached
-	private IExtSpeedControl     ext_control_listener       = null;		// CB external angle+speed control in MODE_SPEED_POSITION
-	private IExtSpeedControl default_control_listener       = null;		// Default MODE_SPEED_POSITION controller
-	private IExtConstraints ext_constraints_listener        = null;		// CB Constrains in MODE_SPEED_POSITION
 
 	private long                    sent_count                      = 0;
 
 	// ControlLib
-	private final YawSpeedControl   yawSpeedControl                 = new YawSpeedControl(YAW_PV,0,MAX_YAW_SPEED);
+	private IYawSpeedControl       yawSpeedControl                       = null;
+	private ISpeedControl     speedControl                          = null;		
+	private IConstraints      constraintControl                     = null;		
 
 	private boolean					enabled					  		= false;
 	private int						mode					  		= MODE_LOITER;		     // Offboard mode
@@ -161,9 +165,6 @@ public class OffboardManager implements Runnable {
 		this.model          = control.getCurrentModel();
 		this.logger         = MSPLogger.getInstance();
 
-		this.ext_constraints_listener = new DefaultConstraintListener();
-		this.default_control_listener = new DefaultControlListener(model);
-		this.ext_control_listener     = default_control_listener;
 
 		MSPConfig config	= MSPConfig.getInstance();
 
@@ -172,6 +173,10 @@ public class OffboardManager implements Runnable {
 
 		max_speed = config.getFloatProperty("autopilot_max_speed", String.valueOf(max_speed));
 		System.out.println("Autopilot: MSP maximum speed: "+max_speed+" m/s");
+		
+		this.constraintControl = new ContraintControl();
+		this.speedControl      = new XYZSpeedControl(model, min_speed, max_speed);
+		this.yawSpeedControl   = new YawSpeedControl(YAW_PV,0,MAX_YAW_SPEED);
 
 		MSP3DUtils.setNaN(target);
 
@@ -330,20 +335,28 @@ public class OffboardManager implements Runnable {
 	}
 
 
-	public void registerExternalControlListener(IExtSpeedControl control_listener) {
-		this.ext_control_listener = control_listener;
-	}
-
-	public void registerExternalConstraintsListener(IExtConstraints constraints) {
-		this.ext_constraints_listener = constraints;
-	}
-
 	public boolean isEnabled() {
 		return enabled;
 	}
 
 	public int getMode() {
 		return mode;
+	}
+	
+	public void registerContraintControl(IConstraints control) {
+		this.constraintControl = control;
+		
+	}
+	
+	public void registerSpeedControl(ISpeedControl control) {
+		this.speedControl = control;
+		
+	}
+	
+
+	public void registerYawSpeedControl(IYawSpeedControl control) {
+		this.yawSpeedControl = control;
+		
 	}
 
 	public void registerActionListener(ITargetAction listener) {
@@ -437,7 +450,7 @@ public class OffboardManager implements Runnable {
 			if(new_setpoint) {
 
 				new_setpoint = false;
-				ext_control_listener.initialize(spd, path);
+				speedControl.initialize(spd, path);
 				trajectory_start_tms = 0; ela_sec = 0;
 				start.set(current);
 				ctl.set(spd);
@@ -475,7 +488,6 @@ public class OffboardManager implements Runnable {
 			case MODE_LOITER:	// Loiter at current position, yaw controlled
 				
 				model.slam.flags = Slam.OFFBOARD_FLAG_HOLD;
-				this.ext_control_listener = default_control_listener;
 				watch_tms = System.currentTimeMillis();
 
 				if(Float.isNaN(target.w)) {
@@ -561,7 +573,6 @@ public class OffboardManager implements Runnable {
 
 			case MODE_SPEED_POSITION:  // Speed controlled position adjustment
 
-				model.slam.flags = Slam.OFFBOARD_FLAG_MOVE;
 				watch_tms = System.currentTimeMillis();
 				path.set(target, current);
 				way.set(current, start);
@@ -570,16 +581,6 @@ public class OffboardManager implements Runnable {
 					ela_sec = (System.currentTimeMillis() - trajectory_start_tms) / 1000f;
 
 				eta_sec = (path.value - acceptance_radius_pos / 2f ) / spd.value;
-
-				// external speed control via control callback ?
-				ext_control_listener.determineSpeedAnDirection(delta_sec, ela_sec, eta_sec, spd, path, ctl);
-				if(ctl.value > max_speed)
-					model.slam.flags = Slam.OFFBOARD_FLAG_MOVE;
-				ctl.value = MSPMathUtils.constraint(ctl.value, max_speed, min_speed);
-
-
-				// check external constraints
-				ext_constraints_listener.get(delta_sec, spd, path, ctl);
 
 				// target reached?
 				if(path.value < acceptance_radius_pos && valid_setpoint && !already_fired
@@ -626,8 +627,13 @@ public class OffboardManager implements Runnable {
 					//  Lock XYZ Position while turning
 					lock = LOCK_XYZ;
 
-				} else
+				} else {
+					// external speed control via control callback
+					speedControl.update(delta_sec, ela_sec, eta_sec, spd, path, ctl);
+					// check external constraints
+					constraintControl.update(delta_sec, spd, path, ctl);
 					lock = LOCK_NONE;
+				}
 
 				if(ctl.value > 0 && trajectory_start_tms == 0)
 					trajectory_start_tms = System.currentTimeMillis();
@@ -662,6 +668,8 @@ public class OffboardManager implements Runnable {
 				watch_tms = System.currentTimeMillis();
 
 				target.set(model.vision.px,model.vision.py,model.state.l_z,model.vision.pw);
+				
+				// TODO: Safetychecks: Pitch/Roll => gain height and loiter
 
 				yaw_diff = MSPMathUtils.normAngle(target.w - current.w);
 
@@ -791,12 +799,19 @@ public class OffboardManager implements Runnable {
 
 		pos_cmd.target_component = 1;
 		pos_cmd.target_system    = 1;
+		
 		pos_cmd.type_mask        = MAV_MASK.MASK_VELOCITY_IGNORE | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
-				MAV_MASK.MASK_YAW_RATE_IGNORE ;
+	                    		   MAV_MASK.MASK_YAW_RATE_IGNORE ;
+			
 		pos_cmd.x   = target.x;
 		pos_cmd.y   = target.y;
 		pos_cmd.z   = target.z;
-		pos_cmd.yaw = Float.isNaN(target.w)? model.attitude.y : MSPMathUtils.normAngle(target.w);
+		
+		if(Float.isInfinite(target.w)) {
+			pos_cmd.type_mask  = pos_cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
+			pos_cmd.yaw = model.attitude.y;
+		} else
+			pos_cmd.yaw = MSPMathUtils.normAngle(target.w);
 
 		pos_cmd.coordinate_frame = frame;
 
@@ -954,5 +969,6 @@ public class OffboardManager implements Runnable {
 
 		return true;
 	}
+
 
 }

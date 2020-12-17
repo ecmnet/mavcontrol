@@ -420,7 +420,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				SeqItem item = sequence.poll();
 				if(item.hasTarget()) {
 					if(item.getControlListener()!=null)
-						offboard.registerExternalControlListener(item.getControlListener());
+						offboard.registerSpeedControl(item.getControlListener());
 					offboard.setTarget(item.getTarget(model));
 					if(!offboard.start_wait(OffboardManager.MODE_SPEED_POSITION, item.getTimeout_ms())) {
 						model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
@@ -560,17 +560,15 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			System.out.println("Turn to "+param);
 			turn_to(param);
 			break;
-		case MSP_AUTOCONTROL_ACTION.LOCK:
-			if(control.isSimulation()) {
-				takeoff_land_test();
-			}
+		case MSP_AUTOCONTROL_ACTION.LAND:
+			precisionLand(enable);
 
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
 			planner.enable(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
-			precisionLand(enable);
+			randomSequence();
 			break;
 		case MSP_AUTOCONTROL_ACTION.TAKEOFF:
 			countDownAndTakeoff(5,enable);
@@ -964,7 +962,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		clearSequence();
 		if(control.isSimulation()) {
 
-			for(int i=1;i<10;i++)
+			for(int i=1;i<5;i++)
 				addToSequence(new SeqItem((float)(Math.random()*4-2),
 						(float)(Math.random()*4-2),
 						(float)(-Math.random()*0.5+0.2),

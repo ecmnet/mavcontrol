@@ -141,7 +141,7 @@ public class BreakingPilot extends AutoPilotBase {
 		});
 
 		// calculate speed constraints considering the distance to obstacles
-		offboard.registerExternalConstraintsListener((delta_sec, speed, path, ctl) -> {
+		offboard.registerContraintControl((delta_sec, speed, path, ctl) -> {
 
 			plannedPath.set(path); currentSpeed.set(speed);
 

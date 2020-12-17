@@ -1,11 +1,11 @@
-package com.comino.mavcontrol.offboard.control;
+package com.comino.mavcontrol.controllib.impl;
 
 import com.comino.mavcom.struct.Polar3D_F32;
-import com.comino.mavcontrol.offboard.IExtSpeedControl;
+import com.comino.mavcontrol.controllib.ISpeedControl;
 import com.comino.mavmap.libs.TrajMathLib;
 import com.comino.mavutils.MSPMathUtils;
 
-public class TimebasedControlListener implements IExtSpeedControl {
+public class TimeXYZSpeedControl implements ISpeedControl {
 
 	private static final float MAX_ACCELERATION		                = 0.5f;                   // Max acceleration in m/s2
 	private static final float MAX_SPEED					        = 1.00f;          	      // Default Max speed in m/s
@@ -21,7 +21,7 @@ public class TimebasedControlListener implements IExtSpeedControl {
 	private float   a_phase    = 0;
 
 
-	public boolean determineSpeedAnDirection(float delta_sec, float ela_sec, float eta_sec, Polar3D_F32 spd, Polar3D_F32 path, Polar3D_F32 ctl) {
+	public boolean update(float delta_sec, float ela_sec, float eta_sec, Polar3D_F32 spd, Polar3D_F32 path, Polar3D_F32 ctl) {
 
 		ctl.angle_xy =  path.angle_xy;
 		ctl.angle_xz =  path.angle_xz;

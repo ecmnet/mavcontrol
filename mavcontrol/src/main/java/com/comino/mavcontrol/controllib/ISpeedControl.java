@@ -31,13 +31,13 @@
  *
  ****************************************************************************/
 
-package com.comino.mavcontrol.offboard;
+package com.comino.mavcontrol.controllib;
 
 import com.comino.mavcom.struct.Polar3D_F32;
 
-public interface IExtSpeedControl {
+public interface ISpeedControl {
 
-	public boolean determineSpeedAnDirection(float delta_sec, float ela_sec, float eta_sec, Polar3D_F32 spd, Polar3D_F32 path , Polar3D_F32 ctl);
+	public boolean update(float delta_sec, float ela_sec, float eta_sec, Polar3D_F32 spd, Polar3D_F32 path , Polar3D_F32 ctl);
 
 	public void reset();
 

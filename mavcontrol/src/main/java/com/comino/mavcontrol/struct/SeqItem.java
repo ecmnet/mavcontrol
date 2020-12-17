@@ -1,7 +1,7 @@
 package com.comino.mavcontrol.struct;
 
 import com.comino.mavcom.model.DataModel;
-import com.comino.mavcontrol.offboard.IExtSpeedControl;
+import com.comino.mavcontrol.controllib.ISpeedControl;
 
 import georegression.struct.point.Vector4D_F32;
 
@@ -13,7 +13,7 @@ public class SeqItem {
 	private Vector4D_F32              target = null;
 	private int                          mode = 0;
 	private ISeqAction                 action = null;
-	private IExtSpeedControl  control = null;
+	private ISpeedControl  control = null;
 	private int                      delay_ms = 0;
 
 
@@ -22,7 +22,7 @@ public class SeqItem {
 		this(x,y,z,w,ISeqAction.REL,action,null,delay_ms);
 	}
 
-	public SeqItem(float x, float y, float z, float w, int mode, ISeqAction action, IExtSpeedControl control, int delay_ms) {
+	public SeqItem(float x, float y, float z, float w, int mode, ISeqAction action, ISpeedControl control, int delay_ms) {
 		this.target    = new Vector4D_F32(x,y,z,w);
 		this.mode      = mode;
 		this.action    = action;
@@ -87,7 +87,7 @@ public class SeqItem {
 		return ITEM_TIMEOUT_MS + delay_ms;
 	}
 
-	public IExtSpeedControl getControlListener() {
+	public ISpeedControl getControlListener() {
 		return control;
 	}
 

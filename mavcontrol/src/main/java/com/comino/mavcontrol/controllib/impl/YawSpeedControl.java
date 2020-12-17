@@ -1,10 +1,11 @@
-package com.comino.mavcontrol.controllib;
+package com.comino.mavcontrol.controllib.impl;
 
+import com.comino.mavcontrol.controllib.IYawSpeedControl;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.point.Vector4D_F32;
 
-public class YawSpeedControl {
+public class YawSpeedControl implements IYawSpeedControl {
 	
 	private static final float RAMP_YAW_SPEED  = MSPMathUtils.toRad(45); // Ramp up Speed for yaw turning
 	
@@ -20,10 +21,12 @@ public class YawSpeedControl {
 		this.max_yaw_speed = max_yaw_speed;
 	}
 	
+	@Override
 	public void reset() {
 		yaw_d_target = 0; yaw_d_current = 0;
 	}
 	
+	@Override
 	public float update(float yaw_diff, float delta_sec) {
 		
 		if(!Float.isFinite(yaw_diff))
@@ -51,6 +54,7 @@ public class YawSpeedControl {
 		
 	}
 	
+	@Override
 	public float update(Vector4D_F32 target, Vector4D_F32 current, float delta_sec) {
 		
 		return update(MSPMathUtils.normAngle2(target.w - current.w), delta_sec);

@@ -48,7 +48,7 @@ import georegression.struct.point.Vector4D_F32;
 
 public class WayPointTracker implements Runnable {
 
-	//TODO: re-implement with speed_position mode
+	//TODO: Re-implement with speed_position mode
 
 	private static final int MIN_FREEZE_WP   = 3;
 
