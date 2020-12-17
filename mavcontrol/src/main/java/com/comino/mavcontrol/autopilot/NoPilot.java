@@ -69,7 +69,7 @@ public class NoPilot extends AutoPilotBase {
 			// Safety: Channel 8 triggers landing mode of PX4
 			if(model.rc.get(RC_LAND_CHANNEL) > RC_LAND_THRESHOLD && !is_landing) {
 				logger.writeLocalMsg("[msp] Landing commanded by RC",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-				abortSequence();
+				sequencer.abort();
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, (cmd, result) -> {
 					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED)
 						logger.writeLocalMsg("[msp] Auto-Land not accepted",MAV_SEVERITY.MAV_SEVERITY_INFO);

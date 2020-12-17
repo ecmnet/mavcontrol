@@ -97,6 +97,7 @@ import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.autopilot.tests.PlannerTest;
 import com.comino.mavcontrol.commander.MSPUtils;
 import com.comino.mavcontrol.offboard.OffboardManager;
+import com.comino.mavcontrol.sequencer.Sequencer;
 import com.comino.mavcontrol.struct.ISeqAction;
 import com.comino.mavcontrol.struct.SeqItem;
 import com.comino.mavmap.map.map2D.ILocalMap;
@@ -141,9 +142,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected boolean                      isRunning = false;
 	protected boolean               emergencyLanding = false;
-
-	protected LinkedList<SeqItem>           sequence = null;
-	protected LinkedList<SeqItem>           appended = null;
+	
+	protected Sequencer                    sequencer = null;
 
 	protected final Vector4D_F32             takeoff = new Vector4D_F32();
 	protected  long                       takeoff_ms = 0;
@@ -187,10 +187,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.model    = control.getCurrentModel();
 		this.logger   = MSPLogger.getInstance();
 		this.params   = PX4Parameters.getInstance();
-		this.sequence = new LinkedList<SeqItem>();
-		this.appended = new LinkedList<SeqItem>();
-
 		this.offboard = new OffboardManager(control);
+		
+		this.sequencer = new Sequencer(offboard,logger,model,control);
 
 		this.map      = new LocalMap2DRaycast(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
 		this.mapForget = config.getBoolProperty("autopilot_forget_map", "true");
@@ -257,7 +256,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		// Abort any sequence if PX4 landing is triggered
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
-			abortSequence();
+			sequencer.abort();
 			if(future!=null) future.cancel(true);
 		});
 
@@ -342,126 +341,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			return true;
 		});
 
-	}
-
-	protected void addToSequence(SeqItem item) {
-		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE))
-			sequence.add(item);
-		else
-			appended.add(item);
-	}
-
-	//	protected void appendToRunningSequence(SeqItem item) {
-	//		appended.add(item);
-	//	}
-
-	protected void clearSequence() {
-		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
-			sequence.clear(); appended.clear();
-			model.slam.wpcount = 0;
-		}
-	}
-
-	protected void abortSequence() {
-		if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
-			sequence.clear();  appended.clear();
-			model.slam.wpcount = 0;
-			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
-			offboard.abort();
-			while(!future.isDone());
-		}
-	}
-
-	protected void executeSequence(SeqItem item, ISeqAction completedAction) {
-		sequence.clear();  appended.clear();
-		sequence.add(item);
-		executeSequence();
-	}
-
-	protected void executeSequence() {
-		executeSequence((ISeqAction)null);
-	}
-
-	protected void executeSequence(ISeqAction completedAction) {
-
-
-		if(!offboard.isEnabled()) {
-			logger.writeLocalMsg("[msp] Offboard not enabled.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-			sequence.clear();
-			return;
-		}
-
-		if(model.sys.isStatus(Status.MSP_LANDED)) {
-			control.writeLogMessage(new LogMessage("[msp] Not executed. On ground/No offboard.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
-			sequence.clear();  appended.clear();
-			return;
-		}
-
-		if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
-			control.writeLogMessage(new LogMessage("[msp] Sequence already in execution.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-			return;
-		}
-		if(sequence.isEmpty()) {
-			control.writeLogMessage(new LogMessage("[msp] No valid sequence.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
-			return;
-		}
-
-		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, true);
-
-		future = ExecutorService.get().submit(() -> {
-			int i=0;
-
-			try { Thread.sleep(50); } catch (InterruptedException e) { }
-
-			//		final ListIterator<SeqItem> i = sequence.listIterator();
-			while(!sequence.isEmpty() && model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
-				model.slam.wpcount  = ++i;
-				control.writeLogMessage(new LogMessage("[msp] Step "+i+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-				SeqItem item = sequence.poll();
-				if(item.hasTarget()) {
-					if(item.getControlListener()!=null)
-						offboard.registerSpeedControl(item.getControlListener());
-					offboard.setTarget(item.getTarget(model));
-					if(!offboard.start_wait(OffboardManager.MODE_SPEED_POSITION, item.getTimeout_ms())) {
-						model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
-						control.writeLogMessage(new LogMessage("[msp] Sequence timeout occurred.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-						break;
-					}
-					if(!offboard.isEnabled()) {
-						model.slam.wpcount = 0;
-						sequence.clear();
-						control.writeLogMessage(new LogMessage("[msp] Sequence aborted.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-						return;
-					}
-				}
-
-				// Execute action
-				if(!item.executeAction()) {
-					control.writeLogMessage(new LogMessage("[msp] Sequence action request abort.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-					break;
-				}
-				// Extend sequence by appended items
-				if(!appended.isEmpty()) {
-					control.writeLogMessage(new LogMessage("[msp] "+appended.size()+" added to sequence", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-					appended.forEach((n) -> { sequence.add(n); });
-					appended.clear();
-				}
-			}
-			offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
-			offboard.start(OffboardManager.MODE_LOITER);
-
-			model.slam.wpcount = 0;
-			sequence.clear();
-
-			if(completedAction!=null && model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE))
-				completedAction.execute();
-
-			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE))
-				control.writeLogMessage(new LogMessage("[msp] Sequence finished.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-			else
-				control.writeLogMessage(new LogMessage("[msp] Sequence aborted.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
-		});
 	}
 
 	protected void start() {
@@ -602,7 +481,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			if(!offboard.isEnabled() || offboard.getMode()==OffboardManager.MODE_SPEED_POSITION) {
 				//abort any sequence if sticks moved
 				if(!MSP3DUtils.isNaN(body_speed)) {
-					sequence.clear(); offboard.abort();
+					sequencer.clear(); offboard.abort();
 				}
 				return;
 			}
@@ -652,7 +531,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			return;
 		}
 
-		abortSequence();
+		sequencer.abort();
 
 		offboard.registerActionListener( (m,d) -> {
 			offboard.start(OffboardManager.MODE_LOITER);
@@ -706,7 +585,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	 * AutopilotAction: Aborts current AutoPilot sequence
 	 */
 	public void abort() {
-		abortSequence();
+		sequencer.abort();
 		clearAutopilotActions();
 		model.sys.autopilot &= 0b11000000000000000000000000000001;
 		if(model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
@@ -731,12 +610,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	 * @param completedAction
 	 */
 	public void rotate(float deg, ISeqAction completedAction) {
-		clearSequence();
+		sequencer.clear();
 		float rad = MSPMathUtils.toRad(deg);
-		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
-		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,-2*rad));
-		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
-		executeSequence(completedAction);
+		sequencer.add(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
+		sequencer.add(new SeqItem(Float.NaN,Float.NaN,Float.NaN,-2*rad));
+		sequencer.add(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
+		sequencer.execute(completedAction);
 	}
 
 	/**
@@ -744,10 +623,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	 * @param deg
 	 */
 	public void turn_to(float deg) {
-		clearSequence();
+		sequencer.clear();
 		float rad = MSPMathUtils.toRad(deg);
-		addToSequence(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad,ISeqAction.ABS));
-		executeSequence();
+		sequencer.add(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad,ISeqAction.ABS));
+		sequencer.execute();
 	}
 
 	/**
@@ -803,10 +682,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		Vector4D_F32 landing_preparation = takeoff.copy();
 		landing_preparation.z = -0.8f;
+		landing_preparation.w = Float.NaN;
 
 		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
 
-		abortSequence();
+		sequencer.abort();
 
 		if(!enable) {
 			logger.writeLocalMsg("[msp] Return to launch aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
@@ -820,10 +700,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		}
 
 		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-		addToSequence(new SeqItem(takeoff,ISeqAction.ABS, null,0));
+		sequencer.add(new SeqItem(takeoff,ISeqAction.ABS, null,0));
 		if(!model.vision.isStatus(Vision.FIDUCIAL_ACTIVE))
-		    addToSequence(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
-		addToSequence(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, ISeqAction.ABS, () -> {
+			sequencer.add(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
+		sequencer.add(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, ISeqAction.ABS, () -> {
 			if(!model.vision.isStatus(Vision.FIDUCIAL_ACTIVE)) {
 				logger.writeLocalMsg("[msp] No precision landing.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, Float.NaN );
@@ -833,7 +713,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}
 			return true;
 		},200));
-		executeSequence();
+		sequencer.execute();
 	}
 
 	/**
@@ -869,7 +749,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	 * @param targetAngle
 	 */
 	public void emergency_stop_and_turn(float targetAngle) {
-		abortSequence();
+		sequencer.abort();
 		clearAutopilotActions();
 		offboard.finalize();
 		offboard.setTarget(model.state.l_x, model.state.l_y, model.state.l_z, targetAngle);
@@ -890,9 +770,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		if(Math.abs(model.rc.get(RC_LAND_CHANNEL) - RC_LAND_THRESHOLD) < RC_DEADBAND && !emergencyLanding) {
 			emergencyLanding = true;
 			logger.writeLocalMsg("[msp] Emergency landing triggered by RC",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
-			//			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED))
-			//				execute_lock(true);
-			//			else
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0, Float.NaN );
 			return false;
 		}
@@ -946,32 +823,32 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	public void square() {
-		clearSequence();
+		sequencer.clear();
 		//		addToSequence(new SeqItem(Float.NaN, Float.NaN, -1.0f, Float.NaN , SeqItem.ABS));
-		addToSequence(new SeqItem(0.5f     , 0.5f     , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-		addToSequence(new SeqItem(Float.NaN, -1f      , -1.5f, Float.NaN, ISeqAction.REL,null,0));
-		addToSequence(new SeqItem(-1f      , Float.NaN, Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-		addToSequence(new SeqItem(Float.NaN, 1f       , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-		addToSequence(new SeqItem(1f       , Float.NaN, 1.5f, Float.NaN, ISeqAction.REL,null,0));
-		addToSequence(new SeqItem(-0.5f    , -0.5f    , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-		addToSequence(new SeqItem(Float.NaN, Float.NaN, Float.NaN,0         , ISeqAction.ABS));
-		executeSequence();
+		sequencer.add(new SeqItem(0.5f     , 0.5f     , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
+		sequencer.add(new SeqItem(Float.NaN, -1f      , -1.5f, Float.NaN, ISeqAction.REL,null,0));
+		sequencer.add(new SeqItem(-1f      , Float.NaN, Float.NaN, Float.NaN, ISeqAction.REL,null,0));
+		sequencer.add(new SeqItem(Float.NaN, 1f       , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
+		sequencer.add(new SeqItem(1f       , Float.NaN, 1.5f, Float.NaN, ISeqAction.REL,null,0));
+		sequencer.add(new SeqItem(-0.5f    , -0.5f    , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
+		sequencer.add(new SeqItem(Float.NaN, Float.NaN, Float.NaN,0         , ISeqAction.ABS));
+		sequencer.execute();
 	}
 
 	public void randomSequence() {
-		clearSequence();
+		sequencer.clear();
 		if(control.isSimulation()) {
 
 			for(int i=1;i<5;i++)
-				addToSequence(new SeqItem((float)(Math.random()*4-2),
+				sequencer.add(new SeqItem((float)(Math.random()*4-2),
 						(float)(Math.random()*4-2),
 						(float)(-Math.random()*0.5+0.2),
 						Float.NaN, ISeqAction.REL, null,0));
-			addToSequence(new SeqItem( 0.5f    ,       0.5f  , -2.0f, (float)(Math.PI), ISeqAction.ABS,null,0));
+			sequencer.add(new SeqItem( 0.5f    ,       0.5f  , -2.0f, (float)(Math.PI), ISeqAction.ABS,null,0));
 		} else {
-			addToSequence(new SeqItem( 1f       , Float.NaN  , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-			addToSequence(new SeqItem(-1f       , Float.NaN  , Float.NaN, Float.NaN, ISeqAction.REL,null,0));		}
-		executeSequence();
+			sequencer.add(new SeqItem( 1f       , Float.NaN  , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
+			sequencer.add(new SeqItem(-1f       , Float.NaN  , Float.NaN, Float.NaN, ISeqAction.REL,null,0));		}
+		sequencer.execute();
 	}
 
 

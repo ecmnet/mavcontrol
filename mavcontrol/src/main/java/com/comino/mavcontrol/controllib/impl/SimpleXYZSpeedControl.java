@@ -39,7 +39,7 @@ import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcontrol.controllib.ISpeedControl;
 import com.comino.mavutils.MSPMathUtils;
 
-public class XYZSpeedControl implements ISpeedControl {
+public class SimpleXYZSpeedControl implements ISpeedControl {
 
 	private static final float MAX_ACCELERATION		                = 0.3f;                   // Max acceleration in m/s2
 
@@ -55,7 +55,7 @@ public class XYZSpeedControl implements ISpeedControl {
 	private float max_speed;
 	private float min_speed;
 	
-	public XYZSpeedControl(DataModel model, float min_speed, float max_speed) {
+	public SimpleXYZSpeedControl(DataModel model, float min_speed, float max_speed) {
 		this.model = model;
 		this.max_speed = max_speed;
 		this.min_speed = min_speed;

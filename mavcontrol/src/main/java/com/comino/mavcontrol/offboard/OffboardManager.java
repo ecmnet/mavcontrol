@@ -58,7 +58,7 @@ import com.comino.mavcontrol.controllib.IYawSpeedControl;
 import com.comino.mavcontrol.controllib.IConstraints;
 import com.comino.mavcontrol.controllib.ISpeedControl;
 import com.comino.mavcontrol.controllib.impl.ContraintControl;
-import com.comino.mavcontrol.controllib.impl.XYZSpeedControl;
+import com.comino.mavcontrol.controllib.impl.SimpleXYZSpeedControl;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavutils.MSPMathUtils;
 
@@ -175,7 +175,7 @@ public class OffboardManager implements Runnable {
 		System.out.println("Autopilot: MSP maximum speed: "+max_speed+" m/s");
 		
 		this.constraintControl = new ContraintControl();
-		this.speedControl      = new XYZSpeedControl(model, min_speed, max_speed);
+		this.speedControl      = new SimpleXYZSpeedControl(model, min_speed, max_speed);
 		this.yawSpeedControl   = new YawSpeedControl(YAW_PV,0,MAX_YAW_SPEED);
 
 		MSP3DUtils.setNaN(target);
