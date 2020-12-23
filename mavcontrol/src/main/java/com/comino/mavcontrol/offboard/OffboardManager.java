@@ -175,7 +175,6 @@ public class OffboardManager implements Runnable {
 		System.out.println("Autopilot: acceptance radius: "+acceptance_radius_pos+" m");
 
 		max_speed = config.getFloatProperty("autopilot_max_speed", String.valueOf(max_speed));
-		System.out.println("Autopilot: MSP maximum speed: "+max_speed+" m/s");
 
 		this.constraintControl = new ContraintControl();
 		this.speedControl      = new SimpleXYZSpeedControl(model, min_speed, max_speed);
@@ -193,13 +192,19 @@ public class OffboardManager implements Runnable {
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
 		});
 
-		// Set some PX4 parameters
+		// Get some PX4 parameters used for offboard control
 		control.getStatusManager().addListener(Status.MSP_PARAMS_LOADED, (n) -> {
 			if(n.isStatus(Status.MSP_PARAMS_LOADED)) {	
-				max_speed    = params.getParamValue("MPC_XY_VEL_MAX", max_speed);
+
+				float tmp    = params.getParamValue("MPC_XY_VEL_MAX", max_speed);
+				if(tmp < max_speed) {
+					max_speed = tmp;
+					System.out.println("Set maximum autopilot XY speed to "+max_speed+" m/s");
+				}
+
 				ekf2_min_rng = params.getParamValue("EKF2_MIN_RNG", 0);
 				if(ekf2_min_rng > 0)
-					System.out.println("Offboard: Use EKF2_MIN_RNG of "+ekf2_min_rng+"m for precision landing");
+					System.out.println("Use EKF2_MIN_RNG of "+ekf2_min_rng+"m for precision landing");
 
 			}
 		});
