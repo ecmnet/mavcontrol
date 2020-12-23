@@ -76,6 +76,7 @@ import org.mavlink.messages.lquac.msg_trajectory_representation_waypoints;
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.mavlink.MAV_CUST_MODE;
+import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.param.ParameterAttributes;
@@ -240,7 +241,7 @@ public class TrajectoryPilot extends AutoPilotBase {
 
 		wp.command[0] = 0;
 		wp.valid_points = 1;
-		wp.time_usec = model.sys.getSynchronizedPX4Time_us();
+		wp.time_usec = DataModel.getSynchronizedPX4Time_us();
 
 		control.sendMAVLinkMessage(wp);
 

@@ -38,6 +38,7 @@ import org.mavlink.messages.lquac.msg_obstacle_distance;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.model.DataModel;
 import com.comino.mavmap.map.map2D.filter.impl.DenoiseMapFilter;
 import com.comino.mavmap.trajectory.collprev.CollisionPreventionConverter;
 
@@ -88,7 +89,7 @@ public class CollisonPreventionPilot extends AutoPilotBase {
 					msg.distances[i] = msg.max_distance + 1;
 			}
 
-			msg.time_usec = model.sys.getSynchronizedPX4Time_us();
+			msg.time_usec = DataModel.getSynchronizedPX4Time_us();
 
 			control.sendMAVLinkMessage(msg);
 

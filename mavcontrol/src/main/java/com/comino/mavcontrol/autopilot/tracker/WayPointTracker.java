@@ -146,7 +146,7 @@ public class WayPointTracker implements Runnable {
 
 		float distance = Float.MAX_VALUE;
 
-		tms = model.sys.getSynchronizedPX4Time_us()/1000;
+		tms = DataModel.getSynchronizedPX4Time_us()/1000;
 		Vector4D_F32 waypoint = new Vector4D_F32(model.state.l_x, model.state.l_y, model.state.l_z, model.attitude.y);
 
 		if(!list.isEmpty())

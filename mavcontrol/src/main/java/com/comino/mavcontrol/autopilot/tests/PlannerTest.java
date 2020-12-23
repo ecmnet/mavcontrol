@@ -130,7 +130,7 @@ public class PlannerTest implements Runnable, IMAVLinkListener {
 				wp.acc_z[0]   = Float.NaN;
 
 				wp.valid_points = 1;
-				wp.time_usec = model.sys.getSynchronizedPX4Time_us();
+				wp.time_usec = DataModel.getSynchronizedPX4Time_us();
 				control.sendMAVLinkMessage(wp);
 			}
 
@@ -171,7 +171,7 @@ public class PlannerTest implements Runnable, IMAVLinkListener {
 			model.slam.di = 0;
 			model.slam.pv = 0;
 		}
-		model.slam.tms = model.sys.getSynchronizedPX4Time_us();
+		model.slam.tms = DataModel.getSynchronizedPX4Time_us();
 
 	}
 

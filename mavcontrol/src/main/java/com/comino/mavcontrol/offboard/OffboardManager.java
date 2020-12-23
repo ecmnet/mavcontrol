@@ -185,7 +185,7 @@ public class OffboardManager implements Runnable {
 		// set to manual mode when armed/disarmed
 		control.getStatusManager().addListener(Status.MSP_ARMED, (n) -> {
 			model.slam.clear();
-			model.slam.tms = model.sys.getSynchronizedPX4Time_us();
+			model.slam.tms = DataModel.getSynchronizedPX4Time_us();
 
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
@@ -937,7 +937,7 @@ public class OffboardManager implements Runnable {
 
 	private void updateMSPModel(Vector4D_F32 target, Polar3D_F32 path ) {
 
-		model.slam.tms = model.sys.getSynchronizedPX4Time_us();
+		model.slam.tms = DataModel.getSynchronizedPX4Time_us();
 
 		if(valid_setpoint && path!=null && target!=null) {
 			model.slam.px = target.getX();

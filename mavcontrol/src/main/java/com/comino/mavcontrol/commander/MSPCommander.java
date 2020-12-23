@@ -109,7 +109,7 @@ public class MSPCommander  {
 		gor.latitude = (long)(lat * 1e7);
 		gor.longitude = (long)(lon * 1e7);
 		gor.altitude = (int)(altitude * 1000);
-		gor.time_usec = model.sys.getSynchronizedPX4Time_us();
+		gor.time_usec = DataModel.getSynchronizedPX4Time_us();
 		
 		control.sendMAVLinkMessage(gor);
 
