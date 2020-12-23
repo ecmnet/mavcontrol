@@ -213,17 +213,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		registerLanding();
 
 		registerDisarm();
-
-		// Limit offboard max speed to PX4 speed limit
-		control.getStatusManager().addListener(Status.MSP_PARAMS_LOADED, (n) -> {
-			if(n.isStatus(Status.MSP_PARAMS_LOADED)) {	
-				final ParameterAttributes  speed_limit_param = params.getParam("MPC_XY_VEL_MAX");
-				offboard.setMaxSpeed(speed_limit_param.value);
-			}
-		});
-
-
-
 	}
 
 

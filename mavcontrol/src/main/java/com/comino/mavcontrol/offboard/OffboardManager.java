@@ -77,7 +77,7 @@ public class OffboardManager implements Runnable {
 	public static final int MODE_SPEED_POSITION	 	    			= 4;
 	public static final int MODE_BEZIER                             = 5;
 	public static final int MODE_LAND                               = 6;
-	
+
 	// PX4 speed control locks
 
 	private static final int  LOCK_NONE								= 1;
@@ -97,10 +97,10 @@ public class OffboardManager implements Runnable {
 
 	private static final float MAX_SPEED							= 0.5f;					  // Max speed m/s
 	private static final float MIN_SPEED							= 0.1f;					  // Min speed m/s
-	
+
 	private static final float LAND_MODE_ALT                        = 0.10f;                  // rel. altitude to switch to PX4 landing 
-																							  // Note: Relative to offset of 12cm => 12cm
-	
+	// Note: Relative to offset of 12cm => 12cm
+
 	private static final float LAND_MODE_MIN_SPEED                  = 0.20f;                  // Minimum landing speed in offboard phase
 
 
@@ -149,6 +149,7 @@ public class OffboardManager implements Runnable {
 
 	private float      max_speed                                    = MAX_SPEED;
 	private float      min_speed                                    = MIN_SPEED;
+	private float      ekf2_min_rng                                 = 0;
 
 	private float	 	acceptance_radius_pos						= 0.10f;
 	private float	 	acceptance_radius_pos_out					= MIN_TURN_DISTANCE;
@@ -160,11 +161,9 @@ public class OffboardManager implements Runnable {
 	private long        setpoint_timeout                       		= SETPOINT_TIMEOUT_MS;
 	private long        trajectory_start_tms                        = 0;
 	private long	    last_update_tms                             = 0;
-	
-	private float       ekf2_min_rng;
 
 	public OffboardManager(IMAVController control, PX4Parameters params) {
-		
+
 		this.control        = control;
 		this.model          = control.getCurrentModel();
 		this.logger         = MSPLogger.getInstance();
@@ -177,16 +176,10 @@ public class OffboardManager implements Runnable {
 
 		max_speed = config.getFloatProperty("autopilot_max_speed", String.valueOf(max_speed));
 		System.out.println("Autopilot: MSP maximum speed: "+max_speed+" m/s");
-		
+
 		this.constraintControl = new ContraintControl();
 		this.speedControl      = new SimpleXYZSpeedControl(model, min_speed, max_speed);
 		this.yawSpeedControl   = new YawSpeedControl(YAW_PV,0,MAX_YAW_SPEED);
-		
-		this.ekf2_min_rng = params.getParamValue("EKF_MIN_RNG");
-		if(Float.isNaN(ekf2_min_rng))
-			this.ekf2_min_rng = 0;
-		else
-		    System.out.println("Autopilot: Use LidarRange when landed: "+ekf2_min_rng+"m");
 
 		MSP3DUtils.setNaN(target);
 
@@ -198,6 +191,17 @@ public class OffboardManager implements Runnable {
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
+		});
+
+		// Set some PX4 parameters
+		control.getStatusManager().addListener(Status.MSP_PARAMS_LOADED, (n) -> {
+			if(n.isStatus(Status.MSP_PARAMS_LOADED)) {	
+				max_speed    = params.getParamValue("MPC_XY_VEL_MAX", max_speed);
+				ekf2_min_rng = params.getParamValue("EKF2_MIN_RNG", 0);
+				if(ekf2_min_rng > 0)
+					System.out.println("Offboard: Use EKF2_MIN_RNG of "+ekf2_min_rng+"m for precision landing");
+
+			}
 		});
 
 	}
@@ -218,13 +222,6 @@ public class OffboardManager implements Runnable {
 			Thread t = new Thread(this);
 			t.start();
 		}
-	}
-
-	public void setMaxSpeed(double speed_limit) {
-		if(max_speed > speed_limit) {
-			max_speed = (float)speed_limit;
-			System.out.println("Autopilot: maximum speed limited to PX4 speed: "+max_speed+" m/s");
-		} 
 	}
 
 	public boolean start_wait(int m, long timeout) {
@@ -352,21 +349,21 @@ public class OffboardManager implements Runnable {
 	public int getMode() {
 		return mode;
 	}
-	
+
 	public void registerContraintControl(IConstraints control) {
 		this.constraintControl = control;
-		
+
 	}
-	
+
 	public void registerSpeedControl(ISpeedControl control) {
 		this.speedControl = control;
-		
+
 	}
-	
+
 
 	public void registerYawSpeedControl(IYawSpeedControl control) {
 		this.yawSpeedControl = control;
-		
+
 	}
 
 	public void registerActionListener(ITargetAction listener) {
@@ -482,21 +479,21 @@ public class OffboardManager implements Runnable {
 			switch(mode) {
 
 			case MODE_INIT:
-				
+
 				model.slam.flags = Slam.OFFBOARD_FLAG_NONE;
 				watch_tms = System.currentTimeMillis();
 				sendTypeControlToVehice(MAV_MASK.MASK_LOITER_SETPOINT_TYPE);
 				break;
-				
+
 			case MODE_IDLE:
-				
+
 				model.slam.flags = Slam.OFFBOARD_FLAG_NONE;
 				watch_tms = System.currentTimeMillis();
 				sendTypeControlToVehice(MAV_MASK.MASK_IDLE_SETPOINT_TYPE);
 				break;
-				
+
 			case MODE_LOITER:	// Loiter at current position, yaw controlled
-				
+
 				model.slam.flags = Slam.OFFBOARD_FLAG_HOLD;
 				watch_tms = System.currentTimeMillis();
 
@@ -548,7 +545,7 @@ public class OffboardManager implements Runnable {
 				break;
 
 			case MODE_LOCAL_SPEED: 	// Direct speed control
-				
+
 				model.slam.flags = Slam.OFFBOARD_FLAG_SPEED;
 				path.set(target_speed.x, target_speed.y, target_speed.z);
 
@@ -672,13 +669,13 @@ public class OffboardManager implements Runnable {
 
 
 			case MODE_LAND:    	// Performs an altitude controlled landing using precision lock for pos and yaw if available
-				
+
 				ctl.clear(); 
 				valid_setpoint = true;
 				watch_tms = System.currentTimeMillis();
 
 				target.set(model.vision.px,model.vision.py,model.state.l_z,model.vision.pw);
-				
+
 				// TODO: Safetychecks: Pitch/Roll => gain height and loiter
 
 				yaw_diff = MSPMathUtils.normAngle(target.w - current.w);
@@ -690,7 +687,7 @@ public class OffboardManager implements Runnable {
 					tmp =  Math.abs(model.hud.al - model.hud.at) - ekf2_min_rng;
 				else
 					tmp = model.hud.al - ekf2_min_rng;
-				
+
 
 				// Calculate max XY adjustment speed depending on the height and current z-speed
 				// but minimum max speed is 0.10m/s
@@ -744,11 +741,11 @@ public class OffboardManager implements Runnable {
 
 				// Once in turnmode, stay there
 				if(tmp < LAND_MODE_ALT) {
-						control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0,Float.NaN );		
-						stop();
-						logger.writeLocalMsg("[msp] Accurracy: "+String.format("% #.2fm [%#.1f°]",path.value, MSPMathUtils.fromRad2(yaw_diff)
-								),MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-						continue;
+					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0,Float.NaN );		
+					stop();
+					logger.writeLocalMsg("[msp] Accurracy: "+String.format("% #.2fm [%#.1f°]",path.value, MSPMathUtils.fromRad2(yaw_diff)
+							),MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+					continue;
 				} else {
 					model.slam.flags = Slam.OFFBOARD_FLAG_LAND;
 					sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED, lock);
@@ -808,14 +805,14 @@ public class OffboardManager implements Runnable {
 
 		pos_cmd.target_component = 1;
 		pos_cmd.target_system    = 1;
-		
+
 		pos_cmd.type_mask        = MAV_MASK.MASK_VELOCITY_IGNORE | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
-	                    		   MAV_MASK.MASK_YAW_RATE_IGNORE ;
-			
+				MAV_MASK.MASK_YAW_RATE_IGNORE ;
+
 		pos_cmd.x   = target.x;
 		pos_cmd.y   = target.y;
 		pos_cmd.z   = target.z;
-		
+
 		if(Float.isInfinite(target.w)) {
 			pos_cmd.type_mask  = pos_cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
 			pos_cmd.yaw = model.attitude.y;
@@ -839,21 +836,21 @@ public class OffboardManager implements Runnable {
 		checkAbsoluteSpeeds(target);
 
 		switch(lock_mode) {
-		
-			
+
+
 		case LOCK_NONE:
 			speed_cmd.type_mask    = MAV_MASK.MASK_POSITION_IGNORE | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
-                                     MAV_MASK.MASK_YAW_IGNORE;
+			MAV_MASK.MASK_YAW_IGNORE;
 
 			speed_cmd.vx       = target.x;
 			speed_cmd.vy       = target.y;
 			speed_cmd.vz       = target.z;
 
 			break;
-			
+
 		case LOCK_Z:
 			speed_cmd.type_mask    = MAV_MASK.MASK_POSITION_IGNORE_ZLOCK | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
-			                         MAV_MASK.MASK_YAW_IGNORE ;
+			MAV_MASK.MASK_YAW_IGNORE ;
 
 			speed_cmd.vx       = target.x;
 			speed_cmd.vy       = target.y;
@@ -862,11 +859,11 @@ public class OffboardManager implements Runnable {
 			speed_cmd.z        = lock.z;
 
 			break;	
-		
+
 		case LOCK_XY:
 
 			speed_cmd.type_mask    = MAV_MASK.MASK_POSITION_IGNORE_XYLOCK | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
-                                     MAV_MASK.MASK_YAW_IGNORE ;
+			MAV_MASK.MASK_YAW_IGNORE ;
 
 			speed_cmd.vx       = 0;
 			speed_cmd.vy       = 0;
@@ -880,7 +877,7 @@ public class OffboardManager implements Runnable {
 		case LOCK_XYZ:
 
 			speed_cmd.type_mask    = MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
-			                         MAV_MASK.MASK_YAW_IGNORE ;
+			MAV_MASK.MASK_YAW_IGNORE ;
 
 			speed_cmd.vx       = 0;
 			speed_cmd.vy       = 0;
