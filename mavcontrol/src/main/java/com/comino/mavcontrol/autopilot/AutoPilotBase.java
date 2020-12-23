@@ -187,7 +187,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.model     = control.getCurrentModel();
 		this.logger    = MSPLogger.getInstance();
 		this.params    = PX4Parameters.getInstance();
-		this.offboard  = new OffboardManager(control);
+		this.offboard  = new OffboardManager(control, params);
 		this.sequencer = new Sequencer(offboard,logger,model,control);
 
 

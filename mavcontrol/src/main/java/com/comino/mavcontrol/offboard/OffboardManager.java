@@ -52,6 +52,8 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavcom.param.PX4Parameters;
+import com.comino.mavcom.param.ParameterAttributes;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.controllib.IYawSpeedControl;
@@ -87,7 +89,7 @@ public class OffboardManager implements Runnable {
 
 	private static final int  UPDATE_RATE                 			= 50;					  // offboard update rate in ms
 
-	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(20); // Max YawSpeed rad/s
+	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(30); // Max YawSpeed rad/s
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(4);  // Min yawSpeed rad/s
 	private static final float RAMP_YAW_SPEED                       = MSPMathUtils.toRad(30); // Ramp up Speed for yaw turning
 	private static final float MAX_TURN_SPEED               		= 0.3f;   	              // Max speed that allow turning before start in m/s
@@ -96,7 +98,9 @@ public class OffboardManager implements Runnable {
 	private static final float MAX_SPEED							= 0.5f;					  // Max speed m/s
 	private static final float MIN_SPEED							= 0.1f;					  // Min speed m/s
 	
-	private static final float LAND_MODE_ALT                        = 0.07f;                  // rel. altitude to switch to PX4 landing
+	private static final float LAND_MODE_ALT                        = 0.10f;                  // rel. altitude to switch to PX4 landing 
+																							  // Note: Relative to offset of 12cm => 12cm
+	
 	private static final float LAND_MODE_MIN_SPEED                  = 0.20f;                  // Minimum landing speed in offboard phase
 
 
@@ -107,7 +111,7 @@ public class OffboardManager implements Runnable {
 
 	private static final float YAW_PV								= 0.10f;                  // P factor for yaw speed control
 	private static final float YAW_P								= 0.40f;                  // P factor for yaw position control
-	private static final float PXY_PV								= 0.70f;                  // P factor for XY adjustment precision landing
+	private static final float PXY_PV								= 0.90f;                  // P factor for XY adjustment precision landing
 
 	private static final float YAW_ACCEPT                	    	= MSPMathUtils.toRad(0.3);// Acceptance yaw deviation
 
@@ -156,8 +160,10 @@ public class OffboardManager implements Runnable {
 	private long        setpoint_timeout                       		= SETPOINT_TIMEOUT_MS;
 	private long        trajectory_start_tms                        = 0;
 	private long	    last_update_tms                             = 0;
+	
+	private float       ekf2_min_rng;
 
-	public OffboardManager(IMAVController control) {
+	public OffboardManager(IMAVController control, PX4Parameters params) {
 		
 		this.control        = control;
 		this.model          = control.getCurrentModel();
@@ -175,6 +181,12 @@ public class OffboardManager implements Runnable {
 		this.constraintControl = new ContraintControl();
 		this.speedControl      = new SimpleXYZSpeedControl(model, min_speed, max_speed);
 		this.yawSpeedControl   = new YawSpeedControl(YAW_PV,0,MAX_YAW_SPEED);
+		
+		this.ekf2_min_rng = params.getParamValue("EKF_MIN_RNG");
+		if(Double.isNaN(ekf2_min_rng))
+			this.ekf2_min_rng = 0;
+		else
+		    System.out.println("Autopilot: Use LidarRange when landed: "+ekf2_min_rng+"m");
 
 		MSP3DUtils.setNaN(target);
 
@@ -674,11 +686,10 @@ public class OffboardManager implements Runnable {
 				path.set(target, current); 
 				ctl.set(target, current);
 
-				// Note: -0.12 is LIDAR distance to ground TODO: get rid of this factor
 				if(Float.isFinite(model.hud.at))
-					tmp =  Math.abs(model.hud.al - model.hud.at) -0.12f;
+					tmp =  Math.abs(model.hud.al - model.hud.at) - ekf2_min_rng;
 				else
-					tmp = model.hud.al - 0.12f;
+					tmp = model.hud.al - ekf2_min_rng;
 				
 
 				// Calculate max XY adjustment speed depending on the height and current z-speed
