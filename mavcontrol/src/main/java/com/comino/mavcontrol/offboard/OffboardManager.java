@@ -183,7 +183,7 @@ public class OffboardManager implements Runnable {
 		this.yawSpeedControl   = new YawSpeedControl(YAW_PV,0,MAX_YAW_SPEED);
 		
 		this.ekf2_min_rng = params.getParamValue("EKF_MIN_RNG");
-		if(Double.isNaN(ekf2_min_rng))
+		if(Float.isNaN(ekf2_min_rng))
 			this.ekf2_min_rng = 0;
 		else
 		    System.out.println("Autopilot: Use LidarRange when landed: "+ekf2_min_rng+"m");
