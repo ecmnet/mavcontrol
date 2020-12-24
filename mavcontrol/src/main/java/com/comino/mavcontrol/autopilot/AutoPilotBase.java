@@ -261,7 +261,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			// calculate maximum takeoff time
 			final int max_tko_time_ms = (int)(takeoff_alt_param.value / takeoff_speed_param.value ) * 1000 + 15000;
 
-			control.writeLogMessage(new LogMessage("[msp] Takeoff proecdure initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+			control.writeLogMessage(new LogMessage("[msp] Takeoff procedure initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
 			long takeoff_start_tms = System.currentTimeMillis();
 			double delta_height = Math.abs(takeoff_alt_param.value - model.hud.ar) / takeoff_alt_param.value;
