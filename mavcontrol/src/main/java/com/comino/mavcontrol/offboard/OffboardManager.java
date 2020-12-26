@@ -95,7 +95,7 @@ public class OffboardManager implements Runnable {
 	private static final float MAX_TURN_SPEED               		= 0.3f;   	              // Max speed that allow turning before start in m/s
 	private static final float MIN_TURN_DISTANCE              		= 0.6f;   	              // Min distance to path that allow turning
 
-	private static final float MAX_SPEED							= 0.5f;					  // Max speed m/s
+	private static final float MAX_SPEED							= 1.0f;					  // Max speed m/s
 	private static final float MIN_SPEED							= 0.1f;					  // Min speed m/s
 
 	private static final float LAND_MODE_ALT                        = 0.10f;                  // rel. altitude to switch to PX4 landing 
