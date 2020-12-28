@@ -99,9 +99,8 @@ public class OffboardManager implements Runnable {
 	private static final float MIN_SPEED							= 0.1f;					  // Min speed m/s
 
 	private static final float LAND_MODE_ALT                        = 0.10f;                  // rel. altitude to switch to PX4 landing 
-	// Note: Relative to offset of 12cm => 12cm
 
-	private static final float LAND_MODE_MIN_SPEED                  = 0.20f;                  // Minimum landing speed in offboard phase
+	private static final float LAND_MODE_MIN_SPEED                  = 0.20f;                  // Minimum landing speed (SP Z) in offboard phase
 
 
 
