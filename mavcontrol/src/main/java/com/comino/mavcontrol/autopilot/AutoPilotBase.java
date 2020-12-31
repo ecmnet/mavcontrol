@@ -791,7 +791,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public void resetMap() {
 		logger.writeLocalMsg("[msp] reset local map",MAV_SEVERITY.MAV_SEVERITY_NOTICE);
 		map.reset();
-		map.toDataModel(false);
 	}
 
 	public void saveMap2D() {
@@ -804,7 +803,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		LocaMap2DStorage store = new LocaMap2DStorage(map, model.state.g_lat, model.state.g_lon);
 		if(store.locateAndRead()) {
 			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-			map.setDataModel(control.getCurrentModel()); map.toDataModel(false); map.setIsLoaded(true);
+			map.setIsLoaded(true);
 		}
 		else
 			logger.writeLocalMsg("[msp] No Map for this home position found.",MAV_SEVERITY.MAV_SEVERITY_WARNING);

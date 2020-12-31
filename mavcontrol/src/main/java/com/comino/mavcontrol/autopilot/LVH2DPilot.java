@@ -126,11 +126,6 @@ public class LVH2DPilot extends AutoPilotBase {
 			 else
 				publishSLAMData();
 
-
-			if(mapForget && mapFilter != null)
-				map.applyMapFilter(mapFilter);
-
-
 		}
 	}
 

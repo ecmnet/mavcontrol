@@ -93,8 +93,6 @@ public class CollisonPreventionPilot extends AutoPilotBase {
 
 			control.sendMAVLinkMessage(msg);
 
-			if(mapForget && mapFilter != null)
-				map.applyMapFilter(mapFilter);
 
 
 		}
