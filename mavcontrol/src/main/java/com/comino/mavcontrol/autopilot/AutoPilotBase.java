@@ -270,6 +270,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			// Phase 1: Wait for height is in range
 			while(delta_height > MAX_REL_DELTA_HEIGHT) {
 				try { Thread.sleep(50); } catch(Exception e) { }
+				
+				if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_TAKEOFF)) {
+					control.writeLogMessage(new LogMessage("[msp] Takeoff procedure aborted externally.",
+							MAV_SEVERITY.MAV_SEVERITY_INFO));
+					return;
+				}
+				
 				delta_height = Math.abs(takeoff_alt_param.value - model.hud.ar) / takeoff_alt_param.value;
 				if((System.currentTimeMillis() - takeoff_start_tms) > max_tko_time_ms) {
 					control.writeLogMessage(new LogMessage("[msp] Takeoff did not complete within "+(max_tko_time_ms/1000)+" secs",
