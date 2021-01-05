@@ -745,7 +745,7 @@ public class OffboardManager implements Runnable {
 
 				// Once in turnmode, stay there
 				if(tmp < LAND_MODE_ALT) {
-					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0,Float.NaN );		
+					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, target.w );		
 					stop();
 					logger.writeLocalMsg("[msp] Accurracy: "+String.format("% #.2fm [%#.1f°]",path.value, MSPMathUtils.fromRad2(yaw_diff)
 							),MAV_SEVERITY.MAV_SEVERITY_DEBUG);
