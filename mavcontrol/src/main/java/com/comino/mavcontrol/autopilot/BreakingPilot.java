@@ -195,8 +195,8 @@ public class BreakingPilot extends AutoPilotBase {
 				publishSLAMData();
 
             obstacle.clear();
-			map.processWindow(model.state.l_x, model.state.l_y);
-			map.nearestObstacle(obstacle);
+//			map.processWindow(model.state.l_x, model.state.l_y);
+//			map.nearestObstacle(obstacle);
 
 			// Control only in affected offboard modes
 			if(offboard.getMode() != OffboardManager.MODE_SPEED_POSITION)

@@ -100,11 +100,8 @@ import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavcontrol.sequencer.ISeqAction;
 import com.comino.mavcontrol.sequencer.Sequencer;
 import com.comino.mavcontrol.struct.SeqItem;
-import com.comino.mavmap.map.map2D.ILocalMap;
-import com.comino.mavmap.map.map2D.filter.ILocalMapFilter;
-import com.comino.mavmap.map.map2D.filter.impl.ForgetMapFilter;
-import com.comino.mavmap.map.map2D.impl.LocalMap2DRaycast;
-import com.comino.mavmap.map.map2D.store.LocaMap2DStorage;
+import com.comino.mavmap.map.map3D.LocalMap3D;
+import com.comino.mavmap.map.map3D.store.LocaMap3DStorage;
 import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.legacy.ExecutorService;
@@ -133,7 +130,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected DataModel                     model    = null;
 	protected MSPLogger                     logger   = null;
 	protected IMAVController                control  = null;
-	protected ILocalMap				        map      = null;
+	protected LocalMap3D				    map      = null;
 	protected OffboardManager               offboard = null;
 	protected PX4Parameters                 params   = null;
 
@@ -148,12 +145,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected final Vector4D_F32             takeoff = new Vector4D_F32();
 	protected  long                       takeoff_ms = 0;
 
-	protected ILocalMapFilter              mapFilter = null;
-
 	private final Vector4D_F32            body_speed = new Vector4D_F32();
 	private final Vector4D_F32            ned_speed  = new Vector4D_F32();
 
 	private final msg_msp_micro_slam            slam = new msg_msp_micro_slam(2,1);
+
+	private long                          map_tms    = 0;
 
 
 	private Future<?> future;
@@ -191,11 +188,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.sequencer = new Sequencer(offboard,logger,model,control);
 
 
-		this.map      = new LocalMap2DRaycast(model,WINDOWSIZE,CERTAINITY_THRESHOLD);
 		this.mapForget = config.getBoolProperty("autopilot_forget_map", "true");
 		System.out.println(instanceName+": Map forget enabled: "+mapForget);
-		if(mapForget)
-			registerMapFilter(new ForgetMapFilter());
+		this.map      = new LocalMap3D(mapForget);
 
 		this.flowCheck = config.getBoolProperty("autopilot_flow_check", "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
@@ -213,6 +208,16 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		registerLanding();
 
 		registerDisarm();
+
+		// Transfer map to model
+		ExecutorService.get().scheduleAtFixedRate(() -> {
+
+			map.getLatestMapItems(map_tms).forEachRemaining((p) -> {
+				model.grid.getTransfers().push(map.getMapInfo().encodeMapPoint(p, p.probability));
+			});
+			map_tms = System.currentTimeMillis();
+
+		}, 1000, 100, TimeUnit.MILLISECONDS);
 	}
 
 
@@ -270,13 +275,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			// Phase 1: Wait for height is in range
 			while(delta_height > MAX_REL_DELTA_HEIGHT) {
 				try { Thread.sleep(50); } catch(Exception e) { }
-				
+
 				if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_TAKEOFF)) {
 					control.writeLogMessage(new LogMessage("[msp] Takeoff procedure aborted externally.",
 							MAV_SEVERITY.MAV_SEVERITY_INFO));
 					return;
 				}
-				
+
 				delta_height = Math.abs(takeoff_alt_param.value - model.hud.ar) / takeoff_alt_param.value;
 				if((System.currentTimeMillis() - takeoff_start_tms) > max_tko_time_ms) {
 					control.writeLogMessage(new LogMessage("[msp] Takeoff did not complete within "+(max_tko_time_ms/1000)+" secs",
@@ -394,6 +399,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		return 0;
 	}
 
+	public void invalidate_map_transfer() {
+		map.getMapItems().forEachRemaining((p) -> {
+			model.grid.getTransfers().push(map.getMapInfo().encodeMapPoint(p, p.probability));
+		});
+	}
+
 
 
 
@@ -498,6 +509,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		}
 	}
 
+	public LocalMap3D getMap() {
+		return map;
+	}
+
 
 	public void setTarget(float x, float y, float z, float yaw) {
 		Vector4D_F32 target = new Vector4D_F32(x,y,z,yaw);
@@ -546,11 +561,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	/*******************************************************************************/
 	// Standard actions
-
-	public void registerMapFilter(ILocalMapFilter filter) {
-		System.out.println("registering MapFilter "+filter.getClass().getSimpleName());
-		this.mapFilter = filter;
-	}
 
 
 	/**
@@ -635,7 +645,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			offboard.abort();
 			return;
 		}
-		
+
 
 		if(control.isSimulation()) {
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
@@ -657,7 +667,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				msg.pw =  model.vision.pw;
 				control.sendMAVLinkMessage(msg);
 			}
-			
+
 			sequencer.clear();
 
 			if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
@@ -797,27 +807,23 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	public void resetMap() {
 		logger.writeLocalMsg("[msp] reset local map",MAV_SEVERITY.MAV_SEVERITY_NOTICE);
-		map.reset();
+		map.clear();
 	}
 
 	public void saveMap2D() {
-		LocaMap2DStorage store = new LocaMap2DStorage(map,model.state.g_lat, model.state.g_lon);
+		LocaMap3DStorage store = new LocaMap3DStorage(map,model.state.g_lat, model.state.g_lon);
 		store.write();
 		logger.writeLocalMsg("[msp] Map for this home position stored.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 	}
 
 	public void loadMap2D() {
-		LocaMap2DStorage store = new LocaMap2DStorage(map, model.state.g_lat, model.state.g_lon);
+		LocaMap3DStorage store = new LocaMap3DStorage(map, model.state.g_lat, model.state.g_lon);
 		if(store.locateAndRead()) {
 			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-			map.setIsLoaded(true);
+			invalidate_map_transfer();
 		}
 		else
 			logger.writeLocalMsg("[msp] No Map for this home position found.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-	}
-
-	public ILocalMap getMap2D() {
-		return map;
 	}
 
 
@@ -864,8 +870,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			return;
 		control.writeLogMessage(new LogMessage("[msp] Build virtual wall.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
+		Point3D_F64   veh          = new Point3D_F64(model.state.l_x,model.state.l_y,model.state.l_z);
 		Point3D_F64   pos          = new Point3D_F64();
 		Point3D_F64   wall         = new Point3D_F64();
+
+
+
 		pos.setZ(model.state.l_z);
 		pos.x = model.state.l_x + Math.cos(model.attitude.y) * distance_m;
 		pos.y = model.state.l_y + Math.sin(model.attitude.y) * distance_m;
@@ -875,7 +885,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		for(int k=-5; k<6; k++) {
 			wall.x = pos.x + Math.sin(-model.attitude.y) * 0.05f * k;
 			wall.y = pos.y + Math.cos(-model.attitude.y) * 0.05f * k;
-			for(int i=0;i<100;i++) map.update(model.state.l_x, model.state.l_y,wall);
+			for(int i=0;i<10;i++) map.update(veh,wall);
 		}
 	}
 
@@ -885,7 +895,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public void setCircleObstacleForSITL() {
 		if(map==null)
 			return;
-		map.reset();
+		map.clear();
 		Vector3D_F32   pos          = new Vector3D_F32();
 		System.err.println("SITL -> set example obstacle map");
 		pos.x = 0.5f + model.state.l_x;
@@ -912,39 +922,45 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public void setXObstacleForSITL() {
 		if(map==null)
 			return;
-		map.reset();
+		map.clear();
+		Point3D_F64   veh          = new Point3D_F64(model.state.l_x,model.state.l_y,model.state.l_z);
 
 		Point3D_F64   pos          = new Point3D_F64();
 		System.err.println("SITL -> set X example obstacle map");
 		this.mapForget = false;
 
 		pos.y = 2.25f;
-		pos.z =  model.state.l_z;
-		for(int i = 0; i < 40;i++) {
-			pos.x = -1.25f + i *0.05f;
-			for(int z=0;z<100;z++)
-				map.update(model.state.l_x, model.state.l_y,pos);
-		}
 
-		pos.y = 3.75f ;
-		pos.z =  model.state.l_z;
-		for(int i = 0; i < 30;i++) {
-			pos.x = -1.25f + i *0.05f ;
-			for(int z=0;z<100;z++)
-				map.update(model.state.l_x, model.state.l_y,pos);
-		}
+		for(int zp = 0; zp < 30;zp++) {
 
-		for(int i = 0; i < 30;i++) {
-			pos.x = 1.25f + i *0.05f ;
-			for(int z=0;z<100;z++)
-				map.update(model.state.l_x, model.state.l_y,pos);
-		}
+			pos.z =  -zp *0.1f;
+			for(int i = 0; i < 40;i++) {
+				pos.x = -1.25f + i *0.05f;
+				for(int z=0;z<100;z++)
+					map.update(veh,pos);
+			}
 
-		pos.x = 2.0f ;
-		for(int i = 0; i < 25;i++) {
-			pos.y = -1 + i *0.05f;
-			for(int z=0;z<100;z++)
-				map.update(model.state.l_x, model.state.l_y,pos);
+			pos.y = 3.75f ;
+
+			for(int i = 0; i < 30;i++) {
+				pos.x = -1.25f + i *0.05f ;
+				for(int z=0;z<100;z++)
+					map.update(veh,pos);
+			}
+
+			for(int i = 0; i < 30;i++) {
+				pos.x = 1.25f + i *0.05f ;
+				for(int z=0;z<100;z++)
+					map.update(veh,pos);
+			}
+
+			pos.x = 2.0f ;
+			for(int i = 0; i < 25;i++) {
+				pos.y = -1 + i *0.05f;
+				for(int z=0;z<100;z++)
+					map.update(veh,pos);
+			}
+
 		}
 
 
@@ -955,7 +971,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		float x,y;
 		if(map==null)
 			return;
-		map.reset();
+		map.clear();
 		Vector3D_F32   pos          = new Vector3D_F32();
 		System.err.println("SITL -> set example obstacle map");
 		pos.z = 1.0f + model.state.l_z;
@@ -998,6 +1014,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		}
 
 	}
+
 
 
 }

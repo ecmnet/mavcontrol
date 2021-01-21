@@ -42,10 +42,7 @@ import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_CMD;
 import org.mavlink.messages.MSP_COMPONENT_CTRL;
 import org.mavlink.messages.lquac.msg_gps_global_origin;
-import org.mavlink.messages.lquac.msg_hil_gps;
 import org.mavlink.messages.lquac.msg_msp_command;
-import org.mavlink.messages.lquac.msg_set_gps_global_origin;
-import org.mavlink.messages.lquac.msg_set_home_position;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVMSPController;
@@ -55,7 +52,7 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
-import com.comino.mavmap.map.map2D.ILocalMap;
+import com.comino.mavmap.map.map3D.LocalMap3D;
 import com.comino.mavutils.legacy.ExecutorService;
 
 @SuppressWarnings("unused")
@@ -64,7 +61,7 @@ public class MSPCommander  {
 	private IMAVMSPController        control 	= null;
 	private AutoPilotBase           autopilot 	= null;
 	private DataModel                  model 	= null;
-	private ILocalMap                	map  	= null;
+
 	private MSPLogger                  logger   = null;
 
 	public MSPCommander(IMAVMSPController control, MSPConfig config) {
@@ -83,7 +80,7 @@ public class MSPCommander  {
 		String autopilot_class = config.getProperty("autopilot_class", "com.comino.mavcontrol.autopilot.BreakingPilot");
 
 		this.autopilot =  AutoPilotBase.getInstance(autopilot_class,control,config);
-		this.map = autopilot.getMap2D();
+
 	}
 
 	public AutoPilotBase getAutopilot() {
@@ -243,10 +240,10 @@ public class MSPCommander  {
 		});
 	}
 
-	public ILocalMap getMap() {
-		return map;
+	public LocalMap3D getMap() {
+		return autopilot.getMap();
 	}
-
+	
 	public long getTimeSinceTakeoff() {
 		return autopilot.getTimeSinceTakeoff();
 	}
