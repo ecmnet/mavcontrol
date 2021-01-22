@@ -102,6 +102,7 @@ import com.comino.mavcontrol.sequencer.Sequencer;
 import com.comino.mavcontrol.struct.SeqItem;
 import com.comino.mavmap.map.map3D.LocalMap3D;
 import com.comino.mavmap.map.map3D.store.LocaMap3DStorage;
+import com.comino.mavmap.utils.TestEnvironmentFactory;
 import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.legacy.ExecutorService;
@@ -437,10 +438,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			loadMap2D();
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE1:
-			setXObstacleForSITL();
+			TestEnvironmentFactory.buildWall(map, model, 1, (float)(Math.random()*2 - 1.0));
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
-			buildvirtualWall(0.6f);
+			control.writeLogMessage(new LogMessage("[msp] Build virtual wall.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+			TestEnvironmentFactory.buildWall(map, model, 1, 0.5f);
 			break;
 		case MSP_AUTOCONTROL_ACTION.ROTATE:
 			System.out.println("Turn to "+param);
@@ -448,7 +450,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_ACTION.LAND:
 			precisionLand(enable);
-
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
 			planner.enable(enable);
@@ -463,7 +464,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			offboardPosHold(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.APPLY_MAP_FILTER:
-			//	applyMapFilter();
+			
 			break;
 		}
 
@@ -821,6 +822,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		if(store.locateAndRead()) {
 			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 			invalidate_map_transfer();
+			System.out.println(model.grid.getTransfers().size());
 		}
 		else
 			logger.writeLocalMsg("[msp] No Map for this home position found.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
@@ -864,157 +866,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 
-
-	public void buildvirtualWall(float distance_m) {
-		if(map==null)
-			return;
-		control.writeLogMessage(new LogMessage("[msp] Build virtual wall.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-
-		Point3D_F64   veh          = new Point3D_F64(model.state.l_x,model.state.l_y,model.state.l_z);
-		Point3D_F64   pos          = new Point3D_F64();
-		Point3D_F64   wall         = new Point3D_F64();
-
-
-
-		pos.setZ(model.state.l_z);
-		pos.x = model.state.l_x + Math.cos(model.attitude.y) * distance_m;
-		pos.y = model.state.l_y + Math.sin(model.attitude.y) * distance_m;
-
-
-		wall.setZ(model.state.l_z);
-		for(int k=-5; k<6; k++) {
-			wall.x = pos.x + Math.sin(-model.attitude.y) * 0.05f * k;
-			wall.y = pos.y + Math.cos(-model.attitude.y) * 0.05f * k;
-			for(int i=0;i<10;i++) map.update(veh,wall);
-		}
-	}
-
-
 	//**********
 
-	public void setCircleObstacleForSITL() {
-		if(map==null)
-			return;
-		map.clear();
-		Vector3D_F32   pos          = new Vector3D_F32();
-		System.err.println("SITL -> set example obstacle map");
-		pos.x = 0.5f + model.state.l_x;
-		pos.y = 0.4f + model.state.l_y;
-		pos.z = 1.0f + model.state.l_z;
-		map.update(pos); map.update(pos); map.update(pos);
-		map.update(pos); map.update(pos); map.update(pos);
-		map.update(pos); map.update(pos); map.update(pos);
-		map.update(pos); map.update(pos); map.update(pos);
-		pos.y = 0.45f + model.state.l_y;
-		map.update(pos); map.update(pos); map.update(pos);
-		pos.y = 0.50f + model.state.l_y;
-		map.update(pos); map.update(pos); map.update(pos);
-		pos.y = 0.55f + model.state.l_y;
-		map.update(pos); map.update(pos); map.update(pos);
-		pos.y = 0.60f + model.state.l_y;
-		map.update(pos); map.update(pos); map.update(pos);
-		pos.y = 0.65f + model.state.l_y;
-		map.update(pos); map.update(pos); map.update(pos);
-		pos.y = 0.70f + model.state.l_y;
-		map.update(pos); map.update(pos); map.update(pos);
-	}
-
-	public void setXObstacleForSITL() {
-		if(map==null)
-			return;
-		map.clear();
-		Point3D_F64   veh          = new Point3D_F64(model.state.l_x,model.state.l_y,model.state.l_z);
-
-		Point3D_F64   pos          = new Point3D_F64();
-		System.err.println("SITL -> set X example obstacle map");
-		this.mapForget = false;
-
-		pos.y = 2.25f;
-
-		for(int zp = 0; zp < 30;zp++) {
-
-			pos.z =  -zp *0.1f;
-			for(int i = 0; i < 40;i++) {
-				pos.x = -1.25f + i *0.05f;
-				for(int z=0;z<100;z++)
-					map.update(veh,pos);
-			}
-
-			pos.y = 3.75f ;
-
-			for(int i = 0; i < 30;i++) {
-				pos.x = -1.25f + i *0.05f ;
-				for(int z=0;z<100;z++)
-					map.update(veh,pos);
-			}
-
-			for(int i = 0; i < 30;i++) {
-				pos.x = 1.25f + i *0.05f ;
-				for(int z=0;z<100;z++)
-					map.update(veh,pos);
-			}
-
-			pos.x = 2.0f ;
-			for(int i = 0; i < 25;i++) {
-				pos.y = -1 + i *0.05f;
-				for(int z=0;z<100;z++)
-					map.update(veh,pos);
-			}
-
-		}
-
-
-
-	}
-
-	public void setYObstacleForSITL() {
-		float x,y;
-		if(map==null)
-			return;
-		map.clear();
-		Vector3D_F32   pos          = new Vector3D_F32();
-		System.err.println("SITL -> set example obstacle map");
-		pos.z = 1.0f + model.state.l_z;
-
-		pos.y = 4f + model.state.l_y;
-		pos.x = -0.15f + model.state.l_x;
-		map.update(pos); map.update(pos); map.update(pos);
-		pos.x = -0.10f + model.state.l_x;
-		map.update(pos); map.update(pos); map.update(pos);
-		pos.x = -0.05f + model.state.l_x;
-		map.update(pos); map.update(pos); map.update(pos);
-		pos.x =  0.00f + model.state.l_x;
-		map.update(pos); map.update(pos); map.update(pos);
-		pos.x = 0.05f + model.state.l_x;
-		map.update(pos); map.update(pos); map.update(pos);
-		pos.x = 0.10f + model.state.l_x;
-		map.update(pos); map.update(pos); map.update(pos);
-		pos.x = 0.15f + model.state.l_x;
-		map.update(pos); map.update(pos); map.update(pos);
-
-		float dotx, doty ; float[] r = new float[2];
-
-		for(int j=0; j< 30; j++) {
-
-			dotx = (float)((Math.random()*15-5f));
-			doty = (float)((Math.random()*15-5f));
-
-			MSPMathUtils.rotateRad(r, dotx, doty, (float)Math.random() * 6.28f);
-
-			for(int i=0; i< 40; i++) {
-
-				x =  (float)Math.random()*.8f - 0.4f + r[0];
-				y =  (float)Math.random()*.8f - 0.4f + r[1];
-
-				pos.x = x;
-				pos.y = y ;
-				map.update(pos); map.update(pos); map.update(pos);
-
-			}
-		}
-
-	}
-
-
-
+	
 }
