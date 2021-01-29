@@ -94,15 +94,18 @@ import com.comino.mavcom.param.ParameterAttributes;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.autopilot.actions.StandardActionFactory;
 import com.comino.mavcontrol.autopilot.tests.PlannerTest;
+import com.comino.mavcontrol.autopilot.tests.SequenceTestFactory;
 import com.comino.mavcontrol.commander.MSPUtils;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavcontrol.sequencer.ISeqAction;
 import com.comino.mavcontrol.sequencer.Sequencer;
 import com.comino.mavcontrol.struct.SeqItem;
 import com.comino.mavmap.map.map3D.LocalMap3D;
+import com.comino.mavmap.map.map3D.Map3DSpacialInfo;
 import com.comino.mavmap.map.map3D.store.LocaMap3DStorage;
-import com.comino.mavmap.utils.TestEnvironmentFactory;
+import com.comino.mavmap.test.MapTestFactory;
 import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.legacy.ExecutorService;
@@ -191,7 +194,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		this.mapForget = config.getBoolProperty("autopilot_forget_map", "true");
 		System.out.println(instanceName+": Map forget enabled: "+mapForget);
-		this.map      = new LocalMap3D(mapForget);
+		this.map      = new LocalMap3D(new Map3DSpacialInfo(0.10f,20.0f,20.0f,5.0f),mapForget);
 
 		this.flowCheck = config.getBoolProperty("autopilot_flow_check", "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
@@ -438,15 +441,14 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			loadMap2D();
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE1:
-			TestEnvironmentFactory.buildWall(map, model, 1, (float)(Math.random()*2 - 1.0));
+			MapTestFactory.buildWall(map, model, 1, (float)(Math.random()*2 - 1.0));
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
 			control.writeLogMessage(new LogMessage("[msp] Build virtual wall.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-			TestEnvironmentFactory.buildWall(map, model, 1, 0.5f);
+			MapTestFactory.buildWall(map, model, 1, 0.5f);
 			break;
 		case MSP_AUTOCONTROL_ACTION.ROTATE:
-			System.out.println("Turn to "+param);
-			turn_to(param);
+			StandardActionFactory.turn_to(sequencer, param);
 			break;
 		case MSP_AUTOCONTROL_ACTION.LAND:
 			precisionLand(enable);
@@ -455,7 +457,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			planner.enable(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
-			randomSequence();
+			if(control.isSimulation())
+			  // SequenceTestFactory.randomSequence(sequencer);
+				StandardActionFactory.square(sequencer, 1);
+			else
+			   logger.writeLocalMsg("[msp] Only available in simulation environment",MAV_SEVERITY.MAV_SEVERITY_INFO);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TAKEOFF:
 			countDownAndTakeoff(5,enable);
@@ -625,16 +631,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		sequencer.execute(completedAction);
 	}
 
-	/**
-	 * AutopilotAction: Turn to a given angle
-	 * @param deg
-	 */
-	public void turn_to(float deg) {
-		sequencer.clear();
-		float rad = MSPMathUtils.toRad(deg);
-		sequencer.add(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad,ISeqAction.ABS));
-		sequencer.execute();
-	}
 
 	/**
 	 * AutopilotAction: Execute precision landing
@@ -828,45 +824,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			logger.writeLocalMsg("[msp] No Map for this home position found.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 	}
 
-
-	/*******************************************************************************/
-	// SITL testing
-
-	private void takeoff_land_test() {
-
-	}
-
-	public void square() {
-		sequencer.clear();
-		//		addToSequence(new SeqItem(Float.NaN, Float.NaN, -1.0f, Float.NaN , SeqItem.ABS));
-		sequencer.add(new SeqItem(0.5f     , 0.5f     , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-		sequencer.add(new SeqItem(Float.NaN, -1f      , -1.5f, Float.NaN, ISeqAction.REL,null,0));
-		sequencer.add(new SeqItem(-1f      , Float.NaN, Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-		sequencer.add(new SeqItem(Float.NaN, 1f       , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-		sequencer.add(new SeqItem(1f       , Float.NaN, 1.5f, Float.NaN, ISeqAction.REL,null,0));
-		sequencer.add(new SeqItem(-0.5f    , -0.5f    , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-		sequencer.add(new SeqItem(Float.NaN, Float.NaN, Float.NaN,0         , ISeqAction.ABS));
-		sequencer.execute();
-	}
-
-	public void randomSequence() {
-		sequencer.clear();
-		if(control.isSimulation()) {
-
-			for(int i=1;i<5;i++)
-				sequencer.add(new SeqItem((float)(Math.random()*4-2),
-						(float)(Math.random()*4-2),
-						(float)(-Math.random()*0.5+0.2),
-						Float.NaN, ISeqAction.REL, null,0));
-			sequencer.add(new SeqItem( 0.5f    ,       0.5f  , -2.0f, (float)(Math.PI), ISeqAction.ABS,null,0));
-		} else {
-			sequencer.add(new SeqItem( 1f       , Float.NaN  , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-			sequencer.add(new SeqItem(-1f       , Float.NaN  , Float.NaN, Float.NaN, ISeqAction.REL,null,0));		}
-		sequencer.execute();
-	}
-
-
-	//**********
 
 	
 }
