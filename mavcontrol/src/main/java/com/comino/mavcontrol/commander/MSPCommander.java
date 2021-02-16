@@ -52,7 +52,7 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
-import com.comino.mavmap.map.map3D.LocalMap3D;
+import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
 import com.comino.mavutils.legacy.ExecutorService;
 
 @SuppressWarnings("unused")

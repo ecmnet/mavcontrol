@@ -78,6 +78,7 @@ import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
+import org.mavlink.messages.lquac.msg_msp_micro_grid;
 import org.mavlink.messages.lquac.msg_msp_micro_slam;
 import org.mavlink.messages.lquac.msg_msp_vision;
 
@@ -102,8 +103,8 @@ import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavcontrol.sequencer.ISeqAction;
 import com.comino.mavcontrol.sequencer.Sequencer;
 import com.comino.mavcontrol.struct.SeqItem;
-import com.comino.mavmap.map.map3D.LocalMap3D;
 import com.comino.mavmap.map.map3D.Map3DSpacialInfo;
+import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
 import com.comino.mavmap.map.map3D.store.LocaMap3DStorage;
 import com.comino.mavmap.test.MapTestFactory;
 import com.comino.mavodometry.estimators.ITargetListener;
@@ -151,8 +152,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	private final Vector4D_F32            body_speed = new Vector4D_F32();
 	private final Vector4D_F32            ned_speed  = new Vector4D_F32();
-
-	private final msg_msp_micro_slam            slam = new msg_msp_micro_slam(2,1);
 
 	private long                          map_tms    = 0;
 
@@ -220,6 +219,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				model.grid.getTransfers().push(map.getMapInfo().encodeMapPoint(p, p.probability));
 			});
 			map_tms = System.currentTimeMillis();
+			model.grid.count = map.size();
 
 		}, 1000, 100, TimeUnit.MILLISECONDS);
 	}
@@ -286,9 +286,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 					return;
 				}
 
+
 				delta_height = Math.abs(takeoff_alt_param.value - model.hud.ar) / takeoff_alt_param.value;
 				if((System.currentTimeMillis() - takeoff_start_tms) > max_tko_time_ms) {
-					control.writeLogMessage(new LogMessage("[msp] Takeoff did not complete within "+(max_tko_time_ms/1000)+" secs",
+					control.writeLogMessage(new LogMessage("[msp] Takeoff (1) did not complete within "+(max_tko_time_ms/1000)+" secs",
 							MAV_SEVERITY.MAV_SEVERITY_WARNING));
 					return;
 				}
@@ -299,7 +300,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			while(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER)) {
 				try { Thread.sleep(50); } catch(Exception e) { }
 				if((System.currentTimeMillis() - takeoff_start_tms) > max_tko_time_ms) {
-					control.writeLogMessage(new LogMessage("[msp] Takeoff did not complete within "+(max_tko_time_ms/1000)+" secs",
+					control.writeLogMessage(new LogMessage("[msp] Takeoff (2) did not complete within "+(max_tko_time_ms/1000)+" secs",
 							MAV_SEVERITY.MAV_SEVERITY_WARNING));
 					return;
 				}
@@ -361,39 +362,22 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	protected void publishSLAMData() {
-		publishSLAMData(null);
+		transferObstacleToModel(null);
 	}
 
-	protected void publishSLAMData(Polar3D_F32 obstacle) {
-
-		slam.px = model.slam.px;
-		slam.py = model.slam.py;
-		slam.pz = model.slam.pz;
-		slam.pd = model.slam.pd;
-		slam.pv = model.slam.pv;
-		slam.md = model.slam.di;
-		slam.quality = model.slam.quality;
-		slam.flags   = model.slam.flags;
-		slam.fps = model.slam.fps;
+	protected void transferObstacleToModel(Polar3D_F32 obstacle) {
 
 		if(obstacle!=null) {
-
-			slam.ox = obstacle.getX()+model.state.l_x;
-			slam.oy = obstacle.getY()+model.state.l_y;
-			slam.oz = obstacle.getZ()+model.state.l_z;
+			model.slam.ox = obstacle.getX()+model.state.l_x;
+			model.slam.oy = obstacle.getY()+model.state.l_y;
+			model.slam.oz = obstacle.getZ()+model.state.l_z;
 			if(control.isSimulation())
 				model.slam.dm = obstacle.value;
 		} else {
-			slam.ox = 0; slam.oy = 0; slam.oz = 0;
+			model.slam.ox = 0; model.slam.ox = 0; model.slam.ox = 0;
 			if(control.isSimulation())
 				model.slam.dm = Float.NaN;
 		}
-
-		slam.wpcount = model.slam.wpcount;
-		slam.dm = model.slam.dm;
-		slam.tms = model.slam.tms;
-		control.sendMAVLinkMessage(slam);
-
 	}
 
 
@@ -458,10 +442,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
 			if(control.isSimulation())
-			  // SequenceTestFactory.randomSequence(sequencer);
+				// SequenceTestFactory.randomSequence(sequencer);
 				StandardActionFactory.square(sequencer, 1);
 			else
-			   logger.writeLocalMsg("[msp] Only available in simulation environment",MAV_SEVERITY.MAV_SEVERITY_INFO);
+				logger.writeLocalMsg("[msp] Only available in simulation environment",MAV_SEVERITY.MAV_SEVERITY_INFO);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TAKEOFF:
 			countDownAndTakeoff(5,enable);
@@ -470,7 +454,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			offboardPosHold(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.APPLY_MAP_FILTER:
-			
+
 			break;
 		}
 
@@ -795,7 +779,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected void clearAutopilotActions() {
 		model.sys.autopilot &= 0b11000000000000000111111111111111;
 		offboard.removeActionListener();
-		control.sendMAVLinkMessage(new msg_msp_micro_slam(2,1));
+		model.slam.clear();
 	}
 
 
@@ -805,6 +789,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public void resetMap() {
 		logger.writeLocalMsg("[msp] reset local map",MAV_SEVERITY.MAV_SEVERITY_NOTICE);
 		map.clear();
+		msg_msp_micro_grid grid = new msg_msp_micro_grid(2,1);
+		grid.count = 0;
+		control.sendMAVLinkMessage(grid);
+
 	}
 
 	public void saveMap2D() {
@@ -825,5 +813,5 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 
-	
+
 }

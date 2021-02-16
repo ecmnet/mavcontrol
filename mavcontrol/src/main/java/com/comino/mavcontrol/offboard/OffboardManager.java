@@ -735,9 +735,9 @@ public class OffboardManager implements Runnable {
 				//       e.g. if landing target not reachable, or current z-speed is upwards
 
 
-				model.debug.x = (float)ctl.value;
-				model.debug.y = (float)yaw_diff;
-				model.debug.z = (float)tmp;
+//				model.debug.x = (float)ctl.value;
+//				model.debug.y = (float)yaw_diff;
+//				model.debug.z = (float)tmp;
 
 
 				// Once in turnmode, stay there

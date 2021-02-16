@@ -190,7 +190,7 @@ public class BreakingPilot extends AutoPilotBase {
 
 			// Publish SLAM data
 			if(tooClose)
-				publishSLAMData(obstacle);
+				transferObstacleToModel(obstacle);
 			else
 				publishSLAMData();
 
