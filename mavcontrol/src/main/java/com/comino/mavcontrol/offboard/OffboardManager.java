@@ -40,7 +40,7 @@ import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
-import org.mavlink.messages.lquac.msg_debug_vect;
+
 import org.mavlink.messages.lquac.msg_set_position_target_local_ned;
 
 import com.comino.mavcom.config.MSPConfig;
@@ -53,7 +53,7 @@ import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.param.PX4Parameters;
-import com.comino.mavcom.param.ParameterAttributes;
+
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.controllib.IYawSpeedControl;
@@ -143,8 +143,6 @@ public class OffboardManager implements Runnable {
 
 	private final msg_set_position_target_local_ned pos_cmd   		= new msg_set_position_target_local_ned(1,2);
 	private final msg_set_position_target_local_ned speed_cmd 		= new msg_set_position_target_local_ned(1,2);
-
-	private final msg_debug_vect  debug                             = new msg_debug_vect(1,2);
 
 	private float      max_speed                                    = MAX_SPEED;
 	private float      min_speed                                    = MIN_SPEED;
@@ -737,11 +735,10 @@ public class OffboardManager implements Runnable {
 				//       e.g. if landing target not reachable, or current z-speed is upwards
 
 
-				debug.x = (float)ctl.value;
-				debug.y = (float)yaw_diff;
-				debug.z = (float)tmp;
+				model.debug.x = (float)ctl.value;
+				model.debug.y = (float)yaw_diff;
+				model.debug.z = (float)tmp;
 
-				control.sendMAVLinkMessage(debug);
 
 				// Once in turnmode, stay there
 				if(tmp < LAND_MODE_ALT) {
