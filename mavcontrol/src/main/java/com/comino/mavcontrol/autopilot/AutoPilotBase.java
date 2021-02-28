@@ -275,6 +275,14 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			long takeoff_start_tms = System.currentTimeMillis();
 			double delta_height = Math.abs(takeoff_alt_param.value - model.hud.ar) / takeoff_alt_param.value;
 
+			// Check odometry otherwise land immediately
+			if(!model.sys.isSensorAvailable(Status.MSP_OPCV_AVAILABILITY)) {
+				if(!control.isSimulation()) {
+					control.writeLogMessage(new LogMessage("[msp] Takeoff aborted. No odometry.", MAV_SEVERITY.MAV_SEVERITY_ALERT));
+					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, 0 );	
+				}
+			}
+
 
 			// Phase 1: Wait for height is in range
 			while(delta_height > MAX_REL_DELTA_HEIGHT) {
@@ -282,7 +290,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 				if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_TAKEOFF)) {
 					control.writeLogMessage(new LogMessage("[msp] Takeoff procedure aborted externally.",
-							MAV_SEVERITY.MAV_SEVERITY_INFO));
+							MAV_SEVERITY.MAV_SEVERITY_WARNING));
 					return;
 				}
 
@@ -301,7 +309,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				try { Thread.sleep(50); } catch(Exception e) { }
 				if((System.currentTimeMillis() - takeoff_start_tms) > max_tko_time_ms) {
 					control.writeLogMessage(new LogMessage("[msp] Takeoff (2) did not complete within "+(max_tko_time_ms/1000)+" secs",
-							MAV_SEVERITY.MAV_SEVERITY_WARNING));
+							MAV_SEVERITY.MAV_SEVERITY_INFO));
 					return;
 				}
 			}
@@ -642,10 +650,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				//		model.vision.pw = Float.NaN;
 
 				msg_msp_vision msg = new msg_msp_vision(2,1);
-				msg.px =  model.vision.px;
-				msg.py =  model.vision.py;
-				msg.pz =  model.vision.pz;
-				msg.pw =  model.vision.pw;
+				msg.px    =  model.vision.px;
+				msg.py    =  model.vision.py;
+				msg.pz    =  model.vision.pz;
+				msg.pw    =  model.vision.pw;
+				msg.flags = model.vision.flags;
 				control.sendMAVLinkMessage(msg);
 			}
 
