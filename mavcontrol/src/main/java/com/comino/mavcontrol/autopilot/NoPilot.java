@@ -97,7 +97,6 @@ public class NoPilot extends AutoPilotBase {
 
 	public void run() {
 
-		while(isRunning) {
 
 			// Safety: Channel 8 triggers landing mode of PX4
 			if(model.rc.get(RC_LAND_CHANNEL) > RC_LAND_THRESHOLD && !is_landing) {
@@ -112,10 +111,8 @@ public class NoPilot extends AutoPilotBase {
 					}
 				}, 0, 2, 0.05f );
 			}
-
-			try { Thread.sleep(50); } catch(Exception s) { }
-			publishSLAMData();
-		}
+			
+			model.sys.t_takeoff_ms = getTimeSinceTakeoff();
 
 	}
 

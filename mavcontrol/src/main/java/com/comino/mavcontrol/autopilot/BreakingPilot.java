@@ -92,8 +92,6 @@ public class BreakingPilot extends AutoPilotBase {
 
 	private static float SMOOTH_TARGET_FILTER               = 0.1f;
 
-	private static final int              CYCLE_MS	        = 50;
-
 	private static final float            ROBOT_RADIUS      = 0.25f;
 
 	private static final float OBSTACLE_MINDISTANCE_0MS  	= ROBOT_RADIUS + 0.25f;
@@ -176,17 +174,11 @@ public class BreakingPilot extends AutoPilotBase {
 
 	public void run() {
 
-		System.out.println(this.getClass().getSimpleName()+" started");
-
-		while(isRunning) {
-
-
-			try { Thread.sleep(CYCLE_MS); } catch(Exception s) { }
-
 			if(!super.safetyChecks()) {
 
 			}
 
+			model.sys.t_takeoff_ms = getTimeSinceTakeoff();
 
 			// Publish SLAM data
 			if(tooClose)
@@ -200,7 +192,7 @@ public class BreakingPilot extends AutoPilotBase {
 
 			// Control only in affected offboard modes
 			if(offboard.getMode() != OffboardManager.MODE_SPEED_POSITION)
-				continue;
+				return;
 
 
 		//	relAngle = Math.abs(MSPMathUtils.normAngle2(Math.abs(obstacle.angle_xy-plannedPath.angle_xy)));
@@ -232,8 +224,6 @@ public class BreakingPilot extends AutoPilotBase {
 //				System.out.println("R"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
 				tooClose = false;
 			}
-
-		}
 	}
 
 	protected void takeoffCompletedAction() {

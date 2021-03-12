@@ -120,19 +120,16 @@ public class TrajectoryPilot extends AutoPilotBase {
 
 	public void run() {
 
-		System.out.println("AutoPilot: Thread for "+this.getClass().getSimpleName());
-
-		while(isRunning) {
-
 			MSP3DUtils.convertCurrentState(model, current_pos);
 
 			try { Thread.sleep(CYCLE_MS); } catch(Exception s) { }
+			
+			model.sys.t_takeoff_ms = getTimeSinceTakeoff();
 
 			if(enabled) {
 				sendTrajectory(target_pos);	
-				publishSLAMData(null);
+				transferObstacleToModel(null);
 			} 
-		}
 	}
 
 
