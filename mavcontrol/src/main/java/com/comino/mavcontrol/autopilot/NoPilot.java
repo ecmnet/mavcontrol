@@ -97,7 +97,6 @@ public class NoPilot extends AutoPilotBase {
 
 	public void run() {
 
-
 			// Safety: Channel 8 triggers landing mode of PX4
 			if(model.rc.get(RC_LAND_CHANNEL) > RC_LAND_THRESHOLD && !is_landing) {
 				logger.writeLocalMsg("[msp] Landing commanded by RC",MAV_SEVERITY.MAV_SEVERITY_DEBUG);

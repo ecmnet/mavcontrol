@@ -101,6 +101,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	private static final int   RC_LAND_THRESHOLD       = 2010;		              // RC channel 8 landing threshold
 
 	private static AutoPilotBase  autopilot    = null;
+	
+	protected final WorkQueue wq;
 
 	protected DataModel                     model    = null;
 	protected MSPLogger                     logger   = null;
@@ -122,11 +124,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	private final Vector4D_F32            body_speed = new Vector4D_F32();
 	private final Vector4D_F32            ned_speed  = new Vector4D_F32();
-
-	private long                          map_tms    = 0;
-	
-	protected WorkQueue                    wq;
-
 
 	private Future<?> future;
 
@@ -781,8 +778,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			logger.writeLocalMsg("[msp] No Map for this home position found.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 	}
 
+	// put map transfer into the WQ
 
 	private class MapToModelTransfer implements Runnable {
+		
+		private long map_tms = 0;
 		@Override
 		public void run() {
 			
