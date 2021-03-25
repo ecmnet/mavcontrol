@@ -125,7 +125,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	private final Vector4D_F32            body_speed = new Vector4D_F32();
 	private final Vector4D_F32            ned_speed  = new Vector4D_F32();
 
-	private Future<?> future;
+
+//	private Future<?> future;
+	private int future;
 
 
 	public static AutoPilotBase getInstance(String clazz, IMAVController control,MSPConfig config) {
@@ -193,7 +195,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
 			takeoff_ms = 0; emergencyLanding = false;
-			if(future!=null) future.cancel(true);
+//			if(future!=null) future.cancel(true);
+			wq.removeTask("LP",future);
 
 			if(offboard.isEnabled()) {
 				offboard.abort(); offboard.stop();
@@ -217,7 +220,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		// Abort any sequence if PX4 landing is triggered
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
 			sequencer.abort();
-			if(future!=null) future.cancel(true);
+//			if(future!=null) future.cancel(true);
+			wq.removeTask("LP",future);
 		});
 
 	}
@@ -695,13 +699,17 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		if(enable ) {
 			logger.writeLocalMsg("[msp] CountDown initiated.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 			takeoff_ms = System.currentTimeMillis() + seconds*1000;
-			future = ExecutorService.get().schedule(() -> {
+//			future = ExecutorService.get().schedule(() -> {
+			future = wq.addSingleTask("LP", seconds*1000, () -> {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_TAKEOFF, -1, 0, 0, Float.NaN, Float.NaN, Float.NaN,Float.NaN);
 				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
-			}, seconds,TimeUnit.SECONDS);
+			});
+//			}, seconds,TimeUnit.SECONDS);
 
 		} else {
-			if(future!=null) future.cancel(true);
+			
+		//	if(future!=null) future.cancel(true);
+			wq.removeTask("LP", future);
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,0 );
 			logger.writeLocalMsg("[msp] CountDown aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);

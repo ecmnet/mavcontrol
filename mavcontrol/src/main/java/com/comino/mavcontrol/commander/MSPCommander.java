@@ -43,6 +43,7 @@ import org.mavlink.messages.MSP_CMD;
 import org.mavlink.messages.MSP_COMPONENT_CTRL;
 import org.mavlink.messages.lquac.msg_gps_global_origin;
 import org.mavlink.messages.lquac.msg_msp_command;
+import org.mavlink.messages.lquac.msg_set_gps_global_origin;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVMSPController;
@@ -54,6 +55,7 @@ import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
 import com.comino.mavutils.legacy.ExecutorService;
+import com.comino.mavutils.workqueue.WorkQueue;
 
 @SuppressWarnings("unused")
 public class MSPCommander  {
@@ -63,6 +65,9 @@ public class MSPCommander  {
 	private DataModel                  model 	= null;
 
 	private MSPLogger                  logger   = null;
+
+	
+	private final WorkQueue wq = WorkQueue.getInstance();
 
 	public MSPCommander(IMAVMSPController control, MSPConfig config) {
 
@@ -94,15 +99,8 @@ public class MSPCommander  {
 //				model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY)) 
 //			return;
 
-//		msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,2);
-//		gor.latitude = (long)(lat * 1e7);
-//		gor.longitude = (long)(lon * 1e7);
-//		gor.altitude = (int)(altitude * 1000);
-//		gor.time_usec = model.sys.getSynchronizedPX4Time_us();
-//		
-//		control.sendMAVLinkMessage(gor);
-		
-		msg_gps_global_origin gor = new msg_gps_global_origin(1,2);
+		msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,2);
+		gor.target_system = 1;
 		gor.latitude = (long)(lat * 1e7);
 		gor.longitude = (long)(lon * 1e7);
 		gor.altitude = (int)(altitude * 1000);
@@ -112,64 +110,6 @@ public class MSPCommander  {
 
 		MSPLogger.getInstance().writeLocalMsg("[msp] Try to set reference position",
 				MAV_SEVERITY.MAV_SEVERITY_INFO);
-
-		// HIL does not work as this requires GPS active in EKF2. But if GPS is active in EKF2 Vision position
-		// is not considered anymore.
-
-		//		ExecutorService.submit(() -> {
-		//
-		//			long tms = System.currentTimeMillis();
-		//
-		////			msg_gps_global_origin gor = new msg_gps_global_origin(1,2);
-		////			gor.latitude = (long)(lat * 1e7);
-		////			gor.longitude = (long)(lon * 1e7);
-		////			gor.altitude = (int)(altitude * 1000);
-		////			gor.time_usec = tms*1000;
-		//
-		//
-		//			msg_hil_gps gps = new msg_hil_gps(1,1);
-		//			gps.lat = (long)(lat * 1e7);
-		//			gps.lon = (long)(lon * 1e7);
-		//			gps.alt = (int)(altitude * 1000);
-		//			gps.satellites_visible = 10;
-		//			gps.eph = 30;
-		//			gps.epv = 30;
-		//			gps.fix_type = 4;
-		//			gps.cog = 0;
-		//			gps.time_usec = model.sys.getSynchronizedPX4Time_us();
-		//			
-		//			msg_set_home_position pos = new msg_set_home_position(1,2);
-		//			pos.x = 0;
-		//			pos.y = 0;
-		//			pos.z = 0;
-		//			pos.altitude = (int)(altitude * 1000);
-		//			pos.time_usec = model.sys.getSynchronizedPX4Time_us();
-		//
-		//			while(!model.sys.isStatus(Status.MSP_GPOS_VALID)
-		//					&& (System.currentTimeMillis() - tms) < MAX_GPOS_SET_MS) {
-		//				
-		//				if(!control.isConnected())
-		//					return;
-		//				
-		//				control.sendMAVLinkMessage(gps);
-		//				control.sendMAVLinkMessage(pos);
-		//				
-		//				try {
-		//					Thread.sleep(200);
-		//				} catch (InterruptedException e) { }
-		//			}
-		//			
-		//			if(model.sys.isStatus(Status.MSP_GPOS_VALID)) {
-		//				control.sendMAVLinkMessage(pos);
-		//				MSPLogger.getInstance().writeLocalMsg("[msp] Reference position set from MAVGCL",
-		//						MAV_SEVERITY.MAV_SEVERITY_INFO);
-		//			}
-		//			else
-		//				MSPLogger.getInstance().writeLocalMsg("[msp] Setting reference position failed",
-		//						MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-		//
-		//		}, ExecutorService.LOW );
-
 
 	}
 
@@ -210,7 +150,7 @@ public class MSPCommander  {
 		control.registerListener(msg_msp_command.class, new IMAVLinkListener() {
 			@Override
 			public void received(Object o) {
-				ExecutorService.get().submit(() -> {
+				wq.addSingleTask("LP",() -> {
 					msg_msp_command cmd = (msg_msp_command)o;
 					switch(cmd.command) {
 					case MSP_CMD.MSP_CMD_RESTART:
@@ -263,7 +203,7 @@ public class MSPCommander  {
 	private void shutdownCompanion() {
 
 		logger.writeLocalMsg("[msp] Shutdown of MSP companion in 10 seconds.",MAV_SEVERITY.MAV_SEVERITY_INFO);	
-		ExecutorService.get().schedule(() -> {
+		wq.addSingleTask("LP",10000,() -> {
 			logger.writeLocalMsg("[msp] Shutdown of MSP companion now!",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);	
 			System.out.println("Companion shutdown now!");
 			if(!control.isSimulation() && !model.sys.isStatus(Status.MSP_ARMED)) {
@@ -271,7 +211,7 @@ public class MSPCommander  {
 			} else {
 				System.exit(0);
 			}
-		}, 10, TimeUnit.SECONDS);
+		});
 	}
 
 

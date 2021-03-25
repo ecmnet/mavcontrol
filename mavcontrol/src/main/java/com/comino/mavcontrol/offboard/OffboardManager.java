@@ -141,8 +141,8 @@ public class OffboardManager implements Runnable {
 	private final Vector4D_F32      start                     		= new Vector4D_F32();    // state, when setpoint was set incl. yaw
 	private final Vector4D_F32		cmd			  	            	= new Vector4D_F32();    // vehicle command state (coordinates/speeds)
 
-	private final msg_set_position_target_local_ned pos_cmd   		= new msg_set_position_target_local_ned(1,2);
-	private final msg_set_position_target_local_ned speed_cmd 		= new msg_set_position_target_local_ned(1,2);
+	private final msg_set_position_target_local_ned pos_cmd   		= new msg_set_position_target_local_ned(1,1);
+	private final msg_set_position_target_local_ned speed_cmd 		= new msg_set_position_target_local_ned(1,1);
 
 	private float      max_speed                                    = MAX_SPEED;
 	private float      min_speed                                    = MIN_SPEED;
