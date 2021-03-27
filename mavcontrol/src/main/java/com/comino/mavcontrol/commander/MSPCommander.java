@@ -99,7 +99,7 @@ public class MSPCommander  {
 //				model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY)) 
 //			return;
 
-		msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,2);
+		msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,1);
 		gor.target_system = 1;
 		gor.latitude = (long)(lat * 1e7);
 		gor.longitude = (long)(lon * 1e7);
