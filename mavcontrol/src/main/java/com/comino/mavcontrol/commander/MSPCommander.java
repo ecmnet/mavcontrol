@@ -94,6 +94,8 @@ public class MSPCommander  {
 
 	public void setGlobalOrigin(double lat, double lon, double altitude) {
 
+		if(model.sys.isStatus(Status.MSP_GPOS_VALID))
+				return;
 
 //		if(model.sys.isStatus(Status.MSP_GPOS_VALID) || lat == 0.0 || lon == 0.0 ||
 //				model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY)) 
