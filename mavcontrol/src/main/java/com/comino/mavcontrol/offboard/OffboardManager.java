@@ -616,11 +616,11 @@ public class OffboardManager implements Runnable {
 				if(( path.angle_xz >  0.78f || path.angle_xz < -0.78 ))
 					if(!Float.isNaN(target.w))
 						// only if target attitude was given
-						yaw_diff = MSPMathUtils.normAngle(target.w - current.w);
+						yaw_diff = MSPMathUtils.normAngle2(target.w - current.w);
 					else
 						yaw_diff = 0;
 				else {
-					yaw_diff = MSPMathUtils.normAngle(ctl.angle_xy - current.w);
+					yaw_diff = MSPMathUtils.normAngle2(ctl.angle_xy - current.w);
 				}
 
 				// if vehicle is not moving or close to target and turn angle > 60° => turn before moving
