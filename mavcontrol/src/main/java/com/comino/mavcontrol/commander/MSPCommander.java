@@ -97,10 +97,6 @@ public class MSPCommander  {
 		if(model.sys.isStatus(Status.MSP_GPOS_VALID))
 				return;
 
-//		if(model.sys.isStatus(Status.MSP_GPOS_VALID) || lat == 0.0 || lon == 0.0 ||
-//				model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY)) 
-//			return;
-
 		msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,1);
 		gor.target_system = 1;
 		gor.latitude = (long)(lat * 1e7);
@@ -110,7 +106,7 @@ public class MSPCommander  {
 		
 		control.sendMAVLinkMessage(gor);
 
-		MSPLogger.getInstance().writeLocalMsg("[msp] Try to set reference position",
+		MSPLogger.getInstance().writeLocalMsg("[msp] Setting reference position",
 				MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 	}
@@ -162,7 +158,7 @@ public class MSPCommander  {
 						setOffboardPosition(cmd);
 						break;
 					case MSP_CMD.MSP_CMD_SET_HOMEPOS:
-						setGlobalOrigin(cmd.param1 / 1e7f, cmd.param2 / 1e7f, cmd.param3 / 1e3f );
+						   setGlobalOrigin(cmd.param1 / 1e7f, cmd.param2 / 1e7f, cmd.param3 / 1e3f );
 						break;
 					case MSP_CMD.MSP_CMD_AUTOMODE:
 						autopilot.setMode((int)(cmd.param1)==MSP_COMPONENT_CTRL.ENABLE,(int)(cmd.param2),cmd.param3);
