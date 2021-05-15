@@ -34,6 +34,7 @@
 
 package com.comino.mavcontrol.autopilot.actions;
 
+import org.mavlink.messages.ESTIMATOR_STATUS_FLAGS;
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_MODE_FLAG;
 import org.mavlink.messages.MAV_RESULT;
@@ -179,6 +180,21 @@ public class TakeOffHandler {
 				}
 				break;
 			case STATE_COUNT_DOWN:
+				
+				// Check LIDAR availability
+				if(!model.sys.isSensorAvailable(Status.MSP_LIDAR_AVAILABILITY)) {
+					control.writeLogMessage(new LogMessage("[msp] CountDown aborted. LIDAR not available",
+							MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					state = STATE_IDLE;
+				}
+				
+				// Check EKF reports absolut position
+				if((model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_ABS) != ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_ABS ) {
+					control.writeLogMessage(new LogMessage("[msp] CountDown aborted. EKF reports no abs.Pos.",
+							MAV_SEVERITY.MAV_SEVERITY_CRITICAL));
+					state = STATE_IDLE;
+				}
+				
 				if(System.currentTimeMillis() > tms_takeoff_plan) {
 					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_TAKEOFF, (cmd, result) -> {
 						if(result == MAV_RESULT.MAV_RESULT_ACCEPTED) {
@@ -191,6 +207,7 @@ public class TakeOffHandler {
 					},-1, 0, 0, Float.NaN, Float.NaN, Float.NaN,Float.NaN);
 
 				}
+				
 				break;
 			case STATE_TAKEOFF:
 				delta_height = Math.abs(takeoff_alt_param.value - model.hud.ar) / takeoff_alt_param.value;
