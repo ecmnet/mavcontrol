@@ -33,15 +33,6 @@
 
 package com.comino.mavcontrol.autopilot;
 
-import java.util.LinkedList;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-
-import com.comino.mavutils.workqueue.WorkQueue;
-
-import org.mavlink.messages.MAV_BATTERY_CHARGE_STATE;
-
-
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_MODE_FLAG;
 import org.mavlink.messages.MAV_RESULT;
@@ -49,7 +40,6 @@ import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import org.mavlink.messages.lquac.msg_msp_micro_grid;
-import org.mavlink.messages.lquac.msg_msp_micro_slam;
 import org.mavlink.messages.lquac.msg_msp_vision;
 
 import com.comino.mavcom.config.MSPConfig;
@@ -61,14 +51,13 @@ import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.model.segment.Vision;
 import com.comino.mavcom.param.PX4Parameters;
-import com.comino.mavcom.param.ParameterAttributes;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.autopilot.actions.SafetyCheckHandler;
 import com.comino.mavcontrol.autopilot.actions.StandardActionFactory;
+import com.comino.mavcontrol.autopilot.actions.TakeOffHandler;
 import com.comino.mavcontrol.autopilot.tests.PlannerTest;
-import com.comino.mavcontrol.autopilot.tests.SequenceTestFactory;
-import com.comino.mavcontrol.commander.MSPUtils;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavcontrol.sequencer.ISeqAction;
 import com.comino.mavcontrol.sequencer.Sequencer;
@@ -80,9 +69,9 @@ import com.comino.mavmap.test.MapTestFactory;
 import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.legacy.ExecutorService;
+import com.comino.mavutils.workqueue.WorkQueue;
 
 import georegression.struct.point.Point3D_F64;
-import georegression.struct.point.Vector3D_F32;
 import georegression.struct.point.Vector4D_F32;
 
 
@@ -96,10 +85,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected static final float MAX_REL_DELTA_HEIGHT  = 0.10f;
 
-	private static final int   RC_DEADBAND             = 20;				      // RC Deadband
-	private static final int   RC_LAND_CHANNEL		   = 8;                       // RC channel 8 landing
-	private static final int   RC_LAND_THRESHOLD       = 2010;		              // RC channel 8 landing threshold
-
 	private static AutoPilotBase  autopilot    = null;
 	
 	protected final WorkQueue wq;
@@ -110,17 +95,19 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected LocalMap3D				    map      = null;
 	protected OffboardManager               offboard = null;
 	protected PX4Parameters                 params   = null;
+	
+	
+	protected TakeOffHandler         takeoff_handler = null;
+	protected SafetyCheckHandler safetycheck_handler = null;
 
 	protected boolean			           mapForget = false;
 	protected boolean                      flowCheck = false;
 
 	protected boolean                      isRunning = false;
-	protected boolean               emergencyLanding = false;
 
 	protected Sequencer                    sequencer = null;
 
 	protected final Vector4D_F32             takeoff = new Vector4D_F32();
-	protected  long                       takeoff_ms = 0;
 
 	private final Vector4D_F32            body_speed = new Vector4D_F32();
 	private final Vector4D_F32            ned_speed  = new Vector4D_F32();
@@ -151,6 +138,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		/* TEST ONLY */
 		this.planner = new PlannerTest(control,config);
+	
 
 		String instanceName = this.getClass().getSimpleName();
 
@@ -162,7 +150,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.params    = PX4Parameters.getInstance();
 		this.offboard  = new OffboardManager(control, params);
 		this.sequencer = new Sequencer(offboard,logger,model,control);
-
 
 		this.mapForget = config.getBoolProperty("autopilot_forget_map", "true");
 		System.out.println(instanceName+": Map forget enabled: "+mapForget);
@@ -176,10 +163,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK,
 				config.getBoolProperty("autopilot_precision_lock", "false"));
-
-		// Register actions
-
-		registerTakeoff();
+		
+		
+		this.takeoff_handler = new TakeOffHandler(control, offboard,() -> takeoffCompletedAction());
+		this.safetycheck_handler = new SafetyCheckHandler(control);
 
 		registerLanding();
 
@@ -194,7 +181,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
 
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
-			takeoff_ms = 0; emergencyLanding = false;
+			takeoff_handler.abort();
 //			if(future!=null) future.cancel(true);
 			wq.removeTask("LP",future);
 
@@ -220,87 +207,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		// Abort any sequence if PX4 landing is triggered
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
 			sequencer.abort();
+			takeoff_handler.abort();
 //			if(future!=null) future.cancel(true);
 			wq.removeTask("LP",future);
-		});
-
-	}
-
-	protected void registerTakeoff() {
-
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_TAKEOFF, StatusManager.EDGE_RISING, (n) -> {
-
-			final ParameterAttributes  takeoff_alt_param   = params.getParam("MIS_TAKEOFF_ALT");
-			final ParameterAttributes  takeoff_speed_param = params.getParam("MPC_TKO_SPEED");
-
-			// calculate maximum takeoff time
-			final int max_tko_time_ms = (int)(takeoff_alt_param.value / takeoff_speed_param.value ) * 1000 + 15000;
-
-			control.writeLogMessage(new LogMessage("[msp] Takeoff procedure initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-
-			long takeoff_start_tms = System.currentTimeMillis();
-			double delta_height = Math.abs(takeoff_alt_param.value - model.hud.ar) / takeoff_alt_param.value;
-
-			// Check odometry otherwise land immediately
-			if(!model.sys.isSensorAvailable(Status.MSP_OPCV_AVAILABILITY)) {
-				if(!control.isSimulation()) {
-					control.writeLogMessage(new LogMessage("[msp] Takeoff aborted. No odometry.", MAV_SEVERITY.MAV_SEVERITY_ALERT));
-					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, 0 );	
-				}
-			}
-
-
-			// Phase 1: Wait for height is in range
-			while(delta_height > MAX_REL_DELTA_HEIGHT) {
-				try { Thread.sleep(50); } catch(Exception e) { }
-
-				if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_TAKEOFF)) {
-					control.writeLogMessage(new LogMessage("[msp] Takeoff procedure aborted externally.",
-							MAV_SEVERITY.MAV_SEVERITY_WARNING));
-					return;
-				}
-
-
-				delta_height = Math.abs(takeoff_alt_param.value - model.hud.ar) / takeoff_alt_param.value;
-				if((System.currentTimeMillis() - takeoff_start_tms) > max_tko_time_ms) {
-					control.writeLogMessage(new LogMessage("[msp] Takeoff (1) did not complete within "+(max_tko_time_ms/1000)+" secs",
-							MAV_SEVERITY.MAV_SEVERITY_WARNING));
-					return;
-				}
-			}
-
-
-			// Phase 2: Wait for LOITER NavState to indicate that takeoff has completed
-			while(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER)) {
-				try { Thread.sleep(50); } catch(Exception e) { }
-				if((System.currentTimeMillis() - takeoff_start_tms) > max_tko_time_ms) {
-					control.writeLogMessage(new LogMessage("[msp] Takeoff (2) did not complete within "+(max_tko_time_ms/1000)+" secs",
-							MAV_SEVERITY.MAV_SEVERITY_INFO));
-					return;
-				}
-			}
-
-
-			// Phase 3: Switch to offboard in MODE_INIT
-			offboard.start();
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
-				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
-					offboard.stop();
-					control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+").", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-							MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-							MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
-				}
-			}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
-
-			control.writeLogMessage(new LogMessage("[msp] Setting takeoff position.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z, model.attitude.y);
-
-			try { Thread.sleep(200); } catch(Exception e) { }
-			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))
-				this.takeoffCompletedAction();
-
 		});
 
 	}
@@ -351,8 +260,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 	public long getTimeSinceTakeoff() {
-		if(takeoff_ms > 0)
-			return System.currentTimeMillis() - takeoff_ms;
+		long tms = takeoff_handler.getPlannedTakeoffTime();
+		if(tms > 0)
+			return System.currentTimeMillis() - tms;
 		return 0;
 	}
 
@@ -417,7 +327,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				logger.writeLocalMsg("[msp] Only available in simulation environment",MAV_SEVERITY.MAV_SEVERITY_INFO);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TAKEOFF:
-			countDownAndTakeoff(5,enable);
+			if(enable)
+			 takeoff_handler.initiateTakeoff(5);
+			else
+				takeoff_handler.abort();
+		//	countDownAndTakeoff(5,enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
 			offboardPosHold(enable);
@@ -685,38 +599,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	/**
-	 * AutopilotAction: Count down and takeoff
-	 * @param seconds
-	 * @param enable
-	 */
-	public void countDownAndTakeoff(int seconds, boolean enable) {
-		if(!model.sys.isStatus(Status.MSP_ARMED)) {
-			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
-			logger.writeLocalMsg("[msp] CountDown not initiated. Not armed.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-			return;
-		}
-
-		if(enable ) {
-			logger.writeLocalMsg("[msp] CountDown initiated.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-			takeoff_ms = System.currentTimeMillis() + seconds*1000;
-//			future = ExecutorService.get().schedule(() -> {
-			future = wq.addSingleTask("LP", seconds*1000, () -> {
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_TAKEOFF, -1, 0, 0, Float.NaN, Float.NaN, Float.NaN,Float.NaN);
-				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
-			});
-//			}, seconds,TimeUnit.SECONDS);
-
-		} else {
-			
-		//	if(future!=null) future.cancel(true);
-			wq.removeTask("LP", future);
-			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,0 );
-			logger.writeLocalMsg("[msp] CountDown aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-		}
-	}
-
-	/**
 	 * AutopilotAction: stops and turns to given angle
 	 * @param targetAngle
 	 */
@@ -728,26 +610,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		offboard.start(OffboardManager.MODE_LOITER);
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 	}
-
-	//*******************************************************************************/
-	// Safety
-
-	/**
-	 * performs autopilot safety checks:
-	 * 1. Check RC channel 8 for emergency landing
-	 */
-	protected boolean safetyChecks() {
-
-		// Safety: Channel 8 (Mid) triggers landing mode of PX4
-		if(Math.abs(model.rc.get(RC_LAND_CHANNEL) - RC_LAND_THRESHOLD) < RC_DEADBAND && !emergencyLanding) {
-			emergencyLanding = true;
-			logger.writeLocalMsg("[msp] Emergency landing triggered by RC",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 2, 0, Float.NaN );
-			return false;
-		}
-		return true;
-	}
-
 
 
 	protected void clearAutopilotActions() {

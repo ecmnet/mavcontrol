@@ -174,9 +174,6 @@ public class BreakingPilot extends AutoPilotBase {
 
 	public void run() {
 
-			if(!super.safetyChecks()) {
-
-			}
 
 			model.sys.t_takeoff_ms = getTimeSinceTakeoff();
 
