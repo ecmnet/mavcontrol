@@ -113,10 +113,15 @@ public class TakeOffHandler {
 		takeoff_alt_param   = params.getParam("MIS_TAKEOFF_ALT");
 		takeoff_speed_param = params.getParam("MPC_TKO_SPEED");
 		
+		if(takeoff_alt_param == null || takeoff_speed_param == null) {
+			logger.writeLocalMsg("[msp] CountDown aborted. Parameters not loaded",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+			return;
+		}
+		
 		max_tko_time_ms = (int)((takeoff_alt_param.value * 2000 / takeoff_speed_param.value )) + count_down_secs *1000 + INITIAL_DELAY_MS;
 
-		control.writeLogMessage(new LogMessage("[msp] Takeoff procedure initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-		control.writeLogMessage(new LogMessage("[msp] Est. takeoff time: "+(max_tko_time_ms/1000)+" sec.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
+		logger.writeLocalMsg("[msp] Takeoff procedure initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+		logger.writeLocalMsg("[msp] Est. takeoff time: "+(max_tko_time_ms/1000)+" sec.", MAV_SEVERITY.MAV_SEVERITY_NOTICE);
 
 		state = STATE_INITIATED;
 		task  = wq.addCyclicTask("LP", 100, new TakeOffStateMachine(count_down_secs));
@@ -125,7 +130,6 @@ public class TakeOffHandler {
 	public void abort() {
 		switch(state) {
 		case STATE_IDLE:
-			takeoff.set(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 			return;
 		case STATE_INITIATED:
 			state = STATE_IDLE;
@@ -167,7 +171,8 @@ public class TakeOffHandler {
 
 			switch(state) {
 			case STATE_IDLE:
-				tms_takeoff_plan = 0;
+				tms_takeoff_plan = 0; 
+				takeoff.set(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 				wq.removeTask("LP", task);
 				break;
 			case STATE_INITIATED:
@@ -181,19 +186,24 @@ public class TakeOffHandler {
 				break;
 			case STATE_COUNT_DOWN:
 				
+				
 				// Check LIDAR availability
 				if(!model.sys.isSensorAvailable(Status.MSP_LIDAR_AVAILABILITY)) {
-					control.writeLogMessage(new LogMessage("[msp] CountDown aborted. LIDAR not available",
-							MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					logger.writeLocalMsg("[msp] CountDown aborted. LIDAR not available",
+							MAV_SEVERITY.MAV_SEVERITY_WARNING);
 					state = STATE_IDLE;
 				}
 				
 				// Check EKF reports absolut position
-				if((model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_ABS) != ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_ABS ) {
-					control.writeLogMessage(new LogMessage("[msp] CountDown aborted. EKF reports no abs.Pos.",
-							MAV_SEVERITY.MAV_SEVERITY_CRITICAL));
+				if((model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_ABS) != ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_ABS  ||
+				   (model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_ACCEL_ERROR)==ESTIMATOR_STATUS_FLAGS.ESTIMATOR_ACCEL_ERROR) {
+					logger.writeLocalMsg("[msp] CountDown aborted. EKF reports fault.",
+							MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 					state = STATE_IDLE;
 				}
+				
+				// Check stability of CV
+				// TODO
 				
 				if(System.currentTimeMillis() > tms_takeoff_plan) {
 					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_TAKEOFF, (cmd, result) -> {
