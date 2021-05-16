@@ -191,6 +191,9 @@ public class MSPCommander  {
 		if(model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_ARMED)) {
 			logger.writeLocalMsg("[msp] Flight control restarted", MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 			control.sendShellCommand("reboot");
+			try {
+				Thread.sleep(3000);
+			} catch (InterruptedException e) { }
 			executeConsoleCommand("service flightcontrol restart");
 		}
 		else
