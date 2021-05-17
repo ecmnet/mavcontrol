@@ -57,7 +57,7 @@ import georegression.struct.point.Vector4D_F32;
 
 public class TakeOffHandler {
 
-	protected static final float MAX_REL_DELTA_HEIGHT  = 0.10f;
+	protected static final float MAX_REL_DELTA         = 0.10f;
 	protected static final int   INITIAL_DELAY_MS      = 5000;
 
 	private final int STATE_IDLE        = 0;
@@ -73,6 +73,8 @@ public class TakeOffHandler {
 
 	private   int     max_tko_time_ms = 0;
 	private   double  delta_height    = 0;
+	
+	private float visx, visy, visz;
 
 	private final WorkQueue wq = WorkQueue.getInstance();
 	private int task;
@@ -87,7 +89,7 @@ public class TakeOffHandler {
 
 	protected final Vector4D_F32  takeoff = new Vector4D_F32();
 	protected long       tms_takeoff_plan = 0;
-	
+
 	public TakeOffHandler(IMAVController control, OffboardManager offboard) {
 		this(control,offboard,null);
 	}
@@ -112,12 +114,12 @@ public class TakeOffHandler {
 		final PX4Parameters params = PX4Parameters.getInstance();
 		takeoff_alt_param   = params.getParam("MIS_TAKEOFF_ALT");
 		takeoff_speed_param = params.getParam("MPC_TKO_SPEED");
-		
+
 		if(takeoff_alt_param == null || takeoff_speed_param == null) {
 			logger.writeLocalMsg("[msp] CountDown aborted. Parameters not loaded",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			return;
 		}
-		
+
 		max_tko_time_ms = (int)((takeoff_alt_param.value * 2000 / takeoff_speed_param.value )) + count_down_secs *1000 + INITIAL_DELAY_MS;
 
 		logger.writeLocalMsg("[msp] Takeoff procedure initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG);
@@ -128,6 +130,7 @@ public class TakeOffHandler {
 	}
 
 	public void abort() {
+		System.out.println("Takeoff abort requested in state "+state);
 		switch(state) {
 		case STATE_IDLE:
 			return;
@@ -151,7 +154,7 @@ public class TakeOffHandler {
 	public Vector4D_F32 getTakeoffPosition() {
 		return takeoff;
 	}
-	
+
 	public long getPlannedTakeoffTime() {
 		return tms_takeoff_plan;
 	}
@@ -181,30 +184,41 @@ public class TakeOffHandler {
 				else {
 					tms_takeoff_plan = System.currentTimeMillis() + count_down_ms;
 					logger.writeLocalMsg("[msp] CountDown initiated.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+					visx = model.vision.x;
+					visy = model.vision.y;
+					visz = model.vision.z;
 					state = STATE_COUNT_DOWN;
 				}
 				break;
 			case STATE_COUNT_DOWN:
-				
-				
-				// Check LIDAR availability
-				if(!model.sys.isSensorAvailable(Status.MSP_LIDAR_AVAILABILITY)) {
-					logger.writeLocalMsg("[msp] CountDown aborted. LIDAR not available",
-							MAV_SEVERITY.MAV_SEVERITY_WARNING);
-					state = STATE_IDLE;
+
+				if(!control.isSimulation()) {
+
+					// Check LIDAR availability
+					if(!model.sys.isSensorAvailable(Status.MSP_LIDAR_AVAILABILITY)) {
+						logger.writeLocalMsg("[msp] CountDown aborted. LIDAR not available",
+								MAV_SEVERITY.MAV_SEVERITY_WARNING);
+						state = STATE_IDLE;
+					}
+
+					// Check EKF reports absolut position
+					if((model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_ABS) != ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_ABS  ||
+							(model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_ACCEL_ERROR)==ESTIMATOR_STATUS_FLAGS.ESTIMATOR_ACCEL_ERROR) {
+						logger.writeLocalMsg("[msp] CountDown aborted. EKF reports fault.",
+								MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
+						state = STATE_IDLE;
+					}
+
+					// Check stability of CV
+					if(Math.abs(model.vision.x - visx) > MAX_REL_DELTA || Math.abs(model.vision.y - visy) > MAX_REL_DELTA 
+							  || Math.abs(model.vision.z - visz) > MAX_REL_DELTA) {
+						logger.writeLocalMsg("[msp] CountDown aborted. Odometry not stable.",
+								MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
+						state = STATE_IDLE;
+					}
+
 				}
-				
-				// Check EKF reports absolut position
-				if((model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_ABS) != ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_ABS  ||
-				   (model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_ACCEL_ERROR)==ESTIMATOR_STATUS_FLAGS.ESTIMATOR_ACCEL_ERROR) {
-					logger.writeLocalMsg("[msp] CountDown aborted. EKF reports fault.",
-							MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
-					state = STATE_IDLE;
-				}
-				
-				// Check stability of CV
-				// TODO
-				
+
 				if(System.currentTimeMillis() > tms_takeoff_plan) {
 					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_TAKEOFF, (cmd, result) -> {
 						if(result == MAV_RESULT.MAV_RESULT_ACCEPTED) {
@@ -217,11 +231,11 @@ public class TakeOffHandler {
 					},-1, 0, 0, Float.NaN, Float.NaN, Float.NaN,Float.NaN);
 
 				}
-				
+
 				break;
 			case STATE_TAKEOFF:
 				delta_height = Math.abs(takeoff_alt_param.value - model.hud.ar) / takeoff_alt_param.value;
-				if(delta_height < MAX_REL_DELTA_HEIGHT) {
+				if(delta_height < MAX_REL_DELTA) {
 					control.writeLogMessage(new LogMessage("[msp] Takeoff altitude reached.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 					state = STATE_LOITER;
 				}
@@ -278,7 +292,7 @@ public class TakeOffHandler {
 
 				if(completed!=null && model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))
 					completed.run();
-				
+
 				state = STATE_IDLE;
 
 				break;
@@ -296,6 +310,7 @@ public class TakeOffHandler {
 
 			if(!model.sys.isSensorAvailable(Status.MSP_OPCV_AVAILABILITY)) {
 				if(!control.isSimulation()) {
+					logger.writeLocalMsg("[msp] Takeoff aborted. No Odometry.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 					return false;
 				}
 			}
