@@ -38,6 +38,9 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import org.mavlink.messages.MAV_BATTERY_CHARGE_STATE;
+import org.mavlink.messages.MAV_CMD;
+import org.mavlink.messages.MAV_MODE_FLAG;
+import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_CMD;
 import org.mavlink.messages.MSP_COMPONENT_CTRL;
@@ -49,7 +52,9 @@ import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVMSPController;
 import com.comino.mavcom.log.MSPLogger;
 import com.comino.mavcom.mavlink.IMAVLinkListener;
+import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
+import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
@@ -66,7 +71,7 @@ public class MSPCommander  {
 
 	private MSPLogger                  logger   = null;
 
-	
+
 	private final WorkQueue wq = WorkQueue.getInstance();
 
 	public MSPCommander(IMAVMSPController control, MSPConfig config) {
@@ -86,6 +91,18 @@ public class MSPCommander  {
 
 		this.autopilot =  AutoPilotBase.getInstance(autopilot_class,control,config);
 
+		// switch to manual mode if disarmed
+		control.getStatusManager().addListener( Status.MSP_ARMED, (n) -> {
+			if(!n.isStatus(Status.MSP_ARMED) && !n.isNavState(Status.NAVIGATION_STATE_MANUAL)) {
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
+					if(result == MAV_RESULT.MAV_RESULT_ACCEPTED) {
+						control.writeLogMessage(new LogMessage("[msp] Switched to manual mode.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+					}
+				}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
+						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
+			} 
+		});
+
 	}
 
 	public AutoPilotBase getAutopilot() {
@@ -95,7 +112,7 @@ public class MSPCommander  {
 	public void setGlobalOrigin(double lat, double lon, double altitude) {
 
 		if(model.sys.isStatus(Status.MSP_GPOS_VALID))
-				return;
+			return;
 
 		msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,1);
 		gor.target_system = 1;
@@ -103,7 +120,7 @@ public class MSPCommander  {
 		gor.longitude = (long)(lon * 1e7);
 		gor.altitude = (int)(altitude * 1000);
 		gor.time_usec = DataModel.getSynchronizedPX4Time_us();
-		
+
 		control.sendMAVLinkMessage(gor);
 
 		MSPLogger.getInstance().writeLocalMsg("[msp] Setting reference position",
@@ -158,7 +175,7 @@ public class MSPCommander  {
 						setOffboardPosition(cmd);
 						break;
 					case MSP_CMD.MSP_CMD_SET_HOMEPOS:
-						   setGlobalOrigin(cmd.param1 / 1e7f, cmd.param2 / 1e7f, cmd.param3 / 1e3f );
+						setGlobalOrigin(cmd.param1 / 1e7f, cmd.param2 / 1e7f, cmd.param3 / 1e3f );
 						break;
 					case MSP_CMD.MSP_CMD_AUTOMODE:
 						autopilot.setMode((int)(cmd.param1)==MSP_COMPONENT_CTRL.ENABLE,(int)(cmd.param2),cmd.param3);
@@ -181,7 +198,7 @@ public class MSPCommander  {
 	public LocalMap3D getMap() {
 		return autopilot.getMap();
 	}
-	
+
 	public long getTimeSinceTakeoff() {
 		return autopilot.getTimeSinceTakeoff();
 	}
@@ -191,10 +208,9 @@ public class MSPCommander  {
 		if(model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_ARMED)) {
 			logger.writeLocalMsg("[msp] Flight control restarted", MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 			control.sendShellCommand("reboot");
-			try {
-				Thread.sleep(3000);
-			} catch (InterruptedException e) { }
-			executeConsoleCommand("service flightcontrol restart");
+			wq.addSingleTask("LP",200,() -> {
+				executeConsoleCommand("service flightcontrol restart");
+			});
 		}
 		else
 			logger.writeLocalMsg("[msp] Restart command rejected.",
@@ -207,8 +223,9 @@ public class MSPCommander  {
 		wq.addSingleTask("LP",10000,() -> {
 			logger.writeLocalMsg("[msp] Shutdown of MSP companion now!",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);	
 			System.out.println("Companion shutdown now!");
-			if(!control.isSimulation() && !model.sys.isStatus(Status.MSP_ARMED)) {
-				executeConsoleCommand("shutdown -h now");
+			if(!control.isSimulation()) {
+				if(!model.sys.isStatus(Status.MSP_ARMED))
+					executeConsoleCommand("shutdown -h now");
 			} else {
 				System.exit(0);
 			}

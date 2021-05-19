@@ -140,7 +140,7 @@ public class TakeOffHandler {
 		case STATE_COUNT_DOWN:
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,0 );
-			logger.writeLocalMsg("[msp] CountDown aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+			logger.writeLocalMsg("[msp] CountDown externally aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			state = STATE_IDLE;
 			break;
 		case STATE_TAKEOFF:
