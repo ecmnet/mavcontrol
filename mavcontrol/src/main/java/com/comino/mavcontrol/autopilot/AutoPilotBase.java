@@ -328,9 +328,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_ACTION.TAKEOFF:
 			if(enable)
-			 takeoff_handler.initiateTakeoff(5);
+			  takeoff_handler.initiateTakeoff(5);
 			else
-				takeoff_handler.abort();
+			  takeoff_handler.abort();
 		//	countDownAndTakeoff(5,enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
