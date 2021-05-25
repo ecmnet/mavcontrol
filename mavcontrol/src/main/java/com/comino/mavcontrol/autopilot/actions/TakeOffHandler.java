@@ -145,7 +145,7 @@ public class TakeOffHandler {
 			break;
 		case STATE_TAKEOFF:
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, 0 );	
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, model.state.h );	
 			state = STATE_IDLE;
 			break;
 		}

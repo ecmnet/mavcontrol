@@ -577,7 +577,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		if((takeoff.x == 0 && takeoff.y == 0) || takeoff.isNaN()) {
 			logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, Float.NaN );
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0,  model.state.h );
 			return;
 		}
 
@@ -588,7 +588,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		sequencer.add(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, ISeqAction.ABS, () -> {
 			if(!model.vision.isStatus(Vision.FIDUCIAL_ACTIVE)) {
 				logger.writeLocalMsg("[msp] No precision landing.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, Float.NaN );
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0,  model.state.h );
 				clearAutopilotActions();
 			} else {
 				precisionLand(true);

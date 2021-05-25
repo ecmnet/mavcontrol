@@ -108,7 +108,7 @@ public class NoPilot extends AutoPilotBase {
 						logger.writeLocalMsg("[msp] Landing initiated",MAV_SEVERITY.MAV_SEVERITY_INFO);
 						is_landing = true;
 					}
-				}, 0, 2, 0.05f );
+				}, 0, 0,  model.state.h  );
 			}
 			
 			model.sys.t_takeoff_ms = getTimeSinceTakeoff();

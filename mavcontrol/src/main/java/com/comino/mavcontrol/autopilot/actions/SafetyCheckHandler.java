@@ -91,7 +91,7 @@ public class SafetyCheckHandler implements Runnable {
 				  logger.writeLocalMsg("[msp] Emergency landing triggered.",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 				else
 				  logger.writeLocalMsg("[msp] Emergency landing refused.",MAV_SEVERITY.MAV_SEVERITY_ALERT);
-			},0, 2, 0, Float.NaN );
+			},0, 0, 0, model.state.h);
 			if(action!=null)
 				action.run();
 		}
