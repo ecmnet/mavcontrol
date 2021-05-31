@@ -329,8 +329,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		case MSP_AUTOCONTROL_ACTION.TAKEOFF:
 			if(enable)
 			  takeoff_handler.initiateTakeoff(5);
-			else
+			else {
+				System.out.println("Takeoff disabled via command");
 			  takeoff_handler.abort();
+			}
 		//	countDownAndTakeoff(5,enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
@@ -512,7 +514,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 		if(control.isSimulation()) {
-			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
+		//	model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
 			model.vision.setStatus(Vision.FIDUCIAL_ACTIVE, true);
 		}
 
@@ -536,8 +538,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			sequencer.clear();
 
 			if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
-				control.writeLogMessage(new LogMessage("[msp] Precision landing refused. No lock", MAV_SEVERITY.MAV_SEVERITY_CRITICAL));
-				offboardPosHold(true);
+				control.writeLogMessage(new LogMessage("[msp] Precision landing without lock.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				if(!offboard.start_wait(OffboardManager.MODE_LAND, 30000)) {
+					control.writeLogMessage(new LogMessage("[msp] Precision landing procedure aborted", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				}
+			//	offboardPosHold(true);
 			} else {
 
 				control.writeLogMessage(new LogMessage("[msp] Precision landing triggered.", MAV_SEVERITY.MAV_SEVERITY_INFO));

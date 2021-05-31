@@ -52,6 +52,7 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavcom.model.segment.Vision;
 import com.comino.mavcom.param.PX4Parameters;
 
 import com.comino.mavcom.struct.Polar3D_F32;
@@ -676,7 +677,10 @@ public class OffboardManager implements Runnable {
 				valid_setpoint = true;
 				watch_tms = System.currentTimeMillis();
 
-				target.set(model.vision.px,model.vision.py,model.state.l_z,model.vision.pw);
+				if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED))
+					target.set(model.vision.px,model.vision.py,current.z,model.vision.pw);
+				else
+					target.set(current.x,current.y,current.z,current.w);
 
 				// TODO: Safetychecks: Pitch/Roll => gain height and loiter
 
@@ -728,6 +732,7 @@ public class OffboardManager implements Runnable {
 					cmd.w = 0;
 				}
 
+
 				// Check minimum landing speed
 				if(cmd.z < LAND_MODE_MIN_SPEED) cmd.z = LAND_MODE_MIN_SPEED;
 
@@ -735,9 +740,11 @@ public class OffboardManager implements Runnable {
 				//       e.g. if landing target not reachable, or current z-speed is upwards
 
 
-//				model.debug.x = (float)ctl.value;
-//				model.debug.y = (float)yaw_diff;
-//				model.debug.z = (float)tmp;
+				//				model.debug.x = (float)ctl.value;
+				//				model.debug.y = (float)yaw_diff;
+				//				model.debug.z = (float)tmp;
+
+				System.out.println(cmd+" - "+ctl);
 
 
 				// Once in turnmode, stay there
@@ -915,6 +922,12 @@ public class OffboardManager implements Runnable {
 
 		if(s.w >   MAX_YAW_SPEED )  s.w =   MAX_YAW_SPEED;
 		if(s.w <  -MAX_YAW_SPEED )  s.w =  -MAX_YAW_SPEED;
+		
+		if(Float.isNaN(s.x))        s.x = 0;
+		if(Float.isNaN(s.y))        s.y = 0;
+		if(Float.isNaN(s.z))        s.z = 0;
+		if(Float.isNaN(s.w))        s.w = 0;
+		
 
 	}
 
