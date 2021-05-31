@@ -99,7 +99,7 @@ public class TakeOffHandler {
 		this.offboard  = offboard;
 		this.model     = control.getCurrentModel();
 		this.logger    = MSPLogger.getInstance();
-		this. completed = completedAction;
+		this.completed = completedAction;
 	}
 
 	public void initiateTakeoff(int count_down_secs) {
@@ -116,7 +116,7 @@ public class TakeOffHandler {
 		takeoff_speed_param = params.getParam("MPC_TKO_SPEED");
 
 		if(takeoff_alt_param == null || takeoff_speed_param == null) {
-			logger.writeLocalMsg("[msp] CountDown aborted. Parameters not loaded",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+			logger.writeLocalMsg("[msp] CountDown aborted. Parameters not loaded",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 			return;
 		}
 
@@ -197,7 +197,7 @@ public class TakeOffHandler {
 					// Check LIDAR availability
 					if(!model.sys.isSensorAvailable(Status.MSP_LIDAR_AVAILABILITY)) {
 						logger.writeLocalMsg("[msp] CountDown aborted. LIDAR not available",
-								MAV_SEVERITY.MAV_SEVERITY_WARNING);
+								MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 						state = STATE_IDLE;
 					}
 
@@ -310,7 +310,7 @@ public class TakeOffHandler {
 
 			if(!model.sys.isSensorAvailable(Status.MSP_OPCV_AVAILABILITY)) {
 				if(!control.isSimulation()) {
-					logger.writeLocalMsg("[msp] Takeoff aborted. No Odometry.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+					logger.writeLocalMsg("[msp] Takeoff aborted. No Odometry.",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 					return false;
 				}
 			}
