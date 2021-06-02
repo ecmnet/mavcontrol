@@ -698,7 +698,7 @@ public class OffboardManager implements Runnable {
 				// Calculate max XY adjustment speed depending on the height and current z-speed
 				// but minimum max speed is 0.10m/s
 				max = 3.0f * path .value * model.state.l_vz / tmp ;
-				if(max < 0.10f) max = 0.10f;
+				if(max < MIN_SPEED) max = MIN_SPEED;
 
 
 				// No XY adjustment anymore if height < 0.07m or no fiducial 
@@ -749,7 +749,7 @@ public class OffboardManager implements Runnable {
 
 				// Once in turnmode, stay there
 				if(tmp < LAND_MODE_ALT) {
-					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, target.w );		
+					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, model.attitude.sy );		
 					stop();
 					logger.writeLocalMsg("[msp] Accurracy: "+String.format("% #.2fm [%#.1f°]",path.value, MSPMathUtils.fromRad2(yaw_diff)
 							),MAV_SEVERITY.MAV_SEVERITY_DEBUG);
