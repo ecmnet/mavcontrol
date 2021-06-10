@@ -131,6 +131,7 @@ public class TakeOffHandler {
 
 	public void abort() {
 		System.out.println("Takeoff abort requested in state "+state);
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
 		switch(state) {
 		case STATE_IDLE:
 			return;

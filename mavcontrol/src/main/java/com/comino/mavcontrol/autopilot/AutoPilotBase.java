@@ -179,8 +179,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected void registerDisarm() {
 
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
-
-			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
+			
+			System.out.println("Landing aboretd: Disarmed");
 			takeoff_handler.abort();
 //			if(future!=null) future.cancel(true);
 			wq.removeTask("LP",future);
@@ -206,6 +206,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		// Abort any sequence if PX4 landing is triggered
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
+			System.out.println("Takeoff aborted: PX4 in autoland mode");
 			sequencer.abort();
 			takeoff_handler.abort();
 //			if(future!=null) future.cancel(true);
