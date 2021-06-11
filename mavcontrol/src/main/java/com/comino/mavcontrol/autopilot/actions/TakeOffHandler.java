@@ -302,6 +302,13 @@ public class TakeOffHandler {
 		}
 
 		private boolean initialChecks() {
+			
+			if(!model.sys.isStatus(Status.MSP_READY_FOR_FLIGHT)) {
+				if(!control.isSimulation()) {
+					logger.writeLocalMsg("[msp] Takeoff aborted. Not ready for flight.",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
+					return false;
+				}
+			}
 
 			if(!model.sys.isStatus(Status.MSP_ARMED)) {
 				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
@@ -309,12 +316,6 @@ public class TakeOffHandler {
 				return false;
 			}
 
-			if(!model.sys.isSensorAvailable(Status.MSP_OPCV_AVAILABILITY)) {
-				if(!control.isSimulation()) {
-					logger.writeLocalMsg("[msp] Takeoff aborted. No Odometry.",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
-					return false;
-				}
-			}
 			return true;
 		}
 
