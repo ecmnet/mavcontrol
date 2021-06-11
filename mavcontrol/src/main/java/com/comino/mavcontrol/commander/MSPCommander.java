@@ -206,7 +206,6 @@ public class MSPCommander  {
 
 	private void restartCompanion() {
 		if(model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_ARMED)) {
-			logger.writeLocalMsg("[msp] Flight control restarted", MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 			control.sendShellCommand("reboot");
 			wq.addSingleTask("LP",200,() -> {
 				executeConsoleCommand("service flightcontrol restart");
