@@ -207,7 +207,7 @@ public class MSPCommander  {
 	private void restartCompanion() {
 		if(model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_ARMED)) {
 			control.sendShellCommand("reboot");
-			wq.addSingleTask("LP",200,() -> {
+			wq.addSingleTask("LP",500,() -> {
 				executeConsoleCommand("service flightcontrol restart");
 			});
 		}
