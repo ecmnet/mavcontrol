@@ -86,7 +86,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected static final float MAX_REL_DELTA_HEIGHT  = 0.10f;
 
 	private static AutoPilotBase  autopilot    = null;
-	
+
 	protected final WorkQueue wq;
 
 	protected DataModel                     model    = null;
@@ -95,8 +95,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected LocalMap3D				    map      = null;
 	protected OffboardManager               offboard = null;
 	protected PX4Parameters                 params   = null;
-	
-	
+
+
 	protected TakeOffHandler         takeoff_handler = null;
 	protected SafetyCheckHandler safetycheck_handler = null;
 
@@ -113,7 +113,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	private final Vector4D_F32            ned_speed  = new Vector4D_F32();
 
 
-//	private Future<?> future;
+	//	private Future<?> future;
 	private int future;
 
 
@@ -133,12 +133,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 	public AutoPilotBase(IMAVController control, MSPConfig config) {
-		
+
 		wq = WorkQueue.getInstance();
 
 		/* TEST ONLY */
 		this.planner = new PlannerTest(control,config);
-	
+
 
 		String instanceName = this.getClass().getSimpleName();
 
@@ -163,8 +163,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK,
 				config.getBoolProperty("autopilot_precision_lock", "false"));
-		
-		
+
+
 		this.takeoff_handler = new TakeOffHandler(control, offboard,() -> takeoffCompletedAction());
 		this.safetycheck_handler = new SafetyCheckHandler(control);
 
@@ -172,16 +172,16 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		registerDisarm();
 
-		
+
 	}
 
 
 	protected void registerDisarm() {
 
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
-			
+
 			takeoff_handler.abort("Disarmed");
-//			if(future!=null) future.cancel(true);
+			//			if(future!=null) future.cancel(true);
 			wq.removeTask("LP",future);
 
 			if(offboard.isEnabled()) {
@@ -193,7 +193,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL,MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER);
-			
+
 		});
 
 	}
@@ -203,15 +203,18 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	protected void registerLanding() {
-	
+
 		// Abort any sequence if PX4 landing is triggered
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
-			System.out.println(model.sys.toString());
-			System.out.println("Takeoff aborted: PX4 entered autoland mode");
-			sequencer.abort();
-			takeoff_handler.abort("Landing");
-//			if(future!=null) future.cancel(true);
-			wq.removeTask("LP",future);
+			if(!model.sys.isStatus(Status.MSP_LANDED)) { // Workaround; Landing mode triggered on ground sometimes
+				sequencer.abort();
+				takeoff_handler.abort("Landing");
+				//			if(future!=null) future.cancel(true);
+				wq.removeTask("LP",future);
+			} else {
+				// should not occur
+				System.out.println("[DEBUG] NavState 'LandMode' activated by PX4 on ground for unknown reasons: "+System.currentTimeMillis());
+			}
 		});
 
 	}
@@ -235,7 +238,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	protected void start() {
-		
+
 		wq.addCyclicTask("NP", 50, this);
 		wq.addCyclicTask("LP", 100, new MapToModelTransfer());
 	}
@@ -330,11 +333,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_ACTION.TAKEOFF:
 			if(enable)
-			  takeoff_handler.initiateTakeoff(5);
+				takeoff_handler.initiateTakeoff(5);
 			else {
-			  takeoff_handler.abort("Abort");
+				takeoff_handler.abort("Abort");
 			}
-		//	countDownAndTakeoff(5,enable);
+			//	countDownAndTakeoff(5,enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
 			offboardPosHold(enable);
@@ -515,7 +518,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 		if(control.isSimulation()) {
-		//	model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
+			//	model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
 			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, true);
 		}
 
@@ -543,7 +546,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				if(!offboard.start_wait(OffboardManager.MODE_LAND, 30000)) {
 					control.writeLogMessage(new LogMessage("[msp] Precision landing procedure aborted", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				}
-			//	offboardPosHold(true);
+				//	offboardPosHold(true);
 			} else {
 
 				control.writeLogMessage(new LogMessage("[msp] Precision landing triggered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
@@ -657,19 +660,19 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	// put map transfer into the WQ
 
 	private class MapToModelTransfer implements Runnable {
-		
+
 		private long map_tms = 0;
 		@Override
 		public void run() {
-			
+
 			map.getLatestMapItems(map_tms).forEachRemaining((p) -> {
 				model.grid.getTransfers().push(map.getMapInfo().encodeMapPoint(p, p.probability));
 			});
 			map_tms = System.currentTimeMillis();
 			model.grid.count = map.size();
-			
+
 		}
-		
+
 	}
 
 }
