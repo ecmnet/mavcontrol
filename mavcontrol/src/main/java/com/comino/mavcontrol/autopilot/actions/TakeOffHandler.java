@@ -129,8 +129,7 @@ public class TakeOffHandler {
 		task  = wq.addCyclicTask("LP", 100, new TakeOffStateMachine(count_down_secs));
 	}
 
-	public void abort() {
-		System.out.println("Takeoff abort requested in state "+state);
+	public void abort(String reason) {
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
 		switch(state) {
 		case STATE_IDLE:
@@ -141,11 +140,12 @@ public class TakeOffHandler {
 		case STATE_COUNT_DOWN:
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,0 );
-			logger.writeLocalMsg("[msp] CountDown externally aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+			logger.writeLocalMsg("[msp] CountDown externally aborted: "+reason,MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			state = STATE_IDLE;
 			break;
 		case STATE_TAKEOFF:
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
+			logger.writeLocalMsg("[msp] Takeoff externally aborted: "+reason,MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, model.state.h );	
 			state = STATE_IDLE;
 			break;
@@ -202,8 +202,8 @@ public class TakeOffHandler {
 						state = STATE_IDLE;
 					}
 
-					// Check EKF reports absolut position
-					if((model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_ABS) != ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_ABS  ||
+					// Check EKF reports relative position
+					if((model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_REL) != ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_REL  ||
 							(model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_ACCEL_ERROR)==ESTIMATOR_STATUS_FLAGS.ESTIMATOR_ACCEL_ERROR) {
 						logger.writeLocalMsg("[msp] CountDown aborted. EKF reports fault.",
 								MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
@@ -217,7 +217,6 @@ public class TakeOffHandler {
 								MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 						state = STATE_IDLE;
 					}
-
 				}
 
 				if(System.currentTimeMillis() > tms_takeoff_plan) {

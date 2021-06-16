@@ -180,20 +180,20 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
 			
-			System.out.println("Landing aboretd: Disarmed");
-			takeoff_handler.abort();
+			takeoff_handler.abort("Disarmed");
 //			if(future!=null) future.cancel(true);
 			wq.removeTask("LP",future);
 
 			if(offboard.isEnabled()) {
 				offboard.abort(); offboard.stop();
-				control.writeLogMessage(new LogMessage("[msp] Switched to manual mode.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
+				control.writeLogMessage(new LogMessage("[msp] Disarmed. Switch to manual mode.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
 				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
 
 			}
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
+					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL);
+			
 		});
 
 	}
@@ -206,9 +206,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		// Abort any sequence if PX4 landing is triggered
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
-			System.out.println("Takeoff aborted: PX4 in autoland mode");
+			System.out.println("Takeoff aborted: PX4 entered autoland mode");
 			sequencer.abort();
-			takeoff_handler.abort();
+			takeoff_handler.abort("Landing");
 //			if(future!=null) future.cancel(true);
 			wq.removeTask("LP",future);
 		});
@@ -331,8 +331,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			if(enable)
 			  takeoff_handler.initiateTakeoff(5);
 			else {
-				System.out.println("Takeoff disabled via command");
-			  takeoff_handler.abort();
+			  takeoff_handler.abort("Abort");
 			}
 		//	countDownAndTakeoff(5,enable);
 			break;
@@ -516,7 +515,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		if(control.isSimulation()) {
 		//	model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
-			model.vision.setStatus(Vision.FIDUCIAL_ACTIVE, true);
+			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, true);
 		}
 
 		ExecutorService.get().submit(() -> {
@@ -569,7 +568,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		if(control.isSimulation()) {
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
-			model.vision.setStatus(Vision.FIDUCIAL_ACTIVE, true);
+			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, true);
 		}
 
 		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
@@ -589,10 +588,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 		sequencer.add(new SeqItem(takeoff,ISeqAction.ABS, null,0));
-		if(!model.vision.isStatus(Vision.FIDUCIAL_ACTIVE))
+		if(!model.vision.isStatus(Vision.FIDUCIAL_ENABLED))
 			sequencer.add(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
 		sequencer.add(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, ISeqAction.ABS, () -> {
-			if(!model.vision.isStatus(Vision.FIDUCIAL_ACTIVE)) {
+			if(!model.vision.isStatus(Vision.FIDUCIAL_ENABLED)) {
 				logger.writeLocalMsg("[msp] No precision landing.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0,  model.state.h );
 				clearAutopilotActions();
