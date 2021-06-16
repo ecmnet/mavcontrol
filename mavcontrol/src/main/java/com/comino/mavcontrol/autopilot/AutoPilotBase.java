@@ -192,7 +192,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL);
+					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL,MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER);
 			
 		});
 
@@ -203,9 +203,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	protected void registerLanding() {
-
+	
 		// Abort any sequence if PX4 landing is triggered
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
+			System.out.println(model.sys.toString());
 			System.out.println("Takeoff aborted: PX4 entered autoland mode");
 			sequencer.abort();
 			takeoff_handler.abort("Landing");
