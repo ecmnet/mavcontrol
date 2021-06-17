@@ -42,6 +42,7 @@ import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.log.MSPLogger;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 public class SafetyCheckHandler implements Runnable {
@@ -91,7 +92,7 @@ public class SafetyCheckHandler implements Runnable {
 				  logger.writeLocalMsg("[msp] Emergency landing triggered.",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 				else
 				  logger.writeLocalMsg("[msp] Emergency landing refused.",MAV_SEVERITY.MAV_SEVERITY_ALERT);
-			},0, 0, 0, model.state.h);
+			},0, 0, 0, Float.NaN);
 			if(action!=null)
 				action.run();
 		}

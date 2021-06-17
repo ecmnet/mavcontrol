@@ -51,6 +51,7 @@ import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.param.ParameterAttributes;
 import com.comino.mavcontrol.offboard.OffboardManager;
+import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 import georegression.struct.point.Vector4D_F32;
@@ -146,7 +147,7 @@ public class TakeOffHandler {
 		case STATE_TAKEOFF:
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.TAKEOFF, false);
 			logger.writeLocalMsg("[msp] Takeoff externally aborted: "+reason,MAV_SEVERITY.MAV_SEVERITY_WARNING);
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, model.state.h );	
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, Float.NaN );	
 			state = STATE_IDLE;
 			break;
 		}
