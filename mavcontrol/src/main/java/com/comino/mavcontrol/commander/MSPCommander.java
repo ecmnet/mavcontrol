@@ -49,6 +49,7 @@ import org.mavlink.messages.lquac.msg_msp_command;
 import org.mavlink.messages.lquac.msg_set_gps_global_origin;
 
 import com.comino.mavcom.config.MSPConfig;
+import com.comino.mavcom.config.MSPParams;
 import com.comino.mavcom.control.IMAVMSPController;
 import com.comino.mavcom.log.MSPLogger;
 import com.comino.mavcom.mavlink.IMAVLinkListener;
@@ -87,7 +88,7 @@ public class MSPCommander  {
 		System.out.println("Commander initialized");
 
 		//		String autopilot_class = config.getProperty("autopilot_class", "com.comino.mavcontrol.autopilot.TrajectoryPilot");
-		String autopilot_class = config.getProperty("autopilot_class", "com.comino.mavcontrol.autopilot.BreakingPilot");
+		String autopilot_class = config.getProperty(MSPParams.AUTOPILOT_CLASS, "com.comino.mavcontrol.autopilot.BreakingPilot");
 
 		this.autopilot =  AutoPilotBase.getInstance(autopilot_class,control,config);
 
