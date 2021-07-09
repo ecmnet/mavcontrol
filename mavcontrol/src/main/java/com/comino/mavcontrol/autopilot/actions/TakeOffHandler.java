@@ -123,8 +123,8 @@ public class TakeOffHandler {
 
 		max_tko_time_ms = (int)((takeoff_alt_param.value * 2000 / takeoff_speed_param.value )) + count_down_secs *1000 + INITIAL_DELAY_MS;
 
-		logger.writeLocalMsg("[msp] Takeoff procedure initiated.", MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-		logger.writeLocalMsg("[msp] Est. takeoff time: "+(max_tko_time_ms/1000)+" sec.", MAV_SEVERITY.MAV_SEVERITY_NOTICE);
+		logger.writeLocalMsg("[msp] Count down initiated.", MAV_SEVERITY.MAV_SEVERITY_INFO);
+		logger.writeLocalMsg("[msp] Target altitude will be reached in "+(max_tko_time_ms/1000)+" s.", MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 		state = STATE_INITIATED;
 		task  = wq.addCyclicTask("LP", 100, new TakeOffStateMachine(count_down_secs));
@@ -185,7 +185,6 @@ public class TakeOffHandler {
 					state = STATE_IDLE;
 				else {
 					tms_takeoff_plan = System.currentTimeMillis() + count_down_ms;
-					logger.writeLocalMsg("[msp] CountDown initiated.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 					visx = model.vision.x;
 					visy = model.vision.y;
 					visz = model.vision.z;
