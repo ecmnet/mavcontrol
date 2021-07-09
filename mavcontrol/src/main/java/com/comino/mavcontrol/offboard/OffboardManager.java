@@ -54,7 +54,6 @@ import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.model.segment.Vision;
 import com.comino.mavcom.param.PX4Parameters;
-
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.controllib.IYawSpeedControl;
