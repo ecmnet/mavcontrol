@@ -43,6 +43,7 @@ import org.mavlink.messages.lquac.msg_msp_micro_grid;
 import org.mavlink.messages.lquac.msg_msp_vision;
 
 import com.comino.mavcom.config.MSPConfig;
+import com.comino.mavcom.config.MSPParams;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.log.MSPLogger;
 import com.comino.mavcom.mavlink.MAV_CUST_MODE;
@@ -151,18 +152,18 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.offboard  = new OffboardManager(control, params);
 		this.sequencer = new Sequencer(offboard,logger,model,control);
 
-		this.mapForget = config.getBoolProperty("autopilot_forget_map", "true");
+		this.mapForget = config.getBoolProperty(MSPParams.AUTOPILOT_FORGET_MAP, "true");
 		System.out.println(instanceName+": Map forget enabled: "+mapForget);
 		this.map      = new LocalMap3D(new Map3DSpacialInfo(0.10f,20.0f,20.0f,5.0f),mapForget);
 
-		this.flowCheck = config.getBoolProperty("autopilot_flow_check", "true") & !control.isSimulation();
+		this.flowCheck = config.getBoolProperty(MSPParams.AUTOPILOT_FLOW_CHECK, "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE,
-				config.getBoolProperty("autopilot_takeoff_procedure", "false"));
+				config.getBoolProperty(MSPParams.AUTOPILOT_TAKEOFF_PROC, "false"));
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK,
-				config.getBoolProperty("autopilot_precision_lock", "false"));
+				config.getBoolProperty(MSPParams.AUTOPILOT_PRECISION_LOCK, "false"));
 
 
 		this.takeoff_handler = new TakeOffHandler(control, offboard,() -> takeoffCompletedAction());
@@ -190,9 +191,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
 
 			}
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL,MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER);
+//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+//					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
+//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL,MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER);
 
 		});
 
@@ -518,7 +519,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 		if(control.isSimulation()) {
-			//	model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
+			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
 			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, true);
 		}
 
