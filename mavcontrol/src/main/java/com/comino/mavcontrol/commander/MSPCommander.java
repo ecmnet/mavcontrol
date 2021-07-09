@@ -91,18 +91,6 @@ public class MSPCommander  {
 
 		this.autopilot =  AutoPilotBase.getInstance(autopilot_class,control,config);
 
-		// switch to manual mode if disarmed
-		control.getStatusManager().addListener( Status.MSP_ARMED, (n) -> {
-			if(!n.isStatus(Status.MSP_ARMED) && !n.isNavState(Status.NAVIGATION_STATE_MANUAL)) {
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
-					if(result == MAV_RESULT.MAV_RESULT_ACCEPTED) {
-						control.writeLogMessage(new LogMessage("[msp] Switched to manual mode.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-					}
-				}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
-			} 
-		});
-
 	}
 
 	public AutoPilotBase getAutopilot() {
@@ -206,10 +194,10 @@ public class MSPCommander  {
 
 	private void restartCompanion() {
 		if(model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_ARMED)) {
-		//	executeConsoleCommand("service flightcontrol restart");
+			//	executeConsoleCommand("service flightcontrol restart");
 			control.sendShellCommand("reboot");
 			wq.addSingleTask("LP",500,() -> {
-			//	control.sendShellCommand("reboot");
+				//	control.sendShellCommand("reboot");
 				executeConsoleCommand("service flightcontrol restart");
 			});
 		}
