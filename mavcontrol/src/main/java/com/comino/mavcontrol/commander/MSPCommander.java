@@ -195,12 +195,13 @@ public class MSPCommander  {
 
 	private void restartCompanion() {
 		if(model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_ARMED)) {
-			//	executeConsoleCommand("service flightcontrol restart");
-			control.sendShellCommand("reboot");
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, 1);
+			if(!control.isSimulation()) { 
 			wq.addSingleTask("LP",500,() -> {
 				//	control.sendShellCommand("reboot");
 				executeConsoleCommand("service flightcontrol restart");
 			});
+			}
 		}
 		else
 			logger.writeLocalMsg("[msp] Restart command rejected.",
