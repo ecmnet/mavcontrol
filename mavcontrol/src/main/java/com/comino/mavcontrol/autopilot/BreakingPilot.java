@@ -71,10 +71,13 @@ import org.mavlink.messages.MAV_MODE_FLAG;
 
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
+import org.mavlink.messages.lquac.msg_hil_controls;
+import org.mavlink.messages.lquac.msg_rc_channels_override;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.mavlink.MAV_CUST_MODE;
+import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
@@ -113,6 +116,8 @@ public class BreakingPilot extends AutoPilotBase {
 	private boolean             smooth_target_initialized = false;
 
 	private float               obs_acc       = 0;
+	
+	private final msg_rc_channels_override  fcum_thrust = new msg_rc_channels_override(1,1);
 
 
 	protected BreakingPilot(IMAVController control, MSPConfig config) {
@@ -173,6 +178,17 @@ public class BreakingPilot extends AutoPilotBase {
 	}
 
 	public void run() {
+		
+		    if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FCUM)) {
+		    	
+		    		fcum_thrust.chan4_raw = 1500;
+		    		fcum_thrust.chan1_raw = 1500;
+		    		fcum_thrust.chan2_raw = 1500;
+		    		fcum_thrust.chan3_raw = 1500;
+		    		control.sendMAVLinkMessage(fcum_thrust);
+
+		    	return;
+		    }
 
 
 			model.sys.t_takeoff_ms = getTimeSinceTakeoff();

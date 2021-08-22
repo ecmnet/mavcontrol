@@ -223,11 +223,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected void takeoffCompletedAction() {
 
-		if(control.isSimulation()) {
-			try { Thread.sleep(1000); } catch(Exception e) { }
-			precisionLand(true);
-			return;
-		}
+//		if(control.isSimulation()) {
+//			try { Thread.sleep(1000); } catch(Exception e) { }
+//			precisionLand(true);
+//			return;
+//		}
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, true);
 		control.writeLogMessage(new LogMessage("[msp] Obstacle survey executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -299,6 +299,19 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_MODE.INTERACTIVE:
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT, false);
+			break;
+		case MSP_AUTOCONTROL_MODE.FCUM:
+			if(enable) {
+			  control.writeLogMessage(new LogMessage("[msp] FCUM mode entered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			  control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,1 );
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
+			} else
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, ( cmd,result) -> {
+					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED)
+						logger.writeLocalMsg("[mgc] PX4 landing rejected ("+result+")",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+				}, 0, 0, 0, Float.NaN );
 			break;
 		case MSP_AUTOCONTROL_ACTION.RTL:
 			returnToLand(enable);
