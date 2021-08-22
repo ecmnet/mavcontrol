@@ -743,7 +743,7 @@ public class OffboardManager implements Runnable {
 				//				model.debug.y = (float)yaw_diff;
 				//				model.debug.z = (float)tmp;
 
-				System.out.println(cmd+" - "+ctl);
+				//System.out.println(cmd+" - "+ctl);
 
 
 				// Once in turnmode, stay there
