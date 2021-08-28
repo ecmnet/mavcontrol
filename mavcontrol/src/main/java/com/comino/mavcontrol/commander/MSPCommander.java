@@ -102,7 +102,7 @@ public class MSPCommander  {
 
 	public void setGlobalOrigin(double lat, double lon, double altitude) {
 
-		if(model.sys.isStatus(Status.MSP_GPOS_VALID))
+		if(model.sys.isStatus(Status.MSP_GPS_AVAILABILITY))
 			return;
 
 		msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,1);
