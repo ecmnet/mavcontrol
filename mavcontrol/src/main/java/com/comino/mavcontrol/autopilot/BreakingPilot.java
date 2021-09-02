@@ -116,7 +116,7 @@ public class BreakingPilot extends AutoPilotBase {
 	private boolean             smooth_target_initialized = false;
 
 	private float               obs_acc       = 0;
-	
+
 	private final msg_rc_channels_override  fcum_thrust = new msg_rc_channels_override(1,1);
 
 
@@ -124,7 +124,7 @@ public class BreakingPilot extends AutoPilotBase {
 		super(control,config);
 
 		this.obstacle.value = Float.POSITIVE_INFINITY;
-		
+
 		control.getStatusManager().addListener(Status.MSP_PARAMS_LOADED, (n) -> {
 			if(n.isStatus(Status.MSP_PARAMS_LOADED))		
 				params.sendParameter("COM_OBS_AVOID", 0.0f);
@@ -178,65 +178,71 @@ public class BreakingPilot extends AutoPilotBase {
 	}
 
 	public void run() {
-		
-		    if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FCUM)) {
-		    	
-		    		fcum_thrust.chan4_raw = 1500;
-		    		fcum_thrust.chan1_raw = 1500;
-		    		fcum_thrust.chan2_raw = 1500;
-		    		fcum_thrust.chan3_raw = 1500;
-		    		control.sendMAVLinkMessage(fcum_thrust);
 
-		    	return;
-		    }
+		if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FCUM)) {
+
+			if(model.sys.isStatus(Status.MSP_ARMED)) {
+				fcum_thrust.chan4_raw = 1500;
+				fcum_thrust.chan1_raw = 1500;
+				fcum_thrust.chan2_raw = 1500;
+				fcum_thrust.chan3_raw = 1500;
+			} else {
+				fcum_thrust.chan4_raw = 1500;
+				fcum_thrust.chan1_raw = 900;
+				fcum_thrust.chan2_raw = 1500;
+				fcum_thrust.chan3_raw = 1500;
+			}
+			control.sendMAVLinkMessage(fcum_thrust);
+			return;
+		}
 
 
-			model.sys.t_takeoff_ms = getTimeSinceTakeoff();
+		model.sys.t_takeoff_ms = getTimeSinceTakeoff();
 
-			// Publish SLAM data
-			if(tooClose)
-				transferObstacleToModel(obstacle);
-			else
-				publishSLAMData();
+		// Publish SLAM data
+		if(tooClose)
+			transferObstacleToModel(obstacle);
+		else
+			publishSLAMData();
 
-            obstacle.clear();
-//			map.processWindow(model.state.l_x, model.state.l_y);
-//			map.nearestObstacle(obstacle);
+		obstacle.clear();
+		//			map.processWindow(model.state.l_x, model.state.l_y);
+		//			map.nearestObstacle(obstacle);
 
-			// Control only in affected offboard modes
-			if(offboard.getMode() != OffboardManager.MODE_SPEED_POSITION)
-				return;
+		// Control only in affected offboard modes
+		if(offboard.getMode() != OffboardManager.MODE_SPEED_POSITION)
+			return;
 
 
 		//	relAngle = Math.abs(MSPMathUtils.normAngle2(Math.abs(obstacle.angle_xy-plannedPath.angle_xy)));
 
-			if(obstacle.value < OBSTACLE_MINDISTANCE_1MS && !tooClose && relAngle < MIN_REL_ANGLE && currentSpeed.value > 0.1 ) {
-				tooClose = true;
-//				System.out.println("W"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
-				logger.writeLocalMsg("[msp] Collision warning. Breaking.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-			}
+		if(obstacle.value < OBSTACLE_MINDISTANCE_1MS && !tooClose && relAngle < MIN_REL_ANGLE && currentSpeed.value > 0.1 ) {
+			tooClose = true;
+			//				System.out.println("W"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
+			logger.writeLocalMsg("[msp] Collision warning. Breaking.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+		}
 
 
-			if(obstacle.value < OBSTACLE_MINDISTANCE_0MS && relAngle < MIN_REL_ANGLE && currentSpeed.value > 0.1 ) {
-//				System.out.println("S"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
-//				System.out.println("S"+MIN_REL_ANGLE+" -> "+relAngle);
-				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP )) {
-					emergency_stop_and_turn(obstacle.angle_xy);
-				}
-				tooClose = true;
+		if(obstacle.value < OBSTACLE_MINDISTANCE_0MS && relAngle < MIN_REL_ANGLE && currentSpeed.value > 0.1 ) {
+			//				System.out.println("S"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
+			//				System.out.println("S"+MIN_REL_ANGLE+" -> "+relAngle);
+			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP )) {
+				emergency_stop_and_turn(obstacle.angle_xy);
 			}
+			tooClose = true;
+		}
 
-			if(tooClose && obstacle.value > OBSTACLE_MINDISTANCE_1MS+ROBOT_RADIUS) {
-				logger.writeLocalMsg("[msp] Collision warning removed.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-//				System.out.println("R"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
-				tooClose = false;
-			}
+		if(tooClose && obstacle.value > OBSTACLE_MINDISTANCE_1MS+ROBOT_RADIUS) {
+			logger.writeLocalMsg("[msp] Collision warning removed.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+			//				System.out.println("R"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
+			tooClose = false;
+		}
 
-			if(tooClose && relAngle > MIN_REL_ANGLE) {
-				logger.writeLocalMsg("[msp] Collision warning removed (Angle).",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-//				System.out.println("R"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
-				tooClose = false;
-			}
+		if(tooClose && relAngle > MIN_REL_ANGLE) {
+			logger.writeLocalMsg("[msp] Collision warning removed (Angle).",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+			//				System.out.println("R"+MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +" :"+ MSPMathUtils.fromRad(obstacle.angle_xy)+" :"+MSPMathUtils.fromRad(plannedPath.angle_xy));
+			tooClose = false;
+		}
 	}
 
 	protected void takeoffCompletedAction() {
@@ -273,7 +279,7 @@ public class BreakingPilot extends AutoPilotBase {
 	@Override
 	public void moveto(float x, float y, float z, float yaw) {
 		logger.writeLocalMsg("[msp] New setpoint "+String.format("(%.1f,%.1f)",x,y),MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-	//	System.out.println(MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +":"+ MSPMathUtils.fromRad(obstacle.angle_xy)+":"+MSPMathUtils.fromRad(plannedPath.angle_xy));
+		//	System.out.println(MSPMathUtils.fromRad(MIN_REL_ANGLE)+" -> "+MSPMathUtils.fromRad(relAngle) +":"+ MSPMathUtils.fromRad(obstacle.angle_xy)+":"+MSPMathUtils.fromRad(plannedPath.angle_xy));
 		super.moveto(x, y, z, yaw);
 	}
 

@@ -63,6 +63,7 @@ import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavcontrol.sequencer.ISeqAction;
 import com.comino.mavcontrol.sequencer.Sequencer;
 import com.comino.mavcontrol.struct.SeqItem;
+
 import com.comino.mavmap.map.map3D.Map3DSpacialInfo;
 import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
 import com.comino.mavmap.map.map3D.store.LocaMap3DStorage;
@@ -191,9 +192,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
 
 			}
-//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-//					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL,MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER);
+			//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+			//					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
+			//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL,MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER);
 
 		});
 
@@ -223,11 +224,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected void takeoffCompletedAction() {
 
-//		if(control.isSimulation()) {
-//			try { Thread.sleep(1000); } catch(Exception e) { }
-//			precisionLand(true);
-//			return;
-//		}
+		//		if(control.isSimulation()) {
+		//			try { Thread.sleep(1000); } catch(Exception e) { }
+		//			precisionLand(true);
+		//			return;
+		//		}
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, true);
 		control.writeLogMessage(new LogMessage("[msp] Obstacle survey executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -302,16 +303,22 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_MODE.FCUM:
 			if(enable) {
-			  control.writeLogMessage(new LogMessage("[msp] FCUM mode entered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-			  control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,1 );
+				wq.addSingleTask("LP", 500, () -> {
+				control.writeLogMessage(new LogMessage("[msp] FCUM mode entered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,1 );
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
-			} else
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, ( cmd,result) -> {
-					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED)
-						logger.writeLocalMsg("[mgc] PX4 landing rejected ("+result+")",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-				}, 0, 0, 0, Float.NaN );
+				});
+			} else {
+				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FCUM)) {
+					wq.addSingleTask("LP", 500, () -> {
+						control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM, 0, 21196 );
+						control.writeLogMessage(new LogMessage("[msp] FCUM mode left.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+					});
+				}
+			}
+
 			break;
 		case MSP_AUTOCONTROL_ACTION.RTL:
 			returnToLand(enable);
