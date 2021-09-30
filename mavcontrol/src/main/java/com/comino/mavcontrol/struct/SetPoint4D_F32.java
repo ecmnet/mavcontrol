@@ -61,12 +61,12 @@ public class SetPoint4D_F32 extends Vector4D_F32 {
 	}
 
 	public void set(Vector3D_F32 s, float w) {
-		this.set(s.x, s.y, s.z, w);
+		this.setTo(s.x, s.y, s.z, w);
 		delta_tms = -1;
 	}
 
 	public void set(Vector3D_F32 s, float w, long delta_ms) {
-		this.set(s.x, s.y, s.z, w);
+		this.setTo(s.x, s.y, s.z, w);
 		delta_tms = delta_ms;
 	}
 
@@ -80,7 +80,7 @@ public class SetPoint4D_F32 extends Vector4D_F32 {
 	}
 
 	public void clear() {
-		this.set(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+		this.setTo(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
 		this.delta_tms = -1;
 	}
 

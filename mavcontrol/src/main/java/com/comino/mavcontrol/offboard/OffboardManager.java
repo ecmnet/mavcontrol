@@ -296,8 +296,8 @@ public class OffboardManager implements Runnable {
 	public void setTarget(float x, float y, float z, float yaw) {
 		synchronized(this) {
 			if(!MSP3DUtils.isNaN(target))
-				current_sp.set(target);
-			target.set(x,y,z,yaw);
+				current_sp.setTo(target);
+			target.setTo(x,y,z,yaw);
 			valid_setpoint = true;
 			new_setpoint = true;
 			already_fired = false;
@@ -307,7 +307,7 @@ public class OffboardManager implements Runnable {
 
 	public void setSpeed(Vector4D_F32 t) {
 		synchronized(this) {
-			target_speed.set(t);
+			target_speed.setTo(t);
 			valid_setpoint = true;
 			new_setpoint = true;
 			already_fired = false;
@@ -325,7 +325,7 @@ public class OffboardManager implements Runnable {
 			return;
 
 		this.mode = MODE_SPEED_POSITION;
-		target.set(t);
+		target.setTo(t);
 		valid_setpoint = true;
 		already_fired = false;
 		setpoint_tms = System.currentTimeMillis();
@@ -448,7 +448,7 @@ public class OffboardManager implements Runnable {
 
 			// safety: if no valid setpoint, use current as target
 			if(!valid_setpoint && mode != MODE_IDLE) {
-				target.set(current);
+				target.setTo(current);
 				new_setpoint = true;
 				valid_setpoint = true;
 				changeStateTo(MODE_LOITER);
@@ -461,7 +461,7 @@ public class OffboardManager implements Runnable {
 				new_setpoint = false;
 				speedControl.initialize(spd, path);
 				trajectory_start_tms = 0; ela_sec = 0;
-				start.set(current);
+				start.setTo(current);
 				ctl.set(spd);
 
 				if(mode==MODE_SPEED_POSITION || mode == MODE_LOITER) {
@@ -533,11 +533,11 @@ public class OffboardManager implements Runnable {
 					if(Math.abs(d_yaw)>MAX_YAW_SPEED)
 						d_yaw = MAX_YAW_SPEED * Math.signum(d_yaw_target);
 
-					cmd.set(target.x,target.y,target.z, current.w + d_yaw);
+					cmd.setTo(target.x,target.y,target.z, current.w + d_yaw);
 
 				} else {
 
-					cmd.set(target.x,target.y,target.z, target.w);
+					cmd.setTo(target.x,target.y,target.z, target.w);
 				}
 
 				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
@@ -564,7 +564,7 @@ public class OffboardManager implements Runnable {
 
 				//TODO: Take current speed into account and control acceleration
 
-				cmd.set(target_speed);
+				cmd.setTo(target_speed);
 
 				//TODO: check external constraints (breaking, emergency stop)
 
@@ -677,9 +677,9 @@ public class OffboardManager implements Runnable {
 				watch_tms = System.currentTimeMillis();
 
 				if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED))
-					target.set(model.vision.px,model.vision.py,current.z,model.vision.pw);
+					target.setTo(model.vision.px,model.vision.py,current.z,model.vision.pw);
 				else
-					target.set(current.x,current.y,current.z,current.w);
+					target.setTo(current.x,current.y,current.z,current.w);
 
 				// TODO: Safetychecks: Pitch/Roll => gain height and loiter
 
@@ -708,7 +708,7 @@ public class OffboardManager implements Runnable {
 				}
 				else {
 
-					last_target.set(target);
+					last_target.setTo(target);
 
 					// Simple P controller to adjust XY according to fiducial
 					ctl.value =  ctl.value * PXY_PV;

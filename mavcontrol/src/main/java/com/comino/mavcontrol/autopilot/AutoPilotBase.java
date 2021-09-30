@@ -380,7 +380,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		if(enable) {
 			model.sys.setStatus(Status.MSP_JOY_ATTACHED,true);
-			body_speed.set(
+			body_speed.setTo(
 					p == 0 && r == 0 ? Float.NaN : MSPMathUtils.expo(p,0.3f) * 2f,
 							p == 0 && r == 0 ? Float.NaN : MSPMathUtils.expo(r,0.3f) * 2f,
 									h == 0 ? Float.NaN : h,

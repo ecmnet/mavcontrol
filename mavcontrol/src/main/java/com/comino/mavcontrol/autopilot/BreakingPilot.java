@@ -133,7 +133,7 @@ public class BreakingPilot extends AutoPilotBase {
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_AUTOPILOT, MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT, StatusManager.EDGE_BOTH, (n) -> {
 			if(n.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT)) {
 				smooth_target_initialized = false;
-				smooth_target.set(model.state.l_x, model.state.l_y, model.state.l_z);
+				smooth_target.setTo(model.state.l_x, model.state.l_y, model.state.l_z);
 				offboard.setTarget((float)smooth_target.x, (float)smooth_target.y, (float)smooth_target.z, 0);
 				logger.writeLocalMsg("[msp] Follow object mode enabled.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				offboard.start(OffboardManager.MODE_SPEED_POSITION);
@@ -266,8 +266,8 @@ public class BreakingPilot extends AutoPilotBase {
 		smooth_target.y = smooth_target.y * (1- SMOOTH_TARGET_FILTER) + point.y * SMOOTH_TARGET_FILTER;
 		smooth_target.z = model.target_state.l_z;
 
-		current.set(model.state.l_x, model.state.l_y, model.state.l_z, model.attitude.y);
-		target.set((float)smooth_target.x, (float)smooth_target.y, (float)smooth_target.z,MSP3DUtils.angleXY(target, current));
+		current.setTo(model.state.l_x, model.state.l_y, model.state.l_z, model.attitude.y);
+		target.setTo((float)smooth_target.x, (float)smooth_target.y, (float)smooth_target.z,MSP3DUtils.angleXY(target, current));
 
 		offboard.updateTarget(target);
 

@@ -42,7 +42,7 @@ public class PlannerTest implements Runnable, IMAVLinkListener {
 
 		this.control.addMAVLinkListener(this);
 
-		target_p.set(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+		target_p.setTo(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
 
 		beat.type = MAV_TYPE.MAV_TYPE_ONBOARD_CONTROLLER;
 
@@ -50,7 +50,7 @@ public class PlannerTest implements Runnable, IMAVLinkListener {
 
 	public void setTarget(Vector4D_F32 t) {
 		is_planning = true;
-		target_p.set(t);
+		target_p.setTo(t);
 	//	ExecutorService.get().schedule(() -> { is_planning = false; }, 20, TimeUnit.SECONDS);
 	}
 
@@ -63,7 +63,7 @@ public class PlannerTest implements Runnable, IMAVLinkListener {
 
 		is_planning = true;
 
-		target_p.set(1,1,-1,0);
+		target_p.setTo(1,1,-1,0);
 
 		System.out.println("Planner send bezier 2");
 		is_planning = true;
@@ -109,7 +109,7 @@ public class PlannerTest implements Runnable, IMAVLinkListener {
 		while(is_running) {
 			try { Thread.sleep(200); } catch (InterruptedException e) { }
 
-			current.set(model.state.l_x, model.state.l_y, model.state.l_z,model.attitude.y);
+			current.setTo(model.state.l_x, model.state.l_y, model.state.l_z,model.attitude.y);
 			path.set(target_p, current);
 
 			if(is_planning) {

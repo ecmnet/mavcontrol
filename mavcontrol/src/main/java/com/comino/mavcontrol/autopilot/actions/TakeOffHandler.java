@@ -110,7 +110,7 @@ public class TakeOffHandler {
 			return;
 		}
 
-		takeoff.set(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
+		takeoff.setTo(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 
 		final PX4Parameters params = PX4Parameters.getInstance();
 		takeoff_alt_param   = params.getParam("MIS_TAKEOFF_ALT");
@@ -177,7 +177,7 @@ public class TakeOffHandler {
 			switch(state) {
 			case STATE_IDLE:
 				tms_takeoff_plan = 0; 
-				takeoff.set(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
+				takeoff.setTo(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 				wq.removeTask("LP", task);
 				break;
 			case STATE_INITIATED:
@@ -288,7 +288,7 @@ public class TakeOffHandler {
 			case STATE_FINALIZED:
 
 				control.writeLogMessage(new LogMessage("[msp] Setting takeoff position.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-				takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z, model.attitude.y);
+				takeoff.setTo(model.state.l_x,model.state.l_y,model.state.l_z, model.attitude.y);
 
 				if(completed!=null && model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))
 					completed.run();

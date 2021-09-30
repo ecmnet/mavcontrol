@@ -141,7 +141,7 @@ public class TrajectoryPilot extends AutoPilotBase {
 
 	@Override
 	public void moveto(float x, float y, float z, float yaw) {
-		target_pos.set(x,y,z,yaw);
+		target_pos.setTo(x,y,z,yaw);
 		if(Float.isNaN(yaw)) {
 			if(MSP3DUtils.distance2D(target_pos, current_pos) > 0.3)
 				target_pos.w = MSP3DUtils.angleXY(target_pos, current_pos);
@@ -213,7 +213,7 @@ public class TrajectoryPilot extends AutoPilotBase {
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
 
 			control.writeLogMessage(new LogMessage("[msp] Setting takeoff position.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-			this.takeoff.set(model.state.l_x,model.state.l_y,model.state.l_z,0);
+			this.takeoff.setTo(model.state.l_x,model.state.l_y,model.state.l_z,0);
 
 
 			try { Thread.sleep(200); } catch(Exception e) { }
