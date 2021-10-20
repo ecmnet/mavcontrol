@@ -42,7 +42,7 @@
  *
  ****************************************************************************/
 
-package com.comino.mavcontrol.trajectory;
+package com.comino.mavcontrol.trajectory.minjerk;
 
 public class SingleAxisTrajectory {
 

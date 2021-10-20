@@ -44,7 +44,7 @@
  ****************************************************************************/
 
 
-package com.comino.mavcontrol.trajectory;
+package com.comino.mavcontrol.trajectory.minjerk;
 
 import org.ddogleg.solver.PolynomialSolver;
 import org.ejml.data.Complex_F64;

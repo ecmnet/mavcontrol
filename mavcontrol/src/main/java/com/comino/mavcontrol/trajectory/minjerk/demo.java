@@ -42,7 +42,7 @@
  *
  ****************************************************************************/
 
-package com.comino.mavcontrol.trajectory;
+package com.comino.mavcontrol.trajectory.minjerk;
 
 import georegression.struct.point.Point3D_F64;
 

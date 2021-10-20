@@ -1,5 +1,7 @@
 package com.comino.mavcontrol.trajectory;
 
+import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
+
 import georegression.struct.point.Point3D_F64;
 
 public class TrajectoryTests {
