@@ -1,5 +1,7 @@
 package com.comino.mavcontrol;
 
+import com.comino.mavcontrol.trajectory.TrajectoryTests;
+
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -10,6 +12,9 @@ import junit.framework.TestSuite;
 public class AppTest 
     extends TestCase
 {
+	
+	TrajectoryTests tj = new TrajectoryTests();
+	
     /**
      * Create the test case
      *
@@ -33,6 +38,7 @@ public class AppTest
      */
     public void testApp()
     {
-        assertTrue( true );
+    	
+        assertTrue( tj.run() );
     }
 }
