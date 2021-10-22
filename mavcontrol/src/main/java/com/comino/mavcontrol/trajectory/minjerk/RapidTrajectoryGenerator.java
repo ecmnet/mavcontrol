@@ -245,35 +245,6 @@ public class RapidTrajectoryGenerator {
 			
 		}
 
-//		 //Solve the roots (we prepend the times 0 and tf):
-//		  double roots[6];
-//			roots[0] = 0;
-//			roots[1] = _tf;
-//
-//		  size_t rootCount;
-//		  if(fabs(c[0]) > 1e-6)
-//		  {
-//		    rootCount = magnet::math::quarticSolve(c[1] / c[0], c[2] / c[0], c[3] / c[0], c[4] / c[0], roots[2], roots[3], roots[4], roots[5]);
-//		  }
-//		  else
-//		  {
-//		    rootCount = magnet::math::cubicSolve(c[2] / c[1], c[3] / c[1], c[4] / c[1], roots[2], roots[3], roots[4]);
-//		  }
-//
-//			for(unsigned i=0; i<(rootCount+2); i++)
-//			{
-//			  //don't evaluate points outside the domain
-//			  if(roots[i] < 0) continue;
-//			  if(roots[i] > _tf) continue;
-//
-//				if((GetPosition(roots[i]) - boundaryPoint).Dot(boundaryNormal) <= 0)
-//				{
-//					//touching, or on the wrong side of, the boundary!
-//					return StateInfeasible;
-//				}
-//			}
-//			return StateFeasible;
-//		}
 		return true;
 	}
 
@@ -337,6 +308,7 @@ public class RapidTrajectoryGenerator {
 	public double getAxisParamGamma(int i) {
 		return _axis[i].getParamGamma();
 	}
+	
 
 
 }

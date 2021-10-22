@@ -47,7 +47,7 @@ public class TrajectoryTests {
 	Point3D_F64 eGamma = new Point3D_F64(0,0,0);
 
 	public boolean run() {
-
+		
 		setTestData1(); if(!performTest(1)) return false;
 		setTestData1(); if(!performTest(2)) return false;
 

@@ -62,8 +62,10 @@ import com.comino.mavcontrol.controllib.ISpeedControl;
 import com.comino.mavcontrol.controllib.impl.ContraintControl;
 import com.comino.mavcontrol.controllib.impl.SimpleXYZSpeedControl;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
+import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavutils.MSPMathUtils;
 
+import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector4D_F32;
 
 public class OffboardManager implements Runnable {
@@ -75,7 +77,7 @@ public class OffboardManager implements Runnable {
 	public static final int MODE_LOITER	 		   					= 2;
 	public static final int MODE_LOCAL_SPEED                		= 3;
 	public static final int MODE_SPEED_POSITION	 	    			= 4;
-	public static final int MODE_BEZIER                             = 5;
+	public static final int MODE_TRAJECTORY                       = 5;
 	public static final int MODE_LAND                               = 6;
 
 	// PX4 speed control locks
@@ -143,6 +145,7 @@ public class OffboardManager implements Runnable {
 
 	private final msg_set_position_target_local_ned pos_cmd   		= new msg_set_position_target_local_ned(1,1);
 	private final msg_set_position_target_local_ned speed_cmd 		= new msg_set_position_target_local_ned(1,1);
+	private final msg_set_position_target_local_ned acc_cmd 		= new msg_set_position_target_local_ned(1,1);
 
 	private float      max_speed                                    = MAX_SPEED;
 	private float      min_speed                                    = MIN_SPEED;
@@ -158,6 +161,22 @@ public class OffboardManager implements Runnable {
 	private long        setpoint_timeout                       		= SETPOINT_TIMEOUT_MS;
 	private long        trajectory_start_tms                        = 0;
 	private long	    last_update_tms                             = 0;
+
+	private RapidTrajectoryGenerator traj                           = new RapidTrajectoryGenerator();
+	private Point3D_F64 pos0 										= new Point3D_F64(0,0,0);
+	private Point3D_F64 vel0 										= new Point3D_F64(0,0,0);
+	private Point3D_F64 acc0 										= new Point3D_F64(0,0,0);
+
+	private Point3D_F64 traj_ctrl								    = new Point3D_F64(0,0,0);
+	private Point3D_F64 debug								        = new Point3D_F64(0,0,0);
+
+	//define the goal state:
+	private Point3D_F64 posf 										= new Point3D_F64(0,0,0);
+	private	Point3D_F64 velf 										= new Point3D_F64(0,0,0);
+	private	Point3D_F64 accf 										= new Point3D_F64(0,0,0);
+
+	private Point3D_F64 gravity                                     = new Point3D_F64(0,0,-9.81);
+
 
 	public OffboardManager(IMAVController control, PX4Parameters params) {
 
@@ -214,6 +233,20 @@ public class OffboardManager implements Runnable {
 
 	public void start_wait(long timeout) {
 		start_wait(MODE_LOITER, timeout);
+	}
+
+	public void startTrajectory(Vector4D_F32 tgt) {
+		target.setTo(tgt);
+		new_setpoint = true;
+		valid_setpoint = true;
+		changeStateTo(MODE_TRAJECTORY);
+		if(!enabled) {
+			enabled = true;
+			Thread t = new Thread(this);
+			t.start();
+		}
+
+
 	}
 
 	public void start(int m) {
@@ -392,6 +425,10 @@ public class OffboardManager implements Runnable {
 	public void run() {
 
 		long watch_tms = System.currentTimeMillis();
+		long traj_eta  = 0;
+		long traj_sta  = 0;
+		
+		double traj_tim = 0;
 
 		float delta_sec  = 0;
 		float eta_sec    = 0;
@@ -457,6 +494,26 @@ public class OffboardManager implements Runnable {
 
 			// a new setpoint was provided
 			if(new_setpoint) {
+				
+				if(mode==MODE_TRAJECTORY) {
+					System.out.println("Generate trajectory");
+					setTrajectoryInitialStateFromModel();
+					MSP3DUtils.convertCurrentState(model, current);
+					target.w = current.w; target.z = current.z;
+					eta_sec = target.distance(current) * 2 / MAX_SPEED ;
+					if(eta_sec < 3) eta_sec = 3;
+					setTarget(target);
+					setTrajectoryTargetState();
+					traj.generate(eta_sec);
+					traj_sta = System.currentTimeMillis();
+					traj_eta = (long)(eta_sec * 1000f) + traj_sta + UPDATE_RATE;
+					
+					if(!traj.checkInputFeasibility(5,15,20,0.1)) {
+						control.writeLogMessage(new LogMessage("[msp] Trajectory not feasible. Aborted.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
+						setTarget(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
+						changeStateTo(MODE_LOITER);
+					} 
+				}
 
 				new_setpoint = false;
 				speedControl.initialize(spd, path);
@@ -477,6 +534,9 @@ public class OffboardManager implements Runnable {
 
 			delta_sec = (System.currentTimeMillis() - last_update_tms ) / 1000.0f;
 			last_update_tms = System.currentTimeMillis();
+			
+			if(trajectory_start_tms > 0)
+				ela_sec = (System.currentTimeMillis() - trajectory_start_tms) / 1000f;
 
 			switch(mode) {
 
@@ -662,10 +722,28 @@ public class OffboardManager implements Runnable {
 
 				break;
 
-			case MODE_BEZIER:	// Not implemented yet
+			case MODE_TRAJECTORY:	
 
-				logger.writeLocalMsg("[msp] Offboard manager bezier mode not supported",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-				changeStateTo(MODE_LOITER);
+				watch_tms = System.currentTimeMillis();
+				
+
+				if(System.currentTimeMillis() < (traj_eta) ) {
+				    traj_tim = (System.currentTimeMillis()- traj_sta)/1000d;
+					
+					traj.getVelocity(traj_tim, traj_ctrl);
+					
+					yaw_diff = MSPMathUtils.normAngle2(MSP3DUtils.angleXY(traj_ctrl) - current.w);
+					
+					sendTrajectoryControlToVehice(traj_ctrl,yawSpeedControl.update(yaw_diff, delta_sec));
+					model.debug.x = (float)traj_ctrl.x;
+					model.debug.y = (float)traj_ctrl.y;
+					model.debug.z = (float)traj_ctrl.z;
+					
+				} else {
+					logger.writeLocalMsg("[msp] Target reached ",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+					target.setTo(current.x,current.y,current.z,current.w);
+					changeStateTo(MODE_LOITER);
+				}
 
 				break;
 
@@ -910,6 +988,56 @@ public class OffboardManager implements Runnable {
 
 	}
 
+	private void sendTrajectoryControlToVehice(Point3D_F64 acc,float w) {
+
+		speed_cmd.type_mask    = MAV_MASK.MASK_POSITION_IGNORE | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
+				MAV_MASK.MASK_YAW_IGNORE;
+
+		speed_cmd.vx       = (float)acc.x;
+		speed_cmd.vy       = (float)acc.y;
+		speed_cmd.vz       = (float)acc.z;
+
+		if(Float.isInfinite(w)) {
+			speed_cmd.type_mask  = speed_cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
+			speed_cmd.yaw = model.attitude.y;
+		} else
+			speed_cmd.yaw_rate = MSPMathUtils.normAngle(w);
+
+		speed_cmd.coordinate_frame = MAV_FRAME.MAV_FRAME_LOCAL_NED;
+
+
+		if(!control.sendMAVLinkMessage(speed_cmd))
+			enabled = false;
+		else
+			sent_count++;
+
+
+		//		acc_cmd.target_component = 1;
+		//		acc_cmd.target_system    = 1;
+		//		acc_cmd.time_boot_ms     = model.sys.t_boot_ms;
+		//
+		//		acc_cmd.type_mask        = MAV_MASK.MASK_VELOCITY_IGNORE | MAV_MASK.MASK_POSITION_IGNORE | 
+		//				MAV_MASK.MASK_YAW_RATE_IGNORE ;
+		//
+		//		acc_cmd.afx = (float)acc.x;
+		//		acc_cmd.afy = (float)acc.y;
+		//		acc_cmd.afz = (float)acc.z;
+		//
+		//		if(Float.isInfinite(w)) {
+		//			acc_cmd.type_mask  = pos_cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
+		//			acc_cmd.yaw = model.attitude.y;
+		//		} else
+		//			acc_cmd.yaw = MSPMathUtils.normAngle(w);
+		//
+		//		acc_cmd.coordinate_frame = MAV_FRAME.MAV_FRAME_LOCAL_NED;
+		//
+		//		if(!control.sendMAVLinkMessage(acc_cmd))
+		//			enabled = false;
+		//		else
+		//			sent_count++;
+	}
+
+
 	private void checkAbsoluteSpeeds(Vector4D_F32 s) {
 
 		if(s.x >  max_speed )  s.x =  max_speed;
@@ -921,12 +1049,12 @@ public class OffboardManager implements Runnable {
 
 		if(s.w >   MAX_YAW_SPEED )  s.w =   MAX_YAW_SPEED;
 		if(s.w <  -MAX_YAW_SPEED )  s.w =  -MAX_YAW_SPEED;
-		
+
 		if(Float.isNaN(s.x))        s.x = 0;
 		if(Float.isNaN(s.y))        s.y = 0;
 		if(Float.isNaN(s.z))        s.z = 0;
 		if(Float.isNaN(s.w))        s.w = 0;
-		
+
 
 	}
 
@@ -987,6 +1115,25 @@ public class OffboardManager implements Runnable {
 		}
 
 		return true;
+	}
+
+	private void setTrajectoryInitialStateFromModel() {
+
+		pos0.setTo(model.state.l_x, model.state.l_y,   model.state.l_z);
+		vel0.setTo(model.state.l_vx,model.state.l_vy, model.state.l_vz);
+		acc0.setTo(model.state.l_ax,model.state.l_ay, model.state.l_az);
+		traj.setInitialState(pos0, vel0, acc0, gravity);
+		System.out.println("Current: "+pos0);
+	}
+
+	private void setTrajectoryTargetState() {
+		posf.setTo(target.x,target.y, current.z);
+		traj.setGoalPosition(posf);
+		velf.setTo(0,0,0);
+		traj.setGoalVelocity(velf);
+		accf.setTo(0,0,0);
+		traj.setGoalAcceleration(accf);	
+		System.out.println("Target: "+posf);
 	}
 
 

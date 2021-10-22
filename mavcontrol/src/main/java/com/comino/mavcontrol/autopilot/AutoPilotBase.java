@@ -173,6 +173,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		registerLanding();
 
 		registerDisarm();
+		
 
 
 	}
@@ -433,24 +434,26 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public void moveto(float x, float y, float z, float yaw) {
 
 		final Vector4D_F32 target = new Vector4D_F32(x,y,z,yaw);
-		if(flowCheck && !model.sys.isSensorAvailable(Status.MSP_PIX4FLOW_AVAILABILITY)) {
-			logger.writeLocalMsg("[msp] Aborting. No Flow available.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-			return;
-		}
-
-		if(planner.isStarted()) {
-			planner.setTarget(target);
-			return;
-		}
-
-		sequencer.abort();
-
-		offboard.registerActionListener( (m,d) -> {
-			offboard.start(OffboardManager.MODE_LOITER);
-			logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-		});
-		offboard.setTarget(target);
-		offboard.start(OffboardManager.MODE_SPEED_POSITION);
+//		if(flowCheck && !model.sys.isSensorAvailable(Status.MSP_PIX4FLOW_AVAILABILITY)) {
+//			logger.writeLocalMsg("[msp] Aborting. No Flow available.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+//			return;
+//		}
+//
+//		if(planner.isStarted()) {
+//			planner.setTarget(target);
+//			return;
+//		}
+//
+//		sequencer.abort();
+//
+//		offboard.registerActionListener( (m,d) -> {
+//			offboard.start(OffboardManager.MODE_LOITER);
+//			logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+//		});
+//		offboard.setTarget(target);
+//		offboard.start(OffboardManager.MODE_SPEED_POSITION);
+		
+		offboard.startTrajectory(target);
 
 
 	}
