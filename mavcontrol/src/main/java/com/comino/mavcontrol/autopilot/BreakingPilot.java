@@ -174,7 +174,7 @@ public class BreakingPilot extends AutoPilotBase {
 			return false;
 		});
 
-		start();
+		start(50);
 	}
 
 	public void run() {

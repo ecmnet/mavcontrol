@@ -240,9 +240,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	}
 
-	protected void start() {
+	protected void start(int cycle_ms) {
 
-		wq.addCyclicTask("NP", 50, this);
+		wq.addCyclicTask("NP", cycle_ms, this);
 		wq.addCyclicTask("LP", 100, new MapToModelTransfer());
 	}
 

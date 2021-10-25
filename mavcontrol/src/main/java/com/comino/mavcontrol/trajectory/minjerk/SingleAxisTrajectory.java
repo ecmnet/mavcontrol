@@ -63,16 +63,17 @@ public class SingleAxisTrajectory {
 	public accPeakTimes _accPeakTimes = new accPeakTimes();             // The times at which the acceleration has minimum/maximum
 
 	public double getJerk(double t)  									// Returns the jerk at time t
-	{  return _g  + _b*t  + (1/2.0)*_a*t*t; }
+	{  return _g  + _b*t  + (1.0/2.0)*_a*t*t; }
 
 	public double getAcceleration(double t)                             // Returns the acceleration at time t
-	{ return _a0 + _g*t  + (1/2.0)*_b*t*t  + (1/6.0)*_a*t*t*t;	}
+	{ return _a0 + _g*t  + (1.0/2.0)*_b*t*t  + (1.0/6.0)*_a*t*t*t;	}
 
 	public double getVelocity(double t)								    // Returns the velocity at time t
-	{ return _v0 + _a0*t + (1/2.0)*_g*t*t  + (1/6.0)*_b*t*t*t + (1/24.0)*_a*t*t*t*t; }
+	{ return _v0 + _a0*t + (1.0/2.0)*_g*t*t  + (1.0/6.0)*_b*t*t*t + (1.0/24.0)*_a*t*t*t*t; }
+	
 
 	public double getPosition(double t)								    // Returns the Position at time t
-	{ return _p0 + _v0*t + (1/2.0)*_a0*t*t + (1/6.0)*_g*t*t*t + (1/24.0)*_b*t*t*t*t + (1/120.0)*_a*t*t*t*t*t; }
+	{ return _p0 + _v0*t + (1.0/2.0)*_a0*t*t + (1.0/6.0)*_g*t*t*t + (1.0/24.0)*_b*t*t*t*t + (1.0/120.0)*_a*t*t*t*t*t; }
 	
 	public double getMinAcc() 
 	{ return _minAcc; }
@@ -105,9 +106,9 @@ public class SingleAxisTrajectory {
 
 	public void generateTrajectory(double Tf) {
 
-		double delta_a = _af - _a0;
-		double delta_v = _vf - _v0 - _a0*Tf;
-		double delta_p = _pf - _p0 - _v0*Tf - 0.5*_a0*Tf*Tf;
+		final double delta_a = _af - _a0;
+		final double delta_v = _vf - _v0 - _a0*Tf;
+		final double delta_p = _pf - _p0 - _v0*Tf - 0.5*_a0*Tf*Tf;
 
 		final double T2 = Tf*Tf;
 		final double T3 = T2*Tf;
@@ -185,8 +186,10 @@ public class SingleAxisTrajectory {
 			}
 			else
 			{//solve linear equation: _g + _b*t == 0:
-				if(_b != 0) _accPeakTimes.t[0] = -_g/_b;
-				else         _accPeakTimes.t[0] = 0;
+				if(_b != 0) 
+					_accPeakTimes.t[0] = -_g/_b;
+				else         
+					_accPeakTimes.t[0] = 0;
 				_accPeakTimes.t[1] = 0;
 			}
 

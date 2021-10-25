@@ -51,19 +51,19 @@ public class demo {
 	public static void main(String[] args) {
 
 		//Define the trajectory starting state:
-		Point3D_F64 pos0 = new Point3D_F64( -0.039482165 ,  0.09472318 , -1.78766167 );
+		Point3D_F64 pos0 = new Point3D_F64(0 ,  0 , 2 );
 		Point3D_F64 vel0 = new Point3D_F64(0,0,0);
 		Point3D_F64 acc0 = new Point3D_F64(0,0,0);
 
 		//define the goal state:
-		Point3D_F64 posf = new Point3D_F64(  0.995338023 , -1.01509869 , -1.78766167 );
+		Point3D_F64 posf = new Point3D_F64(1,0,1 );
 		Point3D_F64 velf = new Point3D_F64(0,0,0);
 		Point3D_F64 accf = new Point3D_F64(0,0,0);
 		
 		Point3D_F64 tmp = new Point3D_F64(0,0,0);
 
 		//define the duration:
-		double Tf = 5;
+		double Tf = 1;
 
 		double fmin = 5;              //[m/s**2]
 		double fmax = 25;            //[m/s**2]
@@ -97,13 +97,13 @@ public class demo {
 		System.out.println("Input feasible: "+ traj.checkInputFeasibility(fmin,fmax,wmax,minTimeSec));
 		System.out.println("Position feasible: "+traj.checkPositionFeasibility(floorPos, floorNormal));
 		
-		 System.out.println();
-		 for(int time_ms =0; time_ms < 1300; time_ms = time_ms + 50) {
+		 System.out.println(); int i=0;
+		 for(double time_s =0; time_s < 1; time_s = time_s + Tf/100) {
 			 
-			 traj.getPosition(time_ms / 1000d, tmp);
-			 System.out.println(tmp);
+			 traj.getBodyRates(time_s, 1e-3 , tmp);
+			 System.out.println((++i)+": "+tmp.norm());
 			 
-		 }
+		 } 
 
 	}
 

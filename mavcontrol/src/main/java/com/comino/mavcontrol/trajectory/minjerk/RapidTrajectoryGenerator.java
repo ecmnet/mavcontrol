@@ -85,6 +85,14 @@ public class RapidTrajectoryGenerator {
 		}
 		this._gravity = gravity;
 	}
+	
+	public void setGoal(Point3D_F64 p, Point3D_F64 v, Point3D_F64 a) {
+		for(int i=0;i<3;i++) {
+			_axis[i].setGoalPosition(p.getIdx(i));
+			_axis[i].setGoalVelocity(v.getIdx(i));
+			_axis[i].SetGoalAcceleration(a.getIdx(i));
+		}	
+	}
 
 	public void setGoalPosition(Point3D_F64 in) {
 		for(int i=0;i<3;i++)
@@ -117,23 +125,24 @@ public class RapidTrajectoryGenerator {
 			_axis[i].generateTrajectory(_tf);
 	}
 
-	public Point3D_F64 getOmega(double t, double timeStep, Point3D_F64 omega) {
-		if(omega == null)
-			omega = new Point3D_F64();
+	public Point3D_F64 getBodyRates(double t, double timeStep, Point3D_F64 crossProd) {
+		
 		Point3D_F64 n0 = getNormalVector(t,null);
 		Point3D_F64 n1 = getNormalVector(t+timeStep,null);
 
-		Point3D_F64 crossProd = new Point3D_F64();
+		if(crossProd==null)
+	    	crossProd = new Point3D_F64();
+		
 		GeometryMath_F64.cross(n0, n1, crossProd);
 
 		if(crossProd.norm() == 0)
-			omega.setTo(0,0,0);
+			crossProd.setTo(0,0,0);
 		else {
 			crossProd.divideIP(crossProd.norm());
-			crossProd.timesIP(Math.acos(GeometryMath_F64.dot(n0,n1)/timeStep));
+			crossProd.timesIP(Math.acos(GeometryMath_F64.dot(n0,n1))/timeStep);
 		}
 
-		return omega;
+		return crossProd;
 	}
 
 	public boolean checkInputFeasibilitySection(double fminAllowed, double fmaxAllowed, double wmaxAllowed, double t1, double t2, double minTimeSection) {
@@ -246,6 +255,14 @@ public class RapidTrajectoryGenerator {
 		}
 
 		return true;
+	}
+	
+	public void getState(double t, Point3D_F64 p, Point3D_F64 v, Point3D_F64 a) {
+		for(int i=0;i<3;i++) {
+			a.setIdx(i, _axis[i].getAcceleration(t));
+			v.setIdx(i, _axis[i].getVelocity(t));
+			p.setIdx(i, _axis[i].getPosition(t));
+		}
 	}
 
 	public Point3D_F64 getJerk(double t, Point3D_F64 out) {

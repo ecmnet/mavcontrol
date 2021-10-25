@@ -74,44 +74,66 @@ import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
+import com.comino.mavcom.utils.MSP3DUtils;
+
+import georegression.struct.point.Vector4D_F32;
 
 
-public class NoPilot extends AutoPilotBase {
+public class SimplePlannerPilot extends AutoPilotBase {
 
 
 	private static final int   RC_LAND_CHANNEL						= 8;                      // RC channel 8 landing
 	private static final int   RC_LAND_THRESHOLD            		= 1600;		              // RC channel 8 landing threshold
 
 	private boolean is_landing = false;
+	private boolean valid_target = false;
+	private final Vector4D_F32 target  = new Vector4D_F32();
+	private final Vector4D_F32 current  = new Vector4D_F32();
+
+	private long sp_tms;
 
 
-	protected NoPilot(IMAVController control, MSPConfig config) {
+	protected SimplePlannerPilot(IMAVController control, MSPConfig config) {
 		super(control,config);
 
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
 			is_landing = false;
 		});
 
-		start(100);
+		start(2000);
 	}
 
 	public void run() {
 
-			// Safety: Channel 8 triggers landing mode of PX4
-			if(model.rc.get(RC_LAND_CHANNEL) > RC_LAND_THRESHOLD && !is_landing) {
-				logger.writeLocalMsg("[msp] Landing commanded by RC",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-				sequencer.abort();
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, (cmd, result) -> {
-					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED)
-						logger.writeLocalMsg("[msp] Auto-Land not accepted",MAV_SEVERITY.MAV_SEVERITY_INFO);
-					else {
-						logger.writeLocalMsg("[msp] Landing initiated",MAV_SEVERITY.MAV_SEVERITY_INFO);
-						is_landing = true;
-					}
-				}, 0, 0,  model.state.h  );
-			}
-			
-			model.sys.t_takeoff_ms = getTimeSinceTakeoff();
+		MSP3DUtils.convertCurrentState(model, current);
+
+
+//		if(valid_target) {
+//			if(MSP3DUtils.distance2D(current, target) < 0.2 ) {
+//				valid_target=false;
+//			} else {
+//				System.out.println("Replanning"); 
+//				if(!offboard.doTrajectoryPLanning(offboard.getETA() - (System.currentTimeMillis()-sp_tms)/1000f))
+//					valid_target = false;
+//
+//			}
+//		}
+
+		// Safety: Channel 8 triggers landing mode of PX4
+		if(model.rc.get(RC_LAND_CHANNEL) > RC_LAND_THRESHOLD && !is_landing) {
+			logger.writeLocalMsg("[msp] Landing commanded by RC",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+			sequencer.abort();
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, (cmd, result) -> {
+				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED)
+					logger.writeLocalMsg("[msp] Auto-Land not accepted",MAV_SEVERITY.MAV_SEVERITY_INFO);
+				else {
+					logger.writeLocalMsg("[msp] Landing initiated",MAV_SEVERITY.MAV_SEVERITY_INFO);
+					is_landing = true;
+				}
+			}, 0, 0,  model.state.h  );
+		}
+
+		model.sys.t_takeoff_ms = getTimeSinceTakeoff();
 
 	}
 
@@ -124,6 +146,11 @@ public class NoPilot extends AutoPilotBase {
 
 	@Override
 	public void moveto(float x, float y, float z, float yaw) {
+
+		valid_target = true;
+		target.setTo(x,y,z,yaw);
+		sp_tms = System.currentTimeMillis()+20;
+		offboard.startTrajectory(target);
 
 	}
 

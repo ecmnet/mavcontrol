@@ -115,7 +115,7 @@ public class TrajectoryPilot extends AutoPilotBase {
 				params.sendParameter("COM_OBS_AVOID", 1.0f);
 		});
 
-		start();
+		start(50);
 	}
 
 	public void run() {
