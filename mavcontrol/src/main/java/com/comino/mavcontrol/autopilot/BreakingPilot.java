@@ -136,7 +136,7 @@ public class BreakingPilot extends AutoPilotBase {
 				smooth_target.setTo(model.state.l_x, model.state.l_y, model.state.l_z);
 				offboard.setTarget((float)smooth_target.x, (float)smooth_target.y, (float)smooth_target.z, 0);
 				logger.writeLocalMsg("[msp] Follow object mode enabled.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-				offboard.start(OffboardManager.MODE_SPEED_POSITION);
+				offboard.start(OffboardManager.MODE_TRAJECTORY);
 			} else {
 				smooth_target_initialized = false;
 				logger.writeLocalMsg("[msp] Follow object mode disabled.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
@@ -210,7 +210,7 @@ public class BreakingPilot extends AutoPilotBase {
 		//			map.nearestObstacle(obstacle);
 
 		// Control only in affected offboard modes
-		if(offboard.getMode() != OffboardManager.MODE_SPEED_POSITION)
+		if(offboard.getMode() != OffboardManager.MODE_TRAJECTORY)
 			return;
 
 

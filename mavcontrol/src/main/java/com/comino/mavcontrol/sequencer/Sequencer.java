@@ -115,7 +115,7 @@ public class Sequencer {
 					if(item.getControlListener()!=null)
 						offboard.registerSpeedControl(item.getControlListener());
 					offboard.setTarget(item.getTarget(model));
-					if(!offboard.start_wait(OffboardManager.MODE_SPEED_POSITION, item.getTimeout_ms())) {
+					if(!offboard.start_wait(OffboardManager.MODE_TRAJECTORY, item.getTimeout_ms())) {
 						model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
 						control.writeLogMessage(new LogMessage("[msp] Sequence timeout occurred.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 						break;

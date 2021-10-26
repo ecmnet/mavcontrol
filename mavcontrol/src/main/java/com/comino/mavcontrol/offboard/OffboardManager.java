@@ -76,7 +76,7 @@ public class OffboardManager implements Runnable {
 	public static final int MODE_IDLE 		   					    = 1;
 	public static final int MODE_LOITER	 		   					= 2;
 	public static final int MODE_LOCAL_SPEED                		= 3;
-	public static final int MODE_SPEED_POSITION	 	    			= 4;
+//	public static final int MODE_SPEED_POSITION	 	    			= 4;
 	public static final int MODE_TRAJECTORY                       = 5;
 	public static final int MODE_LAND                               = 6;
 
@@ -151,7 +151,7 @@ public class OffboardManager implements Runnable {
 	private float      min_speed                                    = MIN_SPEED;
 	private float      ekf2_min_rng                                 = 0;
 	private float      eta_sec                                      = 0;
-	
+
 	private long traj_eta  = 0;
 	private long traj_sta  = 0;
 	private long traj_tms  = 0;
@@ -364,7 +364,7 @@ public class OffboardManager implements Runnable {
 		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT))
 			return;
 
-		this.mode = MODE_SPEED_POSITION;
+		this.mode = MODE_TRAJECTORY;
 		target.setTo(t);
 		valid_setpoint = true;
 		already_fired = false;
@@ -432,7 +432,7 @@ public class OffboardManager implements Runnable {
 	public void run() {
 
 		long watch_tms = System.currentTimeMillis();
-		
+
 		double traj_tim = 0;
 
 		float delta_sec  = 0;
@@ -462,7 +462,7 @@ public class OffboardManager implements Runnable {
 		yawSpeedControl.reset();
 
 		while(enabled) {
-			
+
 
 			if(old_mode != mode) {
 				if(MSP3DUtils.isNaN(target)) {
@@ -496,15 +496,27 @@ public class OffboardManager implements Runnable {
 				changeStateTo(MODE_LOITER);
 				continue;
 			}
+			
 
 			// a new setpoint was provided
 			if(new_setpoint) {
 				
+				if(mode==MODE_TRAJECTORY || mode == MODE_LOITER) {
+
+					// Safety: handle NaN targets for position
+					//	MSP3DUtils.replaceNaN(target, current_sp);
+					// if still not valid use current
+					MSP3DUtils.replaceNaN(target, current);
+
+				}
+
 				if(mode==MODE_TRAJECTORY) {
 					System.out.println("Generate trajectory");
 					MSP3DUtils.convertCurrentState(model, current);
-					target.w = current.w; target.z = current.z;
-					eta_sec = target.distance(current) * 2 / MAX_SPEED ;
+					if(Float.isNaN(target.z))
+						target.z = current.z;
+					eta_sec = MSP3DUtils.distance3D(target, current)* 2 / MAX_SPEED ;
+					System.out.println(eta_sec);
 					if(eta_sec < 3) eta_sec = 3;
 					setTarget(target);
 					doTrajectoryPLanning(eta_sec);
@@ -516,20 +528,12 @@ public class OffboardManager implements Runnable {
 				start.setTo(current);
 				ctl.set(spd);
 
-				if(mode==MODE_SPEED_POSITION || mode == MODE_LOITER) {
-
-					// Safety: handle NaN targets for position
-					//	MSP3DUtils.replaceNaN(target, current_sp);
-					// if still not valid use current
-					MSP3DUtils.replaceNaN(target, current);
-
-				}
 
 			}
 
 			delta_sec = (System.currentTimeMillis() - last_update_tms ) / 1000.0f;
 			last_update_tms = System.currentTimeMillis();
-			
+
 			if(trajectory_start_tms > 0)
 				ela_sec = (System.currentTimeMillis() - trajectory_start_tms) / 1000f;
 
@@ -635,113 +639,116 @@ public class OffboardManager implements Runnable {
 
 				break;
 
-			case MODE_SPEED_POSITION:  // Speed controlled position adjustment
-
-				watch_tms = System.currentTimeMillis();
-				path.set(target, current);
-				way.set(current, start);
-
-				if(trajectory_start_tms > 0)
-					ela_sec = (System.currentTimeMillis() - trajectory_start_tms) / 1000f;
-
-				eta_sec = (path.value - acceptance_radius_pos / 2f ) / spd.value;
-
-				// target reached?
-				if(path.value < acceptance_radius_pos && valid_setpoint && !already_fired
-						// TODO: Triggers when radius is reached => middle never hit (especially: altitude)
-						// same for POSITION Mode
-						// How to do that?
-						) {
-
-					// clear everything
-					trajectory_start_tms = 0;
-					//					path.clear(); ctl.clear();
-
-					if(Float.isNaN(target.w) && valid_setpoint) {
-						fireAction(model, path.value);
-						target.setW(model.attitude.y);
-						continue;
-					} else {
-						changeStateTo(MODE_LOITER);
-						continue;
-					}
-				}
-
-				// Yaw difference - do not consider path direction if slope steeper than 45°
-				if(( path.angle_xz >  0.78f || path.angle_xz < -0.78 ))
-					if(!Float.isNaN(target.w))
-						// only if target attitude was given
-						yaw_diff = MSPMathUtils.normAngle2(target.w - current.w);
-					else
-						yaw_diff = 0;
-				else {
-					yaw_diff = MSPMathUtils.normAngle2(ctl.angle_xy - current.w);
-				}
-
-				// if vehicle is not moving or close to target and turn angle > 60° => turn before moving
-				if( Math.abs(yaw_diff) > Math.PI/3 &&
-						ctl.value < MAX_TURN_SPEED && 
-						way.value < acceptance_radius_pos_out && 
-						path.value > acceptance_radius_pos_out) {
-
-					model.slam.flags = Slam.OFFBOARD_FLAG_TURN;
-					//path.value > MIN_TURN_DISTANCE) {
-					// reduce XY speeds
-					ctl.value = 0;
-					//  Lock XYZ Position while turning
-					lock = LOCK_XYZ;
-
-				} else {
-					// external speed control via control callback
-					speedControl.update(delta_sec, ela_sec, eta_sec, spd, path, ctl);
-					// check external constraints
-					constraintControl.update(delta_sec, spd, path, ctl);
-					lock = LOCK_NONE;
-				}
-
-				if(ctl.value > 0 && trajectory_start_tms == 0)
-					trajectory_start_tms = System.currentTimeMillis();
-
-				if(path.value > acceptance_radius_pos_out) {
-					cmd.w = yawSpeedControl.update(yaw_diff, delta_sec);
-				} else
-					// if near the target do not control yaw anymore
-					cmd.w = 0;
-
-				// get Cartesian speeds from polar
-				ctl.get(cmd);
-
-				sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED, lock);
-
-				updateMSPModel(target,path);
-
-				break;
+//			case MODE_SPEED_POSITION:  // Speed controlled position adjustment
+//
+//				watch_tms = System.currentTimeMillis();
+//				path.set(target, current);
+//				way.set(current, start);
+//
+//				if(trajectory_start_tms > 0)
+//					ela_sec = (System.currentTimeMillis() - trajectory_start_tms) / 1000f;
+//
+//				eta_sec = (path.value - acceptance_radius_pos / 2f ) / spd.value;
+//
+//				// target reached?
+//				if(path.value < acceptance_radius_pos && valid_setpoint && !already_fired
+//						// TODO: Triggers when radius is reached => middle never hit (especially: altitude)
+//						// same for POSITION Mode
+//						// How to do that?
+//						) {
+//
+//					// clear everything
+//					trajectory_start_tms = 0;
+//					//					path.clear(); ctl.clear();
+//
+//					if(Float.isNaN(target.w) && valid_setpoint) {
+//						fireAction(model, path.value);
+//						target.setW(model.attitude.y);
+//						continue;
+//					} else {
+//						changeStateTo(MODE_LOITER);
+//						continue;
+//					}
+//				}
+//
+//				// Yaw difference - do not consider path direction if slope steeper than 45°
+//				if(( path.angle_xz >  0.78f || path.angle_xz < -0.78 ))
+//					if(!Float.isNaN(target.w))
+//						// only if target attitude was given
+//						yaw_diff = MSPMathUtils.normAngle2(target.w - current.w);
+//					else
+//						yaw_diff = 0;
+//				else {
+//					yaw_diff = MSPMathUtils.normAngle2(ctl.angle_xy - current.w);
+//				}
+//
+//				// if vehicle is not moving or close to target and turn angle > 60° => turn before moving
+//				if( Math.abs(yaw_diff) > Math.PI/3 &&
+//						ctl.value < MAX_TURN_SPEED && 
+//						way.value < acceptance_radius_pos_out && 
+//						path.value > acceptance_radius_pos_out) {
+//
+//					model.slam.flags = Slam.OFFBOARD_FLAG_TURN;
+//					//path.value > MIN_TURN_DISTANCE) {
+//					// reduce XY speeds
+//					ctl.value = 0;
+//					//  Lock XYZ Position while turning
+//					lock = LOCK_XYZ;
+//
+//				} else {
+//					// external speed control via control callback
+//					speedControl.update(delta_sec, ela_sec, eta_sec, spd, path, ctl);
+//					// check external constraints
+//					constraintControl.update(delta_sec, spd, path, ctl);
+//					lock = LOCK_NONE;
+//				}
+//
+//				if(ctl.value > 0 && trajectory_start_tms == 0)
+//					trajectory_start_tms = System.currentTimeMillis();
+//
+//				if(path.value > acceptance_radius_pos_out) {
+//					cmd.w = yawSpeedControl.update(yaw_diff, delta_sec);
+//				} else
+//					// if near the target do not control yaw anymore
+//					cmd.w = 0;
+//
+//				// get Cartesian speeds from polar
+//				ctl.get(cmd);
+//
+//				sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED, lock);
+//
+//				updateMSPModel(target,path);
+//
+//				break;
 
 			case MODE_TRAJECTORY:	
 
 				watch_tms = System.currentTimeMillis();
 
 				if(System.currentTimeMillis() < traj_eta) {
-					
+
 					path.set(target, current);
 					model.slam.flags = Slam.OFFBOARD_FLAG_SPEED;
-					
-				    traj_tim = (System.currentTimeMillis()-traj_sta)/1000d;
-				    traj.getState(traj_tim, traj_pos, traj_vel, traj_acc);
-					
-					yaw_diff = MSPMathUtils.normAngle(MSP3DUtils.angleXY(traj_vel) - current.w);
-					
+
+					traj_tim = (System.currentTimeMillis()-traj_sta)/1000d;
+					traj.getState(traj_tim, traj_pos, traj_vel, traj_acc);
+
+					if(!Float.isNaN(target.w))
+						yaw_diff = MSPMathUtils.normAngle(target.w - current.w);
+					else
+						yaw_diff = MSPMathUtils.normAngle(MSP3DUtils.angleXY(traj_vel) - current.w);
+
 					sendTrajectoryControlToVehice(traj_pos,traj_vel,traj_acc,yawSpeedControl.update(yaw_diff, delta_sec));
-					
+
 					debug.setTo(traj_vel);
-					
+
 				} else {
 					valid_setpoint = false;
 					logger.writeLocalMsg("[msp] Target reached ",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 					fireAction(model, path.value);
 					changeStateTo(MODE_LOITER);
 				}
-				
+
 				updateMSPModel(target,path);
 
 				break;
@@ -839,13 +846,13 @@ public class OffboardManager implements Runnable {
 				break;
 
 			}
-			
+
 			try { Thread.sleep(UPDATE_RATE); 	} catch (InterruptedException e) { }
 
 		}
 
 		sent_count = 0;
-		
+
 
 		yawSpeedControl.reset();
 
@@ -919,8 +926,6 @@ public class OffboardManager implements Runnable {
 		speed_cmd.target_system    = 1;
 		speed_cmd.time_boot_ms     = model.sys.t_boot_ms;
 
-		checkAbsoluteSpeeds(target);
-
 		switch(lock_mode) {
 
 
@@ -992,21 +997,23 @@ public class OffboardManager implements Runnable {
 
 	private void sendTrajectoryControlToVehice(Point3D_F64 pos, Point3D_F64 vel, Point3D_F64 acc, float w) {
 
-//		speed_cmd.type_mask    = MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_YAW_IGNORE;
+		//		speed_cmd.type_mask    = MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_YAW_IGNORE;
 		speed_cmd.type_mask    = MAV_MASK.MASK_YAW_IGNORE;
+		
+		checkAbsoluteSpeeds(vel,w);
 
 		speed_cmd.x       = (float)pos.x;
 		speed_cmd.y       = (float)pos.y;
 		speed_cmd.z       = (float)pos.z;
-		
+
 		speed_cmd.vx       = (float)vel.x;
 		speed_cmd.vy       = (float)vel.y;
 		speed_cmd.vz       = (float)vel.z;
-		
+
 		speed_cmd.afx       = (float)acc.x;
 		speed_cmd.afy       = (float)acc.y;
 		speed_cmd.afz       = (float)acc.z;
-		
+
 		speed_cmd.time_boot_ms = model.sys.t_boot_ms;
 		speed_cmd.isValid  = true;
 
@@ -1023,35 +1030,10 @@ public class OffboardManager implements Runnable {
 			enabled = false;
 		else
 			sent_count++;
-
-
-//				acc_cmd.target_component = 1;
-//				acc_cmd.target_system    = 1;
-//				acc_cmd.time_boot_ms     = model.sys.t_boot_ms;
-//		
-//				acc_cmd.type_mask        = MAV_MASK.MASK_VELOCITY_IGNORE | MAV_MASK.MASK_POSITION_IGNORE | MAV_MASK.MASK_YAW_RATE_IGNORE 
-//						                 ;
-//		
-//				acc_cmd.afx = (float)traj.x;
-//				acc_cmd.afy = (float)traj.y;
-//				acc_cmd.afz = (float)traj.z;
-//		
-//				if(Float.isInfinite(w)) {
-//					acc_cmd.type_mask  = pos_cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
-//					acc_cmd.yaw = model.attitude.y;
-//				} else
-//					acc_cmd.yaw = MSPMathUtils.normAngle(w);
-//		
-//				acc_cmd.coordinate_frame = MAV_FRAME.MAV_FRAME_LOCAL_NED;
-//		
-//				if(!control.sendMAVLinkMessage(acc_cmd))
-//					enabled = false;
-//				else
-//					sent_count++;
 	}
 
 
-	private void checkAbsoluteSpeeds(Vector4D_F32 s) {
+	private void checkAbsoluteSpeeds(Point3D_F64 s, float w) {
 
 		if(s.x >  max_speed )  s.x =  max_speed;
 		if(s.y >  max_speed )  s.y =  max_speed;
@@ -1060,15 +1042,9 @@ public class OffboardManager implements Runnable {
 		if(s.y < -max_speed )  s.y = -max_speed;
 		if(s.z < -max_speed )  s.z = -max_speed;
 
-		if(s.w >   MAX_YAW_SPEED )  s.w =   MAX_YAW_SPEED;
-		if(s.w <  -MAX_YAW_SPEED )  s.w =  -MAX_YAW_SPEED;
-
-		if(Float.isNaN(s.x))        s.x = 0;
-		if(Float.isNaN(s.y))        s.y = 0;
-		if(Float.isNaN(s.z))        s.z = 0;
-		if(Float.isNaN(s.w))        s.w = 0;
-
-
+		if(Double.isNaN(s.x))        s.x = 0;
+		if(Double.isNaN(s.y))        s.y = 0;
+		if(Double.isNaN(s.z))        s.z = 0;
 	}
 
 	private void fireAction(DataModel model,float delta) {
@@ -1087,7 +1063,7 @@ public class OffboardManager implements Runnable {
 	private void updateMSPModel(Vector4D_F32 target, Polar3D_F32 path ) {
 
 		model.slam.tms = DataModel.getSynchronizedPX4Time_us();
-		
+
 		model.debug.x = (float)debug.x;
 		model.debug.y = (float)debug.y;
 		model.debug.z = (float)debug.z;
@@ -1111,7 +1087,7 @@ public class OffboardManager implements Runnable {
 			model.slam.pv = model.state.getXYSpeed();
 			return;
 		}
-		
+
 		if(valid_setpoint && path==null && target!=null) {
 			model.slam.px = target.getX();
 			model.slam.py = target.getY();
@@ -1141,41 +1117,41 @@ public class OffboardManager implements Runnable {
 
 		return true;
 	}
-	
+
 	public float getETA() {
 		return (float)eta_sec;
 	}
-	
+
 	public boolean doTrajectoryPLanning( float d_time) {
-		
+
 		if(d_time<0)
 			return false;
-		
+
 		pos0.setTo(model.state.l_x, model.state.l_y,  model.state.l_z);
 		vel0.setTo(model.state.l_vx,model.state.l_vy, model.state.l_vz);
 		acc0.setTo(model.state.l_ax,model.state.l_ay, model.state.l_az);
 		traj.setInitialState(pos0, vel0, acc0, gravity);
-		
+
 		posf.setTo(target.x,target.y,target.z);
 		velf.setTo(0,0,0);
 		accf.setTo(0,0,0);
-		
+
 		traj.setGoal(posf, velf, accf);
-		
+
 		traj.generate(d_time);
-		
+
 		if(!traj.checkInputFeasibility(5,10,2,0.02)) {
 			control.writeLogMessage(new LogMessage("[msp] Trajectory not feasible. Aborted.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
 			setTarget(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 			changeStateTo(MODE_LOITER);
 			return false;
 		} 
-		
+
 		traj_sta = System.currentTimeMillis();
 		traj_eta = (long)(d_time * 1000f) + traj_sta;
-		
+
 		return true;
-		
+
 	}
 
 

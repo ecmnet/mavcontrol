@@ -100,24 +100,13 @@ public class SimplePlannerPilot extends AutoPilotBase {
 			is_landing = false;
 		});
 
-		start(2000);
+		start(100);
 	}
 
 	public void run() {
 
 		MSP3DUtils.convertCurrentState(model, current);
 
-
-//		if(valid_target) {
-//			if(MSP3DUtils.distance2D(current, target) < 0.2 ) {
-//				valid_target=false;
-//			} else {
-//				System.out.println("Replanning"); 
-//				if(!offboard.doTrajectoryPLanning(offboard.getETA() - (System.currentTimeMillis()-sp_tms)/1000f))
-//					valid_target = false;
-//
-//			}
-//		}
 
 		// Safety: Channel 8 triggers landing mode of PX4
 		if(model.rc.get(RC_LAND_CHANNEL) > RC_LAND_THRESHOLD && !is_landing) {
@@ -141,17 +130,5 @@ public class SimplePlannerPilot extends AutoPilotBase {
 
 	}
 
-
-
-
-	@Override
-	public void moveto(float x, float y, float z, float yaw) {
-
-		valid_target = true;
-		target.setTo(x,y,z,yaw);
-		sp_tms = System.currentTimeMillis()+20;
-		offboard.startTrajectory(target);
-
-	}
 
 }

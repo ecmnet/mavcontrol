@@ -70,7 +70,7 @@ public class RapidTrajectoryGenerator {
 	}
 
 	public RapidTrajectoryGenerator(Point3D_F64 x0, Point3D_F64 v0, Point3D_F64 a0, Point3D_F64 gravity) {
-
+        reset();
 		for(int i=0;i<3;i++) {
 			_axis[i] = new SingleAxisTrajectory();
 			_axis[i].setInitialState(x0.getIdx(i),v0.getIdx(i),a0.getIdx(i));
@@ -127,8 +127,8 @@ public class RapidTrajectoryGenerator {
 
 	public Point3D_F64 getBodyRates(double t, double timeStep, Point3D_F64 crossProd) {
 		
-		Point3D_F64 n0 = getNormalVector(t,null);
-		Point3D_F64 n1 = getNormalVector(t+timeStep,null);
+		Point3D_F64 n0 = getNormalVector(t,_tmp1);
+		Point3D_F64 n1 = getNormalVector(t+timeStep,_tmp2);
 
 		if(crossProd==null)
 	    	crossProd = new Point3D_F64();

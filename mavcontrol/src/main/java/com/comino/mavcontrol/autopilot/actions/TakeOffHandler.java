@@ -177,7 +177,6 @@ public class TakeOffHandler {
 			switch(state) {
 			case STATE_IDLE:
 				tms_takeoff_plan = 0; 
-				takeoff.setTo(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 				wq.removeTask("LP", task);
 				break;
 			case STATE_INITIATED:
@@ -192,6 +191,8 @@ public class TakeOffHandler {
 				}
 				break;
 			case STATE_COUNT_DOWN:
+				
+				takeoff.setTo(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 
 				if(!control.isSimulation()) {
 
@@ -263,6 +264,7 @@ public class TakeOffHandler {
 							control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 									MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 									MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
+							takeoff.setTo(model.state.l_x,model.state.l_y,model.state.l_z, Float.NaN);
 							state = STATE_IDLE;
 						} else {
 							state = STATE_OFFBOARD;
@@ -288,7 +290,7 @@ public class TakeOffHandler {
 			case STATE_FINALIZED:
 
 				control.writeLogMessage(new LogMessage("[msp] Setting takeoff position.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-				takeoff.setTo(model.state.l_x,model.state.l_y,model.state.l_z, model.attitude.y);
+				takeoff.setTo(model.state.l_x,model.state.l_y,model.state.l_z, Float.NaN);
 
 				if(completed!=null && model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))
 					completed.run();

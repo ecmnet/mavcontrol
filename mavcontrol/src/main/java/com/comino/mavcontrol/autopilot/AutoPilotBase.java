@@ -109,8 +109,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected Sequencer                    sequencer = null;
 
-	protected final Vector4D_F32             takeoff = new Vector4D_F32();
-
 	private final Vector4D_F32            body_speed = new Vector4D_F32();
 	private final Vector4D_F32            ned_speed  = new Vector4D_F32();
 
@@ -387,7 +385,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 									h == 0 ? Float.NaN : h,
 											y == 0 ? Float.NaN : y);
 
-			if(!offboard.isEnabled() || offboard.getMode()==OffboardManager.MODE_SPEED_POSITION) {
+			if(!offboard.isEnabled() || offboard.getMode()==OffboardManager.MODE_TRAJECTORY) {
 				//abort any sequence if sticks moved
 				if(!MSP3DUtils.isNaN(body_speed)) {
 					sequencer.clear(); offboard.abort();
@@ -419,7 +417,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public void setTarget(float x, float y, float z, float yaw) {
 		Vector4D_F32 target = new Vector4D_F32(x,y,z,yaw);
 		offboard.setTarget(target);
-		offboard.start(OffboardManager.MODE_SPEED_POSITION);
+		offboard.startTrajectory(target);
 
 	}
 
@@ -427,7 +425,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		Vector4D_F32 target = new Vector4D_F32(x,y,z,Float.NaN);
 		offboard.finalize();
 		offboard.setTarget(target);
-		offboard.start(OffboardManager.MODE_SPEED_POSITION);
+		offboard.startTrajectory(target);
 
 	}
 
@@ -590,6 +588,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	 */
 	public void returnToLand(boolean enable) {
 
+		Vector4D_F32 takeoff = takeoff_handler.getTakeoffPosition();
 		Vector4D_F32 landing_preparation = takeoff.copy();
 		landing_preparation.z = -0.8f;
 		landing_preparation.w = Float.NaN;
@@ -608,7 +607,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			return;
 		}
 
-		if((takeoff.x == 0 && takeoff.y == 0) || takeoff.isNaN()) {
+		if(takeoff.isNaN()) {
+			System.out.println(takeoff);
 			logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0,  Float.NaN );
 			return;
