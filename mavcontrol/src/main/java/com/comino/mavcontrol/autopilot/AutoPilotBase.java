@@ -347,13 +347,14 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
 			if(control.isSimulation())
 				// SequenceTestFactory.randomSequence(sequencer);
-				StandardActionFactory.square(sequencer, 1);
+			if(control.isSimulation())
+				StandardActionFactory.square(sequencer, 2);
 			else
 				logger.writeLocalMsg("[msp] Only available in simulation environment",MAV_SEVERITY.MAV_SEVERITY_INFO);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TAKEOFF:
 			if(enable)
-				takeoff_handler.initiateTakeoff(5);
+				takeoff_handler.initiateTakeoff(control.isSimulation() ? 1 : 5);
 			else {
 				takeoff_handler.abort("Abort");
 			}
@@ -607,8 +608,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			return;
 		}
 
-		if(takeoff.isNaN()) {
-			System.out.println(takeoff);
+		if(Float.isNaN(takeoff.x) || Float.isNaN(takeoff.y) || Float.isNaN(takeoff.z)) {
 			logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0,  Float.NaN );
 			return;
@@ -639,7 +639,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		sequencer.abort();
 		clearAutopilotActions();
 		offboard.finalize();
-		offboard.setTarget(model.state.l_x, model.state.l_y, model.state.l_z, targetAngle);
+		offboard.setTarget(model.state.l_x, model.state.l_y, model.state.l_z, targetAngle,0);
 		offboard.start(OffboardManager.MODE_LOITER);
 		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 	}

@@ -112,9 +112,7 @@ public class Sequencer {
 				control.writeLogMessage(new LogMessage("[msp] Step "+i+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				SeqItem item = sequence.poll();
 				if(item.hasTarget()) {
-					if(item.getControlListener()!=null)
-						offboard.registerSpeedControl(item.getControlListener());
-					offboard.setTarget(item.getTarget(model));
+					offboard.setTarget(item.getTarget(model),item.getAcceptanceRadius());
 					if(!offboard.start_wait(OffboardManager.MODE_TRAJECTORY, item.getTimeout_ms())) {
 						model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
 						control.writeLogMessage(new LogMessage("[msp] Sequence timeout occurred.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -140,7 +138,7 @@ public class Sequencer {
 					appended.clear();
 				}
 			}
-			offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+			offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, Float.NaN,0);
 			offboard.start(OffboardManager.MODE_LOITER);
 
 			model.slam.wpcount = 0;

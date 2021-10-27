@@ -12,46 +12,64 @@ public class SeqItem {
 
 
 	private Vector4D_F32              target = null;
-	private int                          mode = 0;
-	private ISeqAction                 action = null;
-	private ISpeedControl  control = null;
+	private float                         ar = 0;
+	private int                         mode = 0;
+	private ISeqAction                action = null;
 	private int                      delay_ms = 0;
 
 
 
 	public SeqItem(float x, float y, float z, float w, int mode, ISeqAction action, int delay_ms) {
-		this(x,y,z,w,ISeqAction.REL,action,null,delay_ms);
-	}
-
-	public SeqItem(float x, float y, float z, float w, int mode, ISeqAction action, ISpeedControl control, int delay_ms) {
 		this.target    = new Vector4D_F32(x,y,z,w);
 		this.mode      = mode;
 		this.action    = action;
-		this.control   = control;
+		this.delay_ms  = delay_ms;
+	}
+	
+	public SeqItem(float x, float y, float z, float w, float ar, int mode, ISeqAction action, int delay_ms) {
+		this.target    = new Vector4D_F32(x,y,z,w);
+		this.ar        = ar;
+		this.mode      = mode;
+		this.action    = action;
+		this.delay_ms  = delay_ms;
+	}
+	
+	public SeqItem(Vector4D_F32 target, float ar, int mode, ISeqAction action, int delay_ms) {
+		this.target    = target.copy();
+		this.ar        = ar;
+		this.mode      = mode;
+		this.action    = action;
 		this.delay_ms  = delay_ms;
 	}
 
-	public SeqItem(Vector4D_F32 target, int mode, ISeqAction action, int delay_ms) {
+	public SeqItem(Vector4D_F32 target,int mode, ISeqAction action, int delay_ms) {
 		this.target    = target.copy();
 		this.mode      = mode;
 		this.action    = action;
 		this.delay_ms  = delay_ms;
 	}
+	
+	public SeqItem(Vector4D_F32 target, int mode, int delay_ms) {
+		this.target    = target.copy();
+		this.mode      = mode;
+		this.action    = null;
+		this.delay_ms  = delay_ms;
+	}
 
 	public SeqItem(float x, float y, float z, float w) {
-		this(x,y,z,w,ISeqAction.REL,null,null,0);
+		this(x,y,z,w,ISeqAction.ABS,null,0);
 	}
 
 	public SeqItem(float x, float y, float z, float w, int mode) {
-		this(x,y,z,w,mode,null,null, 0);
+		this(x,y,z,w,mode,null, 0);
 	}
-
-	public SeqItem(ISeqAction action, int delay_ms) {
-		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,ISeqAction.REL,action, null, delay_ms);
+	
+	public SeqItem(float x, float y, float z, float w, float ar, int mode) {
+		this(x,y,z,w,ar,mode,null, 0);
 	}
 
 	public SeqItem(ISeqAction action) {
-		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,ISeqAction.REL,action, null, 0);
+		this(Float.NaN, Float.NaN, Float.NaN, Float.NaN,ISeqAction.REL,action, 0);
 	}
 
 	public Vector4D_F32 getTarget(DataModel model) {
@@ -75,6 +93,10 @@ public class SeqItem {
 
 		return target;
 	}
+	
+	public float getAcceptanceRadius() {
+		return ar;
+	}
 
 	public boolean hasTarget() {
 		return !Float.isNaN(target.x) || !Float.isNaN(target.y)  || !Float.isNaN(target.z)  || !Float.isNaN(target.w);
@@ -86,10 +108,6 @@ public class SeqItem {
 
 	public long getTimeout_ms() {
 		return ITEM_TIMEOUT_MS + delay_ms;
-	}
-
-	public ISpeedControl getControlListener() {
-		return control;
 	}
 
 	public boolean executeAction() {

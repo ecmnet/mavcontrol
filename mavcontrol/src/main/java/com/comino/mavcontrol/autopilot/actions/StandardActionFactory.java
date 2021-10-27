@@ -22,17 +22,17 @@ public class StandardActionFactory {
 	
 	/**
 	 * Performs a square around the current position
-	 * @param length of the square in m
+	 * @param 1/2 length of the square in m
 	 * @param sequencer
 	 */
 	public static void square(Sequencer sequencer, float length) {
 		sequencer.clear();
-		sequencer.add(new SeqItem(length/2 , length/2 , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-		sequencer.add(new SeqItem(Float.NaN, -length  , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-		sequencer.add(new SeqItem(-length  , Float.NaN, Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-		sequencer.add(new SeqItem(Float.NaN, length   , Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-		sequencer.add(new SeqItem(length   , Float.NaN, Float.NaN, Float.NaN, ISeqAction.REL,null,0));
-		sequencer.add(new SeqItem(-length/2, -length/2 ,Float.NaN, Float.NaN, ISeqAction.REL,null,0));
+		sequencer.add(new SeqItem( length, length, Float.NaN, Float.NaN, length/2, ISeqAction.ABS));
+		sequencer.add(new SeqItem( length,-length, Float.NaN, Float.NaN, length/2, ISeqAction.ABS));
+		sequencer.add(new SeqItem(-length,-length, Float.NaN, Float.NaN, length/2, ISeqAction.ABS));
+		sequencer.add(new SeqItem(-length, length, Float.NaN, Float.NaN, length/2, ISeqAction.ABS));
+		sequencer.add(new SeqItem( length, length, Float.NaN, Float.NaN, length/2, ISeqAction.ABS));
+		sequencer.add(new SeqItem(0, 0,Float.NaN, Float.NaN, ISeqAction.ABS));
 		sequencer.execute();
 	}
 
