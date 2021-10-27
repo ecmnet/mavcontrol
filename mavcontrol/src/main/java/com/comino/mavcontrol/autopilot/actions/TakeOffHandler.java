@@ -59,7 +59,7 @@ import georegression.struct.point.Vector4D_F32;
 public class TakeOffHandler {
 
 	protected static final float MAX_REL_DELTA         = 0.10f;
-	protected static final int   INITIAL_DELAY_MS      = 5000;
+	protected static final int   INITIAL_DELAY_MS      = 7000;
 
 	private final int STATE_IDLE        = 0;
 	private final int STATE_INITIATED   = 1;
