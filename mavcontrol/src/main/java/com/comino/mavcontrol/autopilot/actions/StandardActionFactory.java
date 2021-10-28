@@ -27,11 +27,11 @@ public class StandardActionFactory {
 	 */
 	public static void square(Sequencer sequencer, float length) {
 		sequencer.clear();
-		sequencer.add(new SeqItem( length, length, Float.NaN, Float.NaN, length/2, ISeqAction.ABS));
-		sequencer.add(new SeqItem( length,-length, Float.NaN, Float.NaN, length/2, ISeqAction.ABS));
-		sequencer.add(new SeqItem(-length,-length, Float.NaN, Float.NaN, length/2, ISeqAction.ABS));
-		sequencer.add(new SeqItem(-length, length, Float.NaN, Float.NaN, length/2, ISeqAction.ABS));
-		sequencer.add(new SeqItem( length, length, Float.NaN, Float.NaN, length/2, ISeqAction.ABS));
+		sequencer.add(new SeqItem( length, length, Float.NaN, Float.NaN, length/4, ISeqAction.ABS));
+		sequencer.add(new SeqItem( length,-length, Float.NaN, Float.NaN, length/4, ISeqAction.ABS));
+		sequencer.add(new SeqItem(-length,-length, Float.NaN, Float.NaN, length/4, ISeqAction.ABS));
+		sequencer.add(new SeqItem(-length, length, Float.NaN, Float.NaN, length/4, ISeqAction.ABS));
+		sequencer.add(new SeqItem( length, length, Float.NaN, Float.NaN, length/4, ISeqAction.ABS));
 		sequencer.add(new SeqItem(0, 0,Float.NaN, Float.NaN, ISeqAction.ABS));
 		sequencer.execute();
 	}

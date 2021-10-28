@@ -60,7 +60,6 @@ import com.comino.mavcontrol.controllib.IYawSpeedControl;
 import com.comino.mavcontrol.controllib.IConstraints;
 import com.comino.mavcontrol.controllib.ISpeedControl;
 import com.comino.mavcontrol.controllib.impl.ContraintControl;
-import com.comino.mavcontrol.controllib.impl.SimpleXYZSpeedControl;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavutils.MSPMathUtils;
@@ -200,7 +199,6 @@ public class OffboardManager implements Runnable {
 		max_speed = config.getFloatProperty("autopilot_max_speed", String.valueOf(max_speed));
 
 		this.constraintControl = new ContraintControl();
-		this.speedControl      = new SimpleXYZSpeedControl(model, min_speed, max_speed);
 		this.yawSpeedControl   = new YawSpeedControl(YAW_PV,0,MAX_YAW_SPEED);
 
 		MSP3DUtils.setNaN(target);
@@ -520,13 +518,11 @@ public class OffboardManager implements Runnable {
 						target.z = current.z;
 					eta_sec = MSP3DUtils.distance3D(target, current) * (float)Math.PI / MAX_SPEED;
 					eta_sec = eta_sec < 2 ? 2 : eta_sec;
-					System.out.println("Generate trajecory: "+eta_sec+"s");
 					if(eta_sec < MIN_TRAJ_TIME) eta_sec = MIN_TRAJ_TIME;
 					doTrajectoryPLanning(eta_sec);
 				}
 
 				new_setpoint = false;
-				speedControl.initialize(spd, path);
 				trajectory_start_tms = 0; 
 				start.setTo(current);
 				ctl.set(spd);
@@ -647,13 +643,13 @@ public class OffboardManager implements Runnable {
 				path.set(target, current);
 				if(path.value < acceptance_radius) {
 					valid_setpoint = false;
-					logger.writeLocalMsg("[msp] Targetreached ",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+					logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 					fireAction(model, path.value);
 				}
 
 				if(System.currentTimeMillis() < traj_eta) {
 
-					model.slam.flags = Slam.OFFBOARD_FLAG_SPEED;
+					model.slam.flags = Slam.OFFBOARD_FLAG_MOVE;
 
 					traj_tim = (System.currentTimeMillis()-traj_sta)/1000d;
 					traj.getState(traj_tim, traj_pos, traj_vel, traj_acc);
@@ -1069,9 +1065,14 @@ public class OffboardManager implements Runnable {
 			changeStateTo(MODE_LOITER);
 			return false;
 		} 
+		
+		System.out.println("Generate trajectory: "+String.format("%#.1fs with costs of %#.2f", d_time, traj.getCost()*100));
+		
+		//control.writeLogMessage(new LogMessage("[msp] Trajectory costs: "+String.format("%#.2f", traj.getCost()*100), MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
 		traj_sta = System.currentTimeMillis();
 		traj_eta = (long)(d_time * 1000f) + traj_sta;
+	
 
 		return true;
 
