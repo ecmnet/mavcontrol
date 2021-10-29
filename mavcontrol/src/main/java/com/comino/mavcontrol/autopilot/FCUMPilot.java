@@ -91,7 +91,7 @@ import georegression.struct.point.Vector4D_F32;
 
 
 
-public class BreakingPilot extends AutoPilotBase {
+public class FCUMPilot extends AutoPilotBase {
 
 	private static float SMOOTH_TARGET_FILTER               = 0.1f;
 
@@ -120,7 +120,7 @@ public class BreakingPilot extends AutoPilotBase {
 	private final msg_rc_channels_override  fcum_thrust = new msg_rc_channels_override(1,1);
 
 
-	protected BreakingPilot(IMAVController control, MSPConfig config) {
+	protected FCUMPilot(IMAVController control, MSPConfig config) {
 		super(control,config);
 
 		this.obstacle.value = Float.POSITIVE_INFINITY;
@@ -141,37 +141,6 @@ public class BreakingPilot extends AutoPilotBase {
 				smooth_target_initialized = false;
 				logger.writeLocalMsg("[msp] Follow object mode disabled.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 			}
-		});
-
-		// calculate speed constraints considering the distance to obstacles
-		offboard.registerContraintControl((delta_sec, speed, path, ctl) -> {
-
-			plannedPath.set(path); currentSpeed.set(speed);
-
-			relAngle = Math.abs(MSPMathUtils.normAngle2(Math.abs(obstacle.angle_xy-plannedPath.angle_xy)));
-
-			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
-
-				if(Float.isInfinite(obstacle.value) || ctl.value < MIN_BREAKING_SPEED ) {
-					return false;
-				}
-
-				//				float obs_sec = relAngle * obstacle.value / speed.value;
-				//				if(obs_sec < 0)
-				//					return false;
-
-				obs_acc = currentSpeed.value / ( obstacle.value - OBSTACLE_MINDISTANCE_0MS) * (float)Math.cos(relAngle);
-
-				if(obstacle.value <  OBSTACLE_MINDISTANCE_1MS && tooClose && obs_acc > 0 ) {
-					ctl.value = ctl.value - obs_acc * delta_sec;
-					if(ctl.value < MIN_BREAKING_SPEED) ctl.value = MIN_BREAKING_SPEED;
-					//System.out.println("Breaking: "+ctl.value+" Delta: "+delta_sec + " ETA.Obs: " + obs_sec);
-				}
-
-				return true;
-
-			}
-			return false;
 		});
 
 		start(50);
