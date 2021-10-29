@@ -40,7 +40,6 @@ import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
-import org.mavlink.messages.lquac.msg_set_attitude_target;
 import org.mavlink.messages.lquac.msg_set_position_target_local_ned;
 
 import com.comino.mavcom.config.MSPConfig;
@@ -57,9 +56,6 @@ import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.controllib.IYawSpeedControl;
-import com.comino.mavcontrol.controllib.IConstraints;
-import com.comino.mavcontrol.controllib.ISpeedControl;
-import com.comino.mavcontrol.controllib.impl.ContraintControl;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavutils.MSPMathUtils;
@@ -75,7 +71,7 @@ public class OffboardManager implements Runnable {
 	public static final int MODE_IDLE 		   					    = 1;
 	public static final int MODE_LOITER	 		   					= 2;
 	public static final int MODE_LOCAL_SPEED                		= 3;
-	public static final int MODE_TRAJECTORY                       = 5;
+	public static final int MODE_TRAJECTORY                         = 5;
 	public static final int MODE_LAND                               = 6;
 
 	// PX4 speed control locks
@@ -84,7 +80,6 @@ public class OffboardManager implements Runnable {
 	private static final int  LOCK_Z                                = 2;
 	private static final int  LOCK_XY                               = 3;
 	private static final int  LOCK_XYZ                              = 4;
-	private static final int  LOCK_XYZY                             = 5;
 
 
 	private static final int  UPDATE_RATE                 			= 20;					  // offboard update rate in ms
@@ -92,8 +87,6 @@ public class OffboardManager implements Runnable {
 	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(60); // Max YawSpeed rad/s
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(10);  // Min yawSpeed rad/s
 	private static final float RAMP_YAW_SPEED                       = MSPMathUtils.toRad(30); // Ramp up Speed for yaw turning
-	private static final float MAX_TURN_SPEED               		= 0.3f;   	              // Max speed that allow turning before start in m/s
-	private static final float MIN_TURN_DISTANCE              		= 0.6f;   	              // Min distance to path that allow turning
 
 	private static final float MAX_SPEED							= 1.0f;					  // Max speed m/s
 	private static final float MIN_SPEED							= 0f;					  // Min speed m/s
@@ -124,9 +117,7 @@ public class OffboardManager implements Runnable {
 	private long                    sent_count                      = 0;
 
 	// ControlLib
-	private IYawSpeedControl        yawSpeedControl                  = null;
-	private ISpeedControl           speedControl                     = null;		
-	private IConstraints            constraintControl                = null;		
+	private IYawSpeedControl        yawSpeedControl                  = null;	
 
 	private boolean					enabled					  		= false;
 	private int						mode					  		= MODE_LOITER;		     // Offboard mode
@@ -143,16 +134,13 @@ public class OffboardManager implements Runnable {
 
 	private final msg_set_position_target_local_ned pos_cmd   		= new msg_set_position_target_local_ned(1,1);
 	private final msg_set_position_target_local_ned speed_cmd 		= new msg_set_position_target_local_ned(1,1);
-	private final msg_set_attitude_target att_cmd 	            	= new msg_set_attitude_target(1,1);
 
 	private float      max_speed                                    = MAX_SPEED;
-	private float      min_speed                                    = MIN_SPEED;
 	private float      ekf2_min_rng                                 = 0;
 	private float      eta_sec                                      = 0;
 
 	private long traj_eta  = 0;
 	private long traj_sta  = 0;
-	private long traj_tms  = 0;
 
 	private float	 	acceptance_radius_std						= 0.10f;
 	private float	 	acceptance_radius				        	= 0;
@@ -162,7 +150,6 @@ public class OffboardManager implements Runnable {
 
 	private long        setpoint_tms                        		= 0;
 	private long        setpoint_timeout                       		= SETPOINT_TIMEOUT_MS;
-	private long        trajectory_start_tms                        = 0;
 	private long	    last_update_tms                             = 0;
 
 	private final RapidTrajectoryGenerator traj                     = new RapidTrajectoryGenerator(new Point3D_F64(0,0,-9.81));
@@ -188,7 +175,6 @@ public class OffboardManager implements Runnable {
 
 		max_speed = config.getFloatProperty("autopilot_max_speed", String.valueOf(max_speed));
 
-		this.constraintControl = new ContraintControl();
 		this.yawSpeedControl   = new YawSpeedControl(YAW_PV,0,MAX_YAW_SPEED);
 
 		MSP3DUtils.setNaN(target);
@@ -386,17 +372,6 @@ public class OffboardManager implements Runnable {
 		return mode;
 	}
 
-	public void registerContraintControl(IConstraints control) {
-		this.constraintControl = control;
-
-	}
-
-	public void registerSpeedControl(ISpeedControl control) {
-		this.speedControl = control;
-
-	}
-
-
 	public void registerYawSpeedControl(IYawSpeedControl control) {
 		this.yawSpeedControl = control;
 
@@ -513,7 +488,6 @@ public class OffboardManager implements Runnable {
 				}
 
 				new_setpoint = false;
-				trajectory_start_tms = 0; 
 				start.setTo(current);
 				ctl.set(spd);
 
@@ -939,21 +913,6 @@ public class OffboardManager implements Runnable {
 			enabled = false;
 		else
 			sent_count++;
-	}
-
-
-	private void checkAbsoluteSpeeds(Point3D_F64 s, float w) {
-
-		if(s.x >  max_speed )  s.x =  max_speed;
-		if(s.y >  max_speed )  s.y =  max_speed;
-		if(s.z >  max_speed )  s.z =  max_speed;
-		if(s.x < -max_speed )  s.x = -max_speed;
-		if(s.y < -max_speed )  s.y = -max_speed;
-		if(s.z < -max_speed )  s.z = -max_speed;
-
-		if(Double.isNaN(s.x))        s.x = 0;
-		if(Double.isNaN(s.y))        s.y = 0;
-		if(Double.isNaN(s.z))        s.z = 0;
 	}
 
 	private void fireAction(DataModel model,float delta) {

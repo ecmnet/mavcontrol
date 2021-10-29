@@ -56,6 +56,12 @@ import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector4D_F32;
 
 public class RapidTrajectoryGenerator {
+	
+	private final double MIN_ACC		=  5.0;
+	private final double MAX_ACC		= 10.0;
+	private final double MAX_BODY_RATE  = 2;
+	private final double TIME_STEP      = 0.02;
+	
 
 	private final SingleAxisTrajectory _axis[] = new SingleAxisTrajectory[3];
 
@@ -156,7 +162,7 @@ public class RapidTrajectoryGenerator {
 		}
 
 		generate(timeToFinish);
-		if(!checkInputFeasibility(5,10,2,0.02))
+		if(!checkInputFeasibility(MIN_ACC,MAX_ACC,MAX_BODY_RATE,TIME_STEP))
 			return false;
 
 		return true;
