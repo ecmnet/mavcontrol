@@ -165,22 +165,12 @@ public class OffboardManager implements Runnable {
 	private long        trajectory_start_tms                        = 0;
 	private long	    last_update_tms                             = 0;
 
-	private RapidTrajectoryGenerator traj                           = new RapidTrajectoryGenerator();
-	private Point3D_F64 pos0 										= new Point3D_F64(0,0,0);
-	private Point3D_F64 vel0 										= new Point3D_F64(0,0,0);
-	private Point3D_F64 acc0 										= new Point3D_F64(0,0,0);
-
-	private Point3D_F64 traj_acc								    = new Point3D_F64(0,0,0);
-	private Point3D_F64 traj_vel								    = new Point3D_F64(0,0,0);
-	private Point3D_F64 traj_pos								    = new Point3D_F64(0,0,0);
-	private Point3D_F64 debug								        = new Point3D_F64(0,0,0);
-
-	//define the goal state:
-	private Point3D_F64 posf 										= new Point3D_F64(0,0,0);
-	private	Point3D_F64 velf 										= new Point3D_F64(0,0,0);
-	private	Point3D_F64 accf 										= new Point3D_F64(0,0,0);
-
-	private Point3D_F64 gravity                                     = new Point3D_F64(0,0,-9.81);
+	private final RapidTrajectoryGenerator traj                     = new RapidTrajectoryGenerator(new Point3D_F64(0,0,-9.81));
+	
+	private final Point3D_F64 traj_acc							 	= new Point3D_F64(0,0,0);
+	private final Point3D_F64 traj_vel								= new Point3D_F64(0,0,0);
+	private final Point3D_F64 traj_pos								= new Point3D_F64(0,0,0);
+	private final Point3D_F64 debug								    = new Point3D_F64(0,0,0);
 
 
 	public OffboardManager(IMAVController control, PX4Parameters params) {
@@ -330,22 +320,22 @@ public class OffboardManager implements Runnable {
 	public void setTarget(Vector4D_F32 t) {
 		this.setTarget(t.x,t.y,t.z,t.w,0);
 	}
-	
+
 	public void setTarget(Vector4D_F32 t, float ar) {
 		this.setTarget(t.x,t.y,t.z,t.w,ar);
 	}
 
 	public void setTarget(float x, float y, float z, float yaw, float ar) {	
-			if(!MSP3DUtils.isNaN(target)) 
-				current_sp.setTo(target);
-			
-			target.setTo(x,y,z,yaw);
-			acceptance_radius = ar > 0 ? ar : acceptance_radius_std;
-			
-			valid_setpoint = true;
-			new_setpoint   = true;
-			already_fired  = false;
-			setpoint_tms   = System.currentTimeMillis();
+		if(!MSP3DUtils.isNaN(target)) 
+			current_sp.setTo(target);
+
+		target.setTo(x,y,z,yaw);
+		acceptance_radius = ar > 0 ? ar : acceptance_radius_std;
+
+		valid_setpoint = true;
+		new_setpoint   = true;
+		already_fired  = false;
+		setpoint_tms   = System.currentTimeMillis();
 
 	}
 
@@ -498,11 +488,11 @@ public class OffboardManager implements Runnable {
 				changeStateTo(MODE_LOITER);
 				continue;
 			}
-			
+
 
 			// a new setpoint was provided
 			if(new_setpoint) {
-				
+
 				if(mode==MODE_TRAJECTORY || mode == MODE_LOITER) {
 
 					// Safety: handle NaN targets for position
@@ -639,7 +629,7 @@ public class OffboardManager implements Runnable {
 			case MODE_TRAJECTORY:	
 
 				watch_tms = System.currentTimeMillis();
-			
+
 				path.set(target, current);
 				if(path.value < acceptance_radius) {
 					valid_setpoint = false;
@@ -1043,36 +1033,20 @@ public class OffboardManager implements Runnable {
 
 	public boolean doTrajectoryPLanning( float d_time) {
 
-		if(d_time<0)
-			return false;
-
-		pos0.setTo(model.state.l_x, model.state.l_y,  model.state.l_z);
-		vel0.setTo(model.state.l_vx,model.state.l_vy, model.state.l_vz);
-		acc0.setTo(model.state.l_ax,model.state.l_ay, model.state.l_az);
-		traj.setInitialState(pos0, vel0, acc0, gravity);
-
-		posf.setTo(target.x,target.y,target.z);
-		velf.setTo(0,0,0);
-		accf.setTo(0,0,0);
-
-		traj.setGoal(posf, velf, accf);
-
-		traj.generate(d_time);
-
-		if(!traj.checkInputFeasibility(5,10,2,0.02)) {
+		if(!traj.generate(d_time, model, target, null)) {
 			control.writeLogMessage(new LogMessage("[msp] Trajectory not feasible. Aborted.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
 			setTarget(Float.NaN,Float.NaN,Float.NaN,Float.NaN,0);
 			changeStateTo(MODE_LOITER);
 			return false;
-		} 
-		
+		}
+
 		System.out.println("Generate trajectory: "+String.format("%#.1fs with costs of %#.2f", d_time, traj.getCost()*100));
-		
+
 		//control.writeLogMessage(new LogMessage("[msp] Trajectory costs: "+String.format("%#.2f", traj.getCost()*100), MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
 		traj_sta = System.currentTimeMillis();
 		traj_eta = (long)(d_time * 1000f) + traj_sta;
-	
+
 
 		return true;
 

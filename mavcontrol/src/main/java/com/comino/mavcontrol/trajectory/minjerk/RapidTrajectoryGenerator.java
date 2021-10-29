@@ -49,8 +49,11 @@ package com.comino.mavcontrol.trajectory.minjerk;
 import org.ddogleg.solver.PolynomialSolver;
 import org.ejml.data.Complex_F64;
 
+import com.comino.mavcom.model.DataModel;
+
 import georegression.geometry.GeometryMath_F64;
 import georegression.struct.point.Point3D_F64;
+import georegression.struct.point.Vector4D_F32;
 
 public class RapidTrajectoryGenerator {
 
@@ -61,7 +64,7 @@ public class RapidTrajectoryGenerator {
 
 	private final Point3D_F64 _tmp1 = new Point3D_F64();
 	private final Point3D_F64 _tmp2 = new Point3D_F64();
-	
+
 	public RapidTrajectoryGenerator() {
 		super();
 		for(int i=0;i<3;i++) {
@@ -69,23 +72,31 @@ public class RapidTrajectoryGenerator {
 		}
 	}
 
+	public RapidTrajectoryGenerator(Point3D_F64 gravity) {
+		super();
+		for(int i=0;i<3;i++) {
+			_axis[i] = new SingleAxisTrajectory();
+		}
+		this._gravity = gravity;
+	}
+
 	public RapidTrajectoryGenerator(Point3D_F64 x0, Point3D_F64 v0, Point3D_F64 a0, Point3D_F64 gravity) {
-        reset();
+		reset();
 		for(int i=0;i<3;i++) {
 			_axis[i] = new SingleAxisTrajectory();
 			_axis[i].setInitialState(x0.getIdx(i),v0.getIdx(i),a0.getIdx(i));
 		}
 		this._gravity = gravity;
 	}
-	
+
 	public void setInitialState(Point3D_F64 x0, Point3D_F64 v0, Point3D_F64 a0, Point3D_F64 gravity) {
-        reset();
+		reset();
 		for(int i=0;i<3;i++) {
 			_axis[i].setInitialState(x0.getIdx(i),v0.getIdx(i),a0.getIdx(i));
 		}
 		this._gravity = gravity;
 	}
-	
+
 	public void setGoal(Point3D_F64 p, Point3D_F64 v, Point3D_F64 a) {
 		for(int i=0;i<3;i++) {
 			_axis[i].setGoalPosition(p.getIdx(i));
@@ -114,7 +125,7 @@ public class RapidTrajectoryGenerator {
 			_axis[i].reset();
 		_tf = 0;
 	}
-	
+
 	public double getCost() {
 		return _axis[0].getCost() + _axis[1].getCost() + _axis[2].getCost();
 	}
@@ -125,14 +136,41 @@ public class RapidTrajectoryGenerator {
 			_axis[i].generateTrajectory(_tf);
 	}
 
-	public Point3D_F64 getBodyRates(double t, double timeStep, Point3D_F64 crossProd) {
+	public boolean generate(double timeToFinish, DataModel model, Vector4D_F32 target, Vector4D_F32 velocity) {
 		
+		if(timeToFinish<0)
+			return false;
+		
+		reset();
+		_axis[0].setInitialState(model.state.l_x, model.state.l_vx, model.state.l_ax);
+		_axis[1].setInitialState(model.state.l_y, model.state.l_vy, model.state.l_ay);
+		_axis[2].setInitialState(model.state.l_z, model.state.l_vz, model.state.l_az);
+
+		for(int i= 0; i<3;i++) {
+			_axis[i].setGoalPosition(target.getIdx(i));
+			if(velocity!=null)
+				_axis[i].setGoalVelocity(velocity.getIdx(i));
+			else
+				_axis[i].setGoalVelocity(0);
+			_axis[i].SetGoalAcceleration(0);
+		}
+
+		generate(timeToFinish);
+		if(!checkInputFeasibility(5,10,2,0.02))
+			return false;
+
+		return true;
+
+	}
+
+	public Point3D_F64 getBodyRates(double t, double timeStep, Point3D_F64 crossProd) {
+
 		Point3D_F64 n0 = getNormalVector(t,_tmp1);
 		Point3D_F64 n1 = getNormalVector(t+timeStep,_tmp2);
 
 		if(crossProd==null)
-	    	crossProd = new Point3D_F64();
-		
+			crossProd = new Point3D_F64();
+
 		GeometryMath_F64.cross(n0, n1, crossProd);
 
 		if(crossProd.norm() == 0)
@@ -188,75 +226,75 @@ public class RapidTrajectoryGenerator {
 			return false;
 		if(fmin > fmaxAllowed) 
 			return false;
-		
-		  //possibly infeasible:
-		  if (fmin < fminAllowed || fmax > fmaxAllowed || wBound > wmaxAllowed)
-		  { //indeterminate: must check more closely:
-		    double tHalf = (t1 + t2) / 2;
-		    boolean r1 = checkInputFeasibilitySection(fminAllowed, fmaxAllowed, wmaxAllowed, t1, tHalf, minTimeSection);
-				if(r1 == true)
-		           //continue with second half
-		           return checkInputFeasibilitySection(fminAllowed, fmaxAllowed, wmaxAllowed, tHalf, t2, minTimeSection);
-				//first section is already infeasible, or indeterminate:
-				return r1;
-		  }
+
+		//possibly infeasible:
+		if (fmin < fminAllowed || fmax > fmaxAllowed || wBound > wmaxAllowed)
+		{ //indeterminate: must check more closely:
+			double tHalf = (t1 + t2) / 2;
+			boolean r1 = checkInputFeasibilitySection(fminAllowed, fmaxAllowed, wmaxAllowed, t1, tHalf, minTimeSection);
+			if(r1 == true)
+				//continue with second half
+				return checkInputFeasibilitySection(fminAllowed, fmaxAllowed, wmaxAllowed, tHalf, t2, minTimeSection);
+			//first section is already infeasible, or indeterminate:
+			return r1;
+		}
 
 		return true;
 	}
-	
+
 	public boolean checkInputFeasibility(double fminAllowed, double fmaxAllowed, double wmaxAllowed, double minTimeSection)
 	{
-	  //required thrust limits along trajectory
-	  double t1 = 0;
-	  double t2 = _tf;
+		//required thrust limits along trajectory
+		double t1 = 0;
+		double t2 = _tf;
 
-	  return checkInputFeasibilitySection(fminAllowed, fmaxAllowed, wmaxAllowed, t1, t2, minTimeSection);
+		return checkInputFeasibilitySection(fminAllowed, fmaxAllowed, wmaxAllowed, t1, t2, minTimeSection);
 	}
 
 	public boolean checkPositionFeasibility(Point3D_F64 boundaryPoint, Point3D_F64 boundaryNormal) {
-		
+
 		boundaryNormal.divideIP(boundaryNormal.norm());
 		double c[] = { 0, 0, 0, 0, 0 };
-		
+
 		for(int dim=0; dim<3; dim++) {
 			c[0] += boundaryNormal.getIdx(dim)*_axis[dim].getParamAlpha() / 24.0; //t**4
 			c[2] += boundaryNormal.getIdx(dim)*_axis[dim].getParamGamma() / 2.0;  //t**2
 			c[3] += boundaryNormal.getIdx(dim)*_axis[dim].getInitialAcc();        //t
 			c[4] += boundaryNormal.getIdx(dim)*_axis[dim].getInitialVel();        //1
 		}
-		
+
 		boundaryPoint.scale(-1);
-		
+
 		getPosition(0,_tmp1).plusIP(boundaryPoint);
 		if(GeometryMath_F64.dot(_tmp1,boundaryNormal) <= 0)
-				return false;
-		
+			return false;
+
 		getPosition(_tf,_tmp1).plusIP(boundaryPoint);
 		if(GeometryMath_F64.dot(_tmp1,boundaryNormal) <= 0)
-				return false;
-		
+			return false;
+
 		Complex_F64[] roots;
-		
+
 		if(Math.abs(c[0]) > 1e-6)
-		  roots = PolynomialSolver.polynomialRootsEVD(c[1] / c[0], c[2] / c[0], c[3] / c[0], c[4] / c[0]);
+			roots = PolynomialSolver.polynomialRootsEVD(c[1] / c[0], c[2] / c[0], c[3] / c[0], c[4] / c[0]);
 		else
-		  roots = PolynomialSolver.polynomialRootsEVD(c[2] / c[1], c[3] / c[1], c[4] / c[1]);
-		
+			roots = PolynomialSolver.polynomialRootsEVD(c[2] / c[1], c[3] / c[1], c[4] / c[1]);
+
 		for(int i=0; i<roots.length;i++) {
-			
-			  //don't evaluate points outside the domain
-			  if(roots[i].real < 0) continue;
-			  if(roots[i].real > _tf) continue;
-			  
-			  getPosition(roots[i].real,_tmp1).plusIP(boundaryPoint);
-			  if(GeometryMath_F64.dot(_tmp1,boundaryNormal) <= 0)
-					return false;
-			
+
+			//don't evaluate points outside the domain
+			if(roots[i].real < 0) continue;
+			if(roots[i].real > _tf) continue;
+
+			getPosition(roots[i].real,_tmp1).plusIP(boundaryPoint);
+			if(GeometryMath_F64.dot(_tmp1,boundaryNormal) <= 0)
+				return false;
+
 		}
 
 		return true;
 	}
-	
+
 	public void getState(double t, Point3D_F64 p, Point3D_F64 v, Point3D_F64 a) {
 		for(int i=0;i<3;i++) {
 			a.setIdx(i, _axis[i].getAcceleration(t));
@@ -313,19 +351,19 @@ public class RapidTrajectoryGenerator {
 			out.setIdx(i, _axis[i].getAcceleration(t) - _gravity.getIdx(i));	
 		return out.norm();	
 	}
-	
+
 	public double getAxisParamAlpha(int i) {
 		return _axis[i].getParamAlpha();
 	}
-	
+
 	public double getAxisParamBeta(int i) {
 		return _axis[i].getParamBeta();
 	}
-	
+
 	public double getAxisParamGamma(int i) {
 		return _axis[i].getParamGamma();
 	}
-	
+
 
 
 }
