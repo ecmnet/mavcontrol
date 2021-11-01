@@ -40,6 +40,7 @@ import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
+import org.mavlink.messages.lquac.msg_msp_trajectory;
 import org.mavlink.messages.lquac.msg_set_position_target_local_ned;
 
 import com.comino.mavcom.config.MSPConfig;
@@ -134,6 +135,7 @@ public class OffboardManager implements Runnable {
 
 	private final msg_set_position_target_local_ned pos_cmd   		= new msg_set_position_target_local_ned(1,1);
 	private final msg_set_position_target_local_ned speed_cmd 		= new msg_set_position_target_local_ned(1,1);
+	private final msg_msp_trajectory                traj_msg 		= new msg_msp_trajectory(2,1);
 
 	private float      max_speed                                    = MAX_SPEED;
 	private float      ekf2_min_rng                                 = 0;
@@ -998,6 +1000,8 @@ public class OffboardManager implements Runnable {
 			changeStateTo(MODE_LOITER);
 			return false;
 		}
+		
+
 
 		System.out.println("Generate trajectory: "+String.format("%#.1fs with costs of %#.2f", d_time, traj.getCost()*100));
 
@@ -1005,7 +1009,25 @@ public class OffboardManager implements Runnable {
 
 		traj_sta = System.currentTimeMillis();
 		traj_eta = (long)(d_time * 1000f) + traj_sta;
-
+		
+		// Send trajectory to MAVGCL
+		
+		traj_msg.ls = d_time;
+		traj_msg.ax = (float)traj.getAxisParamAlpha(0);
+		traj_msg.ay = (float)traj.getAxisParamAlpha(1);
+		traj_msg.az = (float)traj.getAxisParamAlpha(2);
+		
+		traj_msg.bx = (float)traj.getAxisParamBeta(0);
+		traj_msg.by = (float)traj.getAxisParamBeta(1);
+		traj_msg.bz = (float)traj.getAxisParamBeta(2);
+		
+		traj_msg.gx = (float)traj.getAxisParamGamma(0);
+		traj_msg.gy = (float)traj.getAxisParamGamma(1);
+		traj_msg.gz = (float)traj.getAxisParamGamma(2);
+		
+		traj_msg.tms = traj_sta;
+		
+	    control.sendMAVLinkMessage(traj_msg);
 
 		return true;
 
