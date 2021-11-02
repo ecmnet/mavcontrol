@@ -340,6 +340,19 @@ public class RapidTrajectoryGenerator {
 			out.setIdx(i, _axis[i].getPosition(t));
 		return out;
 	}
+	
+	public double getInitialPosition(int i) {
+		return _axis[i].getInitialPos();
+	}
+	
+	public double getInitialVelocity(int i) {
+		return _axis[i].getInitialVel();
+	}
+	
+	public double getInitialAcceleration(int i) {
+		return _axis[i].getInitialAcc();
+	}
+
 
 	public Point3D_F64 getNormalVector(double t, Point3D_F64 out) {
 		if(out == null)
