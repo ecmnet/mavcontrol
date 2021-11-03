@@ -135,7 +135,6 @@ public class OffboardManager implements Runnable {
 
 	private final msg_set_position_target_local_ned pos_cmd   		= new msg_set_position_target_local_ned(1,1);
 	private final msg_set_position_target_local_ned speed_cmd 		= new msg_set_position_target_local_ned(1,1);
-	private final msg_msp_trajectory                traj_msg 		= new msg_msp_trajectory(2,1);
 
 	private float      max_speed                                    = MAX_SPEED;
 	private float      ekf2_min_rng                                 = 0;
@@ -144,7 +143,7 @@ public class OffboardManager implements Runnable {
 	private long traj_eta  = 0;
 	private long traj_sta  = 0;
 
-	private float	 	acceptance_radius_std						= 0.10f;
+	private float	 	acceptance_radius_std						= 0.15f;
 	private float	 	acceptance_radius				        	= 0;
 	private boolean    	already_fired			    				= false;
 	private boolean    	valid_setpoint                   			= false;
@@ -155,7 +154,7 @@ public class OffboardManager implements Runnable {
 	private long	    last_update_tms                             = 0;
 
 	private final RapidTrajectoryGenerator traj                     = new RapidTrajectoryGenerator(new Point3D_F64(0,0,-9.81));
-	
+
 	private final Point3D_F64 traj_acc							 	= new Point3D_F64(0,0,0);
 	private final Point3D_F64 traj_vel								= new Point3D_F64(0,0,0);
 	private final Point3D_F64 traj_pos								= new Point3D_F64(0,0,0);
@@ -183,7 +182,7 @@ public class OffboardManager implements Runnable {
 
 		// set to manual mode when armed/disarmed
 		control.getStatusManager().addListener(Status.MSP_ARMED, (n) -> {
-			model.slam.clear();
+			model.slam.clear(); model.traj.clear();
 			model.slam.tms = DataModel.getSynchronizedPX4Time_us();
 
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
@@ -485,8 +484,12 @@ public class OffboardManager implements Runnable {
 						target.z = current.z;
 					traj_length_s = MSP3DUtils.distance3D(target, current) * (float)Math.PI / MAX_SPEED;
 					traj_length_s = traj_length_s < 2 ? 2 : traj_length_s;
+
 					if(traj_length_s < MIN_TRAJ_TIME) traj_length_s = MIN_TRAJ_TIME;
-					doTrajectoryPLanning(traj_length_s);
+
+					if(!doTrajectoryPLanning(traj_length_s)) {
+						traj_eta = 0;
+					}
 				}
 
 				new_setpoint = false;
@@ -563,7 +566,7 @@ public class OffboardManager implements Runnable {
 
 				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 
-				updateMSPModel(target,null);
+				updateSLAMModel(target,null);
 
 				break;
 
@@ -598,7 +601,7 @@ public class OffboardManager implements Runnable {
 				else
 					watch_tms = System.currentTimeMillis();
 
-				updateMSPModel(null,spd);
+				updateSLAMModel(null,spd);
 
 				break;
 
@@ -607,41 +610,35 @@ public class OffboardManager implements Runnable {
 				watch_tms = System.currentTimeMillis();
 
 				path.set(target, current);
-				if(path.value < acceptance_radius) {
-					valid_setpoint = false;
-					logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-					fireAction(model, path.value);
-					sendTrajectory(traj_length_s, 0);
-					continue;
+				if(path.value < acceptance_radius || System.currentTimeMillis() > traj_eta) {
+					if(System.currentTimeMillis() < traj_eta) {
+						fireAction(model, path.value);
+					} else {
+						valid_setpoint = false;
+						logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+						fireAction(model, path.value);
+						changeStateTo(MODE_LOITER);
+						updateTrajectoryModel(traj_length_s,-1);
+						continue;
+					}
 				}
 
-				if(System.currentTimeMillis() < traj_eta) {
+				model.slam.flags = Slam.OFFBOARD_FLAG_MOVE;
 
-					model.slam.flags = Slam.OFFBOARD_FLAG_MOVE;
+				traj_tim = (System.currentTimeMillis()-traj_sta)/1000d;
+				traj.getState(traj_tim, traj_pos, traj_vel, traj_acc);
 
-					traj_tim = (System.currentTimeMillis()-traj_sta)/1000d;
-					traj.getState(traj_tim, traj_pos, traj_vel, traj_acc);
+				if(!Float.isNaN(target.w))
+					yaw_diff = MSPMathUtils.normAngle(target.w - current.w);
+				else
+					yaw_diff = MSPMathUtils.normAngle(MSP3DUtils.angleXY(traj_vel) - current.w);
 
-					if(!Float.isNaN(target.w))
-						yaw_diff = MSPMathUtils.normAngle(target.w - current.w);
-					else
-						yaw_diff = MSPMathUtils.normAngle(MSP3DUtils.angleXY(traj_vel) - current.w);
+				sendTrajectoryControlToVehice(traj_pos,traj_vel,traj_acc,yawSpeedControl.update(yaw_diff, delta_sec));
 
-					sendTrajectoryControlToVehice(traj_pos,traj_vel,traj_acc,yawSpeedControl.update(yaw_diff, delta_sec));
+				debug.setTo(traj_vel);
 
-					debug.setTo(traj_vel);
-
-				} else {
-					traj_tim = 0;
-					valid_setpoint = false;
-					logger.writeLocalMsg("[msp] Target reached. Loitering.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-					fireAction(model, path.value);
-					changeStateTo(MODE_LOITER);
-			
-				}
-
-				sendTrajectory(traj_length_s, (float)traj_tim);
-				updateMSPModel(target,path);
+				updateTrajectoryModel(traj_length_s, (float)traj_tim);
+				updateSLAMModel(target,path);
 
 				break;
 
@@ -732,7 +729,7 @@ public class OffboardManager implements Runnable {
 				} else {
 					model.slam.flags = Slam.OFFBOARD_FLAG_LAND;
 					sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED, lock);
-					updateMSPModel(target,path);
+					updateSLAMModel(target,path);
 				}
 
 				break;
@@ -935,7 +932,7 @@ public class OffboardManager implements Runnable {
 
 	}
 
-	private void updateMSPModel(Vector4D_F32 target, Polar3D_F32 path ) {
+	private void updateSLAMModel(Vector4D_F32 target, Polar3D_F32 path ) {
 
 		model.slam.tms = DataModel.getSynchronizedPX4Time_us();
 
@@ -1001,50 +998,52 @@ public class OffboardManager implements Runnable {
 
 		if(!traj.generate(d_time, model, target, null)) {
 			control.writeLogMessage(new LogMessage("[msp] Trajectory not feasible. Aborted.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
-			setTarget(Float.NaN,Float.NaN,Float.NaN,Float.NaN,0);
-			changeStateTo(MODE_LOITER);
 			return false;
 		}
-		
+
 
 
 		System.out.println("Generate trajectory: "+String.format("%#.1fs with costs of %#.2f", d_time, traj.getCost()*100));
 
 		traj_sta = System.currentTimeMillis();
 		traj_eta = (long)(d_time * 1000f) + traj_sta;
-		
+
 		// Send trajectory to MAVGCL
-		sendTrajectory(d_time, 0);
-	     
+		updateTrajectoryModel(d_time, 0);
+
 		return true;
 
 	}
-	
-	private void sendTrajectory(float length, float current) {
-		
-		traj_msg.ls = length;
-		traj_msg.fs = current;
-		traj_msg.ax = (float)traj.getAxisParamAlpha(0);
-		traj_msg.ay = (float)traj.getAxisParamAlpha(1);
-		
-		
-		traj_msg.bx = (float)traj.getAxisParamBeta(0);
-		traj_msg.by = (float)traj.getAxisParamBeta(1);
-		
-		
-		traj_msg.gx = (float)traj.getAxisParamGamma(0);
-		traj_msg.gy = (float)traj.getAxisParamGamma(1);
-		
-		traj_msg.sx = (float)traj.getInitialPosition(0);
-		traj_msg.sy = (float)traj.getInitialPosition(1);
-		
-		traj_msg.svx = (float)traj.getInitialVelocity(0);
-		traj_msg.svy = (float)traj.getInitialVelocity(1);
 
-		
-		traj_msg.tms = traj_sta;
-		
-	    control.sendMAVLinkMessage(traj_msg);
+	private void updateTrajectoryModel(float length, float current) {
+
+		if(length > 0) {
+
+			model.traj.ls = length;
+			model.traj.fs = current;
+			model.traj.ax = (float)traj.getAxisParamAlpha(0);
+			model.traj.ay = (float)traj.getAxisParamAlpha(1);
+
+
+			model.traj.bx = (float)traj.getAxisParamBeta(0);
+			model.traj.by = (float)traj.getAxisParamBeta(1);
+
+
+			model.traj.gx = (float)traj.getAxisParamGamma(0);
+			model.traj.gy = (float)traj.getAxisParamGamma(1);
+
+			model.traj.sx = (float)traj.getInitialPosition(0);
+			model.traj.sy = (float)traj.getInitialPosition(1);
+
+			model.traj.svx = (float)traj.getInitialVelocity(0);
+			model.traj.svy = (float)traj.getInitialVelocity(1);
+
+		} else {
+
+			model.traj.clear();
+
+		}
+
 	}
 
 

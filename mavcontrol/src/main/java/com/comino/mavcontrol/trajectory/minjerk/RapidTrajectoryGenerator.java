@@ -148,6 +148,7 @@ public class RapidTrajectoryGenerator {
 			return false;
 		
 		reset();
+		
 		_axis[0].setInitialState(model.state.l_x, model.state.l_vx, model.state.l_ax);
 		_axis[1].setInitialState(model.state.l_y, model.state.l_vy, model.state.l_ay);
 		_axis[2].setInitialState(model.state.l_z, model.state.l_vz, model.state.l_az);
