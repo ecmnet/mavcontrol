@@ -184,7 +184,8 @@ public class OffboardManager implements Runnable {
 		control.getStatusManager().addListener(Status.MSP_ARMED, (n) -> {
 			model.slam.clear(); model.traj.clear();
 			model.slam.tms = DataModel.getSynchronizedPX4Time_us();
-
+			updateTrajectoryModel(traj_length_s,-1);
+			
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
@@ -402,6 +403,7 @@ public class OffboardManager implements Runnable {
 	public void run() {
 
 		long watch_tms = System.currentTimeMillis();
+		long current_tms = System.currentTimeMillis();
 
 		double traj_tim = 0;
 
@@ -431,6 +433,7 @@ public class OffboardManager implements Runnable {
 
 		while(enabled) {
 
+			current_tms = System.currentTimeMillis();
 
 			if(old_mode != mode) {
 				if(MSP3DUtils.isNaN(target)) {
@@ -480,14 +483,14 @@ public class OffboardManager implements Runnable {
 
 				if(mode==MODE_TRAJECTORY) {
 					MSP3DUtils.convertCurrentState(model, current);
+
 					if(Float.isNaN(target.z))
 						target.z = current.z;
+
 					traj_length_s = MSP3DUtils.distance3D(target, current) * (float)Math.PI / MAX_SPEED;
-					traj_length_s = traj_length_s < 2 ? 2 : traj_length_s;
+					traj_length_s = traj_length_s < MIN_TRAJ_TIME ? MIN_TRAJ_TIME : traj_length_s;
 
-					if(traj_length_s < MIN_TRAJ_TIME) traj_length_s = MIN_TRAJ_TIME;
-
-					if(!doTrajectoryPLanning(traj_length_s)) {
+					if(!doTrajectoryPLanning(current_tms, traj_length_s)) {
 						traj_eta = 0;
 					}
 				}
@@ -607,11 +610,11 @@ public class OffboardManager implements Runnable {
 
 			case MODE_TRAJECTORY:	
 
-				watch_tms = System.currentTimeMillis();
+				watch_tms = current_tms;
 
 				path.set(target, current);
-				if(path.value < acceptance_radius || System.currentTimeMillis() > traj_eta) {
-					if(System.currentTimeMillis() < traj_eta) {
+				if(path.value < acceptance_radius || current_tms > traj_eta) {
+					if(current_tms < traj_eta) {
 						fireAction(model, path.value);
 					} else {
 						valid_setpoint = false;
@@ -625,7 +628,7 @@ public class OffboardManager implements Runnable {
 
 				model.slam.flags = Slam.OFFBOARD_FLAG_MOVE;
 
-				traj_tim = (System.currentTimeMillis()-traj_sta)/1000d;
+				traj_tim = (current_tms-traj_sta)/1000d;
 				traj.getState(traj_tim, traj_pos, traj_vel, traj_acc);
 
 				if(!Float.isNaN(target.w))
@@ -921,7 +924,6 @@ public class OffboardManager implements Runnable {
 
 	private void fireAction(DataModel model,float delta) {
 		if(already_fired)
-
 			return;
 		if(action_listener!= null)
 			action_listener.action(model, delta);
@@ -994,18 +996,16 @@ public class OffboardManager implements Runnable {
 		return (float)traj_length_s;
 	}
 
-	public boolean doTrajectoryPLanning( float d_time) {
+	public boolean doTrajectoryPLanning( long tms, float d_time) {
 
 		if(!traj.generate(d_time, model, target, null)) {
 			control.writeLogMessage(new LogMessage("[msp] Trajectory not feasible. Aborted.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
 			return false;
 		}
 
-
-
 		System.out.println("Generate trajectory: "+String.format("%#.1fs with costs of %#.2f", d_time, traj.getCost()*100));
 
-		traj_sta = System.currentTimeMillis();
+		traj_sta = tms;
 		traj_eta = (long)(d_time * 1000f) + traj_sta;
 
 		// Send trajectory to MAVGCL
@@ -1037,6 +1037,8 @@ public class OffboardManager implements Runnable {
 
 			model.traj.svx = (float)traj.getInitialVelocity(0);
 			model.traj.svy = (float)traj.getInitialVelocity(1);
+			
+			model.traj.tms = DataModel.getSynchronizedPX4Time_us();
 
 		} else {
 
