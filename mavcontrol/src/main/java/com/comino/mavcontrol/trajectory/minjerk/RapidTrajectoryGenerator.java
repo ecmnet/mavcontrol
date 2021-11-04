@@ -57,9 +57,9 @@ import georegression.struct.point.Vector4D_F32;
 
 public class RapidTrajectoryGenerator {
 	
-	private final double MIN_ACC		=  5.0;
-	private final double MAX_ACC		= 10.0;
-	private final double MAX_BODY_RATE  = 2;
+	private final double MIN_ACC		=  3.0;
+	private final double MAX_ACC		= 25.0;
+	private final double MAX_BODY_RATE  = 5;
 	private final double TIME_STEP      = 0.02;
 	
 

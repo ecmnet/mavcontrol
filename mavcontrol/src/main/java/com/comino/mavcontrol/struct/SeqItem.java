@@ -117,7 +117,8 @@ public class SeqItem {
 		}
 
 		if(action!=null) {
-			return action.execute();
+			action.execute();
+			return true;
 		}
 		return true;
 	}

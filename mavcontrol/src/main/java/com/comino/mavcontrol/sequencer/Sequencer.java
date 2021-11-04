@@ -16,38 +16,49 @@ import com.comino.mavcontrol.struct.SeqItem;
 import com.comino.mavutils.legacy.ExecutorService;
 
 public class Sequencer {
-	
+
 	private OffboardManager          offboard = null;
 	private MSPLogger 				 logger	  = null;
 	private DataModel 				 model	  = null;
 	private IMAVController         	 control  = null;
-	
+
 	protected LinkedList<SeqItem>    sequence = null;
 	protected LinkedList<SeqItem>    appended = null;
-	
-	
+	protected LinkedList<SeqItem>    replaced = null;
+
 	private Future<?> future;
 
-	
+
 	public Sequencer(OffboardManager offboard, MSPLogger logger, DataModel model, IMAVController control) {
-		
+
 		this.offboard = offboard;
 		this.logger = logger;
 		this.model = model;
 		this.control = control;
-		
+
 		this.sequence = new LinkedList<SeqItem>();
 		this.appended = new LinkedList<SeqItem>();
-		
+		this.replaced = new LinkedList<SeqItem>();
+
 	}
-	
-	public void add(SeqItem item) {
+
+	public void add(SeqItem ...item) {
 		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE))
-			sequence.add(item);
+			for(int i=0;i<item.length;i++)
+				sequence.add(item[i]);
 		else
-			appended.add(item);
+			for(int i=0;i<item.length;i++)
+				appended.add(item[i]);
 	}
-	
+
+	public void replace(SeqItem ...item) {
+		if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
+			for(int i=0;i<item.length;i++)
+				replaced.add(item[i]);
+			offboard.abort(false);	
+		}
+	}
+
 	public void clear() {
 		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
 			sequence.clear(); appended.clear();
@@ -64,7 +75,7 @@ public class Sequencer {
 			while(!future.isDone());
 		}
 	}
-	
+
 	public void execute(SeqItem item, ISeqAction completedAction) {
 		sequence.clear();  appended.clear();
 		sequence.add(item);
@@ -91,7 +102,7 @@ public class Sequencer {
 		}
 
 		if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
-			control.writeLogMessage(new LogMessage("[msp] Sequence already in execution.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+			//control.writeLogMessage(new LogMessage("[msp] Sequence already in execution.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 			return;
 		}
 		if(sequence.isEmpty()) {
@@ -102,14 +113,14 @@ public class Sequencer {
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, true);
 
 		future = ExecutorService.get().submit(() -> {
-			int i=0;
+			int step=0; 
 
 			try { Thread.sleep(50); } catch (InterruptedException e) { }
 
 			//		final ListIterator<SeqItem> i = sequence.listIterator();
 			while(!sequence.isEmpty() && model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
-				model.slam.wpcount  = ++i;
-				control.writeLogMessage(new LogMessage("[msp] Step "+i+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+				model.slam.wpcount  = ++step;
+				control.writeLogMessage(new LogMessage("[msp] Step "+step+ " executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				SeqItem item = sequence.poll();
 				if(item.hasTarget()) {
 					offboard.setTarget(item.getTarget(model),item.getAcceptanceRadius());
@@ -123,6 +134,13 @@ public class Sequencer {
 						sequence.clear();
 						control.writeLogMessage(new LogMessage("[msp] Sequence aborted.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 						return;
+					}
+
+					if(!replaced.isEmpty()) {
+						sequence.clear(); step = 0;
+						replaced.forEach((n) -> { sequence.add(n); });
+						replaced.clear();
+						continue;
 					}
 				}
 
@@ -138,6 +156,7 @@ public class Sequencer {
 					appended.clear();
 				}
 			}
+
 			offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, Float.NaN,0);
 			offboard.start(OffboardManager.MODE_LOITER);
 
@@ -154,5 +173,5 @@ public class Sequencer {
 			model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
 		});
 	}
-	
+
 }

@@ -185,7 +185,7 @@ public class OffboardManager implements Runnable {
 			model.slam.clear(); model.traj.clear();
 			model.slam.tms = DataModel.getSynchronizedPX4Time_us();
 			updateTrajectoryModel(traj_length_s,-1);
-			
+
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
@@ -278,21 +278,28 @@ public class OffboardManager implements Runnable {
 				System.out.println("Offboard wait timeout");
 				return false;
 			}
-			//	}
 		}
 		return true;
 	}
 
 	public void abort() {
+		abort(true);
+	}
+
+	public void abort(boolean loiter) {
+
 		if(!enabled)
 			return;
+
 		already_fired = false;
-		if(action_listener!=null)
+		if(action_listener!=null && loiter) {
 			changeStateTo(MODE_LOITER);
+			logger.writeLocalMsg("[msp] Offboard action aborted. Loitering.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+		} 
+		
 		synchronized(this) {
 			notify();
 		}
-		logger.writeLocalMsg("[msp] Offboard action aborted. Loitering.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 	}
 
 
@@ -433,6 +440,7 @@ public class OffboardManager implements Runnable {
 
 		while(enabled) {
 
+
 			current_tms = System.currentTimeMillis();
 
 			if(old_mode != mode) {
@@ -445,6 +453,7 @@ public class OffboardManager implements Runnable {
 			}
 
 			if(model.sys.isStatus(Status.MSP_RC_ATTACHED) && !safety_check()) {
+				logger.writeLocalMsg("[msp] Offboard: Disabled ",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				enabled = false;
 				continue;
 			}
@@ -471,6 +480,7 @@ public class OffboardManager implements Runnable {
 
 			// a new setpoint was provided
 			if(new_setpoint) {
+
 
 				if(mode==MODE_TRAJECTORY || mode == MODE_LOITER) {
 
@@ -1037,7 +1047,7 @@ public class OffboardManager implements Runnable {
 
 			model.traj.svx = (float)traj.getInitialVelocity(0);
 			model.traj.svy = (float)traj.getInitialVelocity(1);
-			
+
 			model.traj.tms = DataModel.getSynchronizedPX4Time_us();
 
 		} else {
