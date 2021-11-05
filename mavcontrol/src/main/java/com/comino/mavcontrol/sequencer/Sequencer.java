@@ -41,7 +41,7 @@ public class Sequencer {
 		this.replaced = new LinkedList<SeqItem>();
 
 	}
-
+	
 	public void add(SeqItem ...item) {
 		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE))
 			for(int i=0;i<item.length;i++)
@@ -51,12 +51,18 @@ public class Sequencer {
 				appended.add(item[i]);
 	}
 
-	public void replace(SeqItem ...item) {
+	public void replace_add(SeqItem ...item) {
 		if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE)) {
 			for(int i=0;i<item.length;i++)
 				replaced.add(item[i]);
 			offboard.abort(false);	
+		} else {
+			sequence.clear();
+			for(int i=0;i<item.length;i++)
+			  sequence.add(item[i]);
+			execute();
 		}
+			
 	}
 
 	public void clear() {

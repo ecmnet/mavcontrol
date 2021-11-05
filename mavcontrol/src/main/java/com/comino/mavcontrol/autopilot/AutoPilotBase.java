@@ -563,7 +563,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				control.sendMAVLinkMessage(msg);
 			}
 			
-			StandardActionFactory.precisionLanding(sequencer, control, model.vision.px, model.vision.py, model.vision.pw);
+			StandardActionFactory.precisionLanding(sequencer, control);
 			
 			// TEST planned landing
 			
@@ -593,48 +593,53 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	 */
 	public void returnToLand(boolean enable) {
 
-		Vector4D_F32 takeoff = takeoff_handler.getTakeoffPosition();
-		Vector4D_F32 landing_preparation = takeoff.copy();
-		landing_preparation.z = -0.8f;
-		landing_preparation.w = Float.NaN;
+//		Vector4D_F32 takeoff = takeoff_handler.getTakeoffPosition();
+//		Vector4D_F32 landing_preparation = takeoff.copy();
+//		landing_preparation.z = -0.8f;
+//		landing_preparation.w = Float.NaN;
 
 		if(control.isSimulation()) {
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
 			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, true);
+			model.vision.px = takeoff_handler.getTakeoffPosition().x + ((float)Math.random()-0.5f)*2.2f;
+			model.vision.py = takeoff_handler.getTakeoffPosition().y + ((float)Math.random()-0.5f)*2.2f;
+			model.vision.pw = ((float)Math.random()-0.5f)*12f;
 		}
+		
+		StandardActionFactory.returnToLand(sequencer, control, takeoff_handler.getTakeoffPosition(), enable);
 
 		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
 
-		sequencer.abort();
-
-		if(!enable) {
-			logger.writeLocalMsg("[msp] Return to launch aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-			return;
-		}
-
-		if(Float.isNaN(takeoff.x) || Float.isNaN(takeoff.y) || Float.isNaN(takeoff.z)) {
-			logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0,  Float.NaN );
-			return;
-		}
-
-		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-	
-		
-		sequencer.add(new SeqItem(takeoff,ISeqAction.ABS, null,500));
-		if(!model.vision.isStatus(Vision.FIDUCIAL_ENABLED))
-			sequencer.add(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
-		sequencer.add(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, ISeqAction.ABS, () -> {
-			if(!model.vision.isStatus(Vision.FIDUCIAL_ENABLED)) {
-				logger.writeLocalMsg("[msp] No precision landing.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, Float.NaN );
-				clearAutopilotActions();
-			} else {
-				precisionLand(true);
-			}
-			return true;
-		},0));
-		sequencer.execute();
+//		sequencer.abort();
+//
+//		if(!enable) {
+//			logger.writeLocalMsg("[msp] Return to launch aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+//			return;
+//		}
+//
+//		if(Float.isNaN(takeoff.x) || Float.isNaN(takeoff.y) || Float.isNaN(takeoff.z)) {
+//			logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0,  Float.NaN );
+//			return;
+//		}
+//
+//		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+//	
+//		
+//		sequencer.add(new SeqItem(takeoff,ISeqAction.ABS, null,500));
+//		if(!model.vision.isStatus(Vision.FIDUCIAL_ENABLED))
+//			sequencer.add(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
+//		sequencer.add(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, ISeqAction.ABS, () -> {
+//			if(!model.vision.isStatus(Vision.FIDUCIAL_ENABLED)) {
+//				logger.writeLocalMsg("[msp] No precision landing.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+//				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, Float.NaN );
+//				clearAutopilotActions();
+//			} else {
+//				precisionLand(true);
+//			}
+//			return true;
+//		},0));
+//		sequencer.execute();
 	}
 
 	/**

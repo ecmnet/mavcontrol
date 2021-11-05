@@ -3,6 +3,7 @@ package com.comino.mavcontrol.struct;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcontrol.controllib.ISpeedControl;
 import com.comino.mavcontrol.sequencer.ISeqAction;
+import com.comino.mavcontrol.sequencer.ISeqTarget;
 
 import georegression.struct.point.Vector4D_F32;
 
@@ -14,7 +15,8 @@ public class SeqItem {
 	private Vector4D_F32              target = null;
 	private float                         ar = 0;
 	private int                         mode = 0;
-	private ISeqAction                action = null;
+	private ISeqAction             action_cb = null;
+	private ISeqTarget             target_cb = null;
 	private int                      delay_ms = 0;
 
 
@@ -22,7 +24,7 @@ public class SeqItem {
 	public SeqItem(float x, float y, float z, float w, int mode, ISeqAction action, int delay_ms) {
 		this.target    = new Vector4D_F32(x,y,z,w);
 		this.mode      = mode;
-		this.action    = action;
+		this.action_cb    = action;
 		this.delay_ms  = delay_ms;
 	}
 	
@@ -30,7 +32,16 @@ public class SeqItem {
 		this.target    = new Vector4D_F32(x,y,z,w);
 		this.ar        = ar;
 		this.mode      = mode;
-		this.action    = action;
+		this.action_cb    = action;
+		this.delay_ms  = delay_ms;
+	}
+	
+	public SeqItem(ISeqTarget target, float ar, int mode, ISeqAction action, int delay_ms) {
+		this.target    = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
+		this.target_cb = target;
+		this.ar        = ar;
+		this.mode      = mode;
+		this.action_cb    = action;
 		this.delay_ms  = delay_ms;
 	}
 	
@@ -38,21 +49,21 @@ public class SeqItem {
 		this.target    = target.copy();
 		this.ar        = ar;
 		this.mode      = mode;
-		this.action    = action;
+		this.action_cb    = action;
 		this.delay_ms  = delay_ms;
 	}
 
 	public SeqItem(Vector4D_F32 target,int mode, ISeqAction action, int delay_ms) {
 		this.target    = target.copy();
 		this.mode      = mode;
-		this.action    = action;
+		this.action_cb = action;
 		this.delay_ms  = delay_ms;
 	}
 	
 	public SeqItem(Vector4D_F32 target, int mode, int delay_ms) {
 		this.target    = target.copy();
 		this.mode      = mode;
-		this.action    = null;
+		this.action_cb = null;
 		this.delay_ms  = delay_ms;
 	}
 
@@ -99,7 +110,11 @@ public class SeqItem {
 	}
 
 	public boolean hasTarget() {
-		return !Float.isNaN(target.x) || !Float.isNaN(target.y)  || !Float.isNaN(target.z)  || !Float.isNaN(target.w);
+		if(target_cb != null) {
+			target_cb.getTarget(target);
+			System.out.println("Item callback returned position: "+target);
+		}
+		return !Float.isNaN(target.x) || !Float.isNaN(target.y)  || !Float.isNaN(target.z);
 	}
 
 	public boolean isRelative() {
@@ -116,8 +131,8 @@ public class SeqItem {
 			try { Thread.sleep(delay_ms); } catch(Exception e) { }
 		}
 
-		if(action!=null) {
-			action.execute();
+		if(action_cb!=null) {
+			action_cb.execute();
 			return true;
 		}
 		return true;
