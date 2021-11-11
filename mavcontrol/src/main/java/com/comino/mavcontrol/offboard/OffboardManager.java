@@ -1033,20 +1033,25 @@ public class OffboardManager implements Runnable {
 			model.traj.fs = current;
 			model.traj.ax = (float)traj.getAxisParamAlpha(0);
 			model.traj.ay = (float)traj.getAxisParamAlpha(1);
+			model.traj.az = (float)traj.getAxisParamAlpha(2);
 
 
 			model.traj.bx = (float)traj.getAxisParamBeta(0);
 			model.traj.by = (float)traj.getAxisParamBeta(1);
+			model.traj.bz = (float)traj.getAxisParamBeta(2);
 
 
 			model.traj.gx = (float)traj.getAxisParamGamma(0);
 			model.traj.gy = (float)traj.getAxisParamGamma(1);
+			model.traj.gz = (float)traj.getAxisParamGamma(2);
 
 			model.traj.sx = (float)traj.getInitialPosition(0);
 			model.traj.sy = (float)traj.getInitialPosition(1);
+			model.traj.sz = (float)traj.getInitialPosition(2);
 
 			model.traj.svx = (float)traj.getInitialVelocity(0);
 			model.traj.svy = (float)traj.getInitialVelocity(1);
+			model.traj.svz = (float)traj.getInitialVelocity(2);
 
 			model.traj.tms = DataModel.getSynchronizedPX4Time_us();
 
