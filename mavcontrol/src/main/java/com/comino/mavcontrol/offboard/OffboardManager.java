@@ -532,6 +532,8 @@ public class OffboardManager implements Runnable {
 				break;
 
 			case MODE_LOITER:	// Loiter at current position, yaw controlled
+				
+				// TODO: Check Fiducial und use it to correct drift
 
 				model.slam.flags = Slam.OFFBOARD_FLAG_HOLD;
 				watch_tms = System.currentTimeMillis();
@@ -657,7 +659,7 @@ public class OffboardManager implements Runnable {
 
 
 			case MODE_LAND:    	// Performs an altitude controlled landing using precision lock for pos and yaw if available
-
+                // NOT USED; Sequencer instead
 				ctl.clear(); 
 				valid_setpoint = true;
 				watch_tms = System.currentTimeMillis();
@@ -948,9 +950,9 @@ public class OffboardManager implements Runnable {
 
 		model.slam.tms = DataModel.getSynchronizedPX4Time_us();
 
-		model.debug.x = (float)debug.x;
-		model.debug.y = (float)debug.y;
-		model.debug.z = (float)debug.z;
+//		model.debug.x = (float)debug.x;
+//		model.debug.y = (float)debug.y;
+//		model.debug.z = (float)debug.z;
 
 		if(valid_setpoint && path!=null && target!=null) {
 			model.slam.px = target.getX();

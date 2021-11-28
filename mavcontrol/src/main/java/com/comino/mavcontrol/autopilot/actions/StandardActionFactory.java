@@ -50,7 +50,9 @@ public class StandardActionFactory {
 		sequencer.execute();
 	}
 
-
+	/**
+	 * Performs a precision landing procedure
+	 */
 	public static void precisionLanding(Sequencer sequencer, IMAVController control) {
 		DataModel model = control.getCurrentModel();
 		// get fiducial position via cb if locked; otherwise use current
@@ -61,7 +63,7 @@ public class StandardActionFactory {
 				target.y = model.vision.py;
 				target.z = model.state.l_z + model.hud.al - 0.1f;
 				target.w = model.vision.pw;
-				
+
 				msg_msp_vision msg = new msg_msp_vision(2,1);
 				msg.px    =  model.vision.px;
 				msg.py    =  model.vision.py;
@@ -69,23 +71,30 @@ public class StandardActionFactory {
 				msg.pw    =  model.vision.pw;
 				msg.flags = model.vision.flags;
 				control.sendMAVLinkMessage(msg);
-				
+
 			} else {
 				MSP3DUtils.convertCurrentState(model, target);
 			}
-		    }, 0.05f , ISeqAction.ABS, () -> {
+		}, 0.05f , ISeqAction.ABS, () -> {
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND,0, 0, 0, Float.NaN);
 			return true;
 		}, 0));
 	}
 
-
+	/**
+	 * Performs return to land with precision landing 
+	 * @param takeoff coordinates (in air)
+	 * @param enable (false to abort)
+	 */
+	
+	private final static float RETURN_ALT = 0.8f;
+	
 	public static void returnToLand(Sequencer sequencer, IMAVController control, Vector4D_F32 takeoff, boolean enable) {
 
 		DataModel model = control.getCurrentModel();
 
 		Vector4D_F32 landing_preparation = takeoff.copy();
-		landing_preparation.z = -0.8f;
+		landing_preparation.z = -RETURN_ALT;   
 		landing_preparation.w = Float.NaN;
 
 		if(control.isSimulation()) {
@@ -126,9 +135,10 @@ public class StandardActionFactory {
 						if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
 							target.x = model.vision.px;
 							target.y = model.vision.py;
+							// TODO: Check/Test altitude: Should be 0.1m above landing platform in all cases
 							target.z = model.state.l_z + model.hud.al - 0.1f;
 							target.w = model.vision.pw;
-							
+
 							msg_msp_vision msg = new msg_msp_vision(2,1);
 							msg.px    =  model.vision.px;
 							msg.py    =  model.vision.py;
@@ -136,7 +146,7 @@ public class StandardActionFactory {
 							msg.pw    =  model.vision.pw;
 							msg.flags = model.vision.flags;
 							control.sendMAVLinkMessage(msg);
-							
+
 						} else {
 							target.setTo(landing_preparation);
 						}
