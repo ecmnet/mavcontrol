@@ -4,6 +4,7 @@ import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
+import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import org.mavlink.messages.lquac.msg_msp_vision;
 
 import com.comino.mavcom.control.IMAVController;
@@ -86,9 +87,9 @@ public class StandardActionFactory {
 	 * @param takeoff coordinates (in air)
 	 * @param enable (false to abort)
 	 */
-	
+
 	private final static float RETURN_ALT = 0.8f;
-	
+
 	public static void returnToLand(Sequencer sequencer, IMAVController control, Vector4D_F32 takeoff, boolean enable) {
 
 		DataModel model = control.getCurrentModel();
@@ -157,6 +158,43 @@ public class StandardActionFactory {
 					);
 		}
 
+	}
+
+	public static void simulateFiducial(IMAVController control, float radius) {
+
+		final DataModel model = control.getCurrentModel();
+
+		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK)) {
+			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
+				model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
+				msg_msp_vision msg = new msg_msp_vision(2,1);
+				msg.flags =  model.vision.flags;
+				control.sendMAVLinkMessage(msg);
+			}
+			return;
+		}
+
+		if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
+
+			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
+			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, true);
+
+			model.vision.px = model.state.l_x + ((float)Math.random()-0.5f)*radius;
+			model.vision.py = model.state.l_y + ((float)Math.random()-0.5f)*radius;
+			model.vision.pw = ((float)Math.random()-0.5f)*12f;
+			//		model.vision.pw = Float.NaN;
+		}
+
+		// simulate LPOS drift
+		model.vision.py = model.vision.py +0.0001f;
+
+		msg_msp_vision msg = new msg_msp_vision(2,1);
+		msg.px    =  model.vision.px;
+		msg.py    =  model.vision.py;
+		msg.pz    =  model.vision.pz;
+		msg.pw    =  model.vision.pw;
+		msg.flags =  model.vision.flags;
+		control.sendMAVLinkMessage(msg);
 	}
 
 }
