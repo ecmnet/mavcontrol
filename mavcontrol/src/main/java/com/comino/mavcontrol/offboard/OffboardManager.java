@@ -54,14 +54,17 @@ import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.model.segment.Vision;
 import com.comino.mavcom.param.PX4Parameters;
+import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.autopilot.actions.StandardActionFactory;
 import com.comino.mavcontrol.controllib.IYawSpeedControl;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.point.Point3D_F64;
+import georegression.struct.point.Vector2D_F32;
 import georegression.struct.point.Vector4D_F32;
 
 public class OffboardManager implements Runnable {
@@ -89,7 +92,7 @@ public class OffboardManager implements Runnable {
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(10);  // Min yawSpeed rad/s
 	private static final float RAMP_YAW_SPEED                       = MSPMathUtils.toRad(30); // Ramp up Speed for yaw turning
 
-	private static final float MAX_SPEED							= 1.0f;					  // Max speed m/s
+	private static final float MAX_SPEED							= 0.75f;					  // Max speed m/s
 	private static final float MIN_SPEED							= 0f;					  // Min speed m/s
 
 	private static final float LAND_MODE_ALT                        = 0.10f;                  // rel. altitude to switch to PX4 landing 
@@ -104,7 +107,8 @@ public class OffboardManager implements Runnable {
 
 	private static final float YAW_PV								= 0.10f;                  // P factor for yaw speed control
 	private static final float YAW_P								= 0.40f;                  // P factor for yaw position control
-	private static final float PXY_PV								= 0.90f;                  // P factor for XY adjustment precision landing
+	private static final float PXY_PV								= 2.00f;                  // P factor for XY adjustment fiducial control
+	private static final float PXY_MAX                              = 0.30f;                  // Maximum speed fiducial adjustment
 
 	private static final float YAW_ACCEPT                	    	= MSPMathUtils.toRad(0.3);// Acceptance yaw deviation
 
@@ -149,6 +153,10 @@ public class OffboardManager implements Runnable {
 	private boolean    	valid_setpoint                   			= false;
 	private boolean    	new_setpoint                   	 			= false;
 
+	private boolean             is_fiducial                          = false;
+	private final  Vector2D_F32 fiducial_delta			    	    = new Vector2D_F32(0,0);	 // Fiducial delta when detected
+
+
 	private long        setpoint_tms                        		= 0;
 	private long        setpoint_timeout                       		= SETPOINT_TIMEOUT_MS;
 	private long	    last_update_tms                             = 0;
@@ -167,11 +175,17 @@ public class OffboardManager implements Runnable {
 		this.model          = control.getCurrentModel();
 		this.logger         = MSPLogger.getInstance();
 
+		this.target.setTo(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 
 		MSPConfig config	= MSPConfig.getInstance();
 
 		acceptance_radius_std = config.getFloatProperty("autopilot_acceptance_radius", String.valueOf(acceptance_radius_std));
+
+		if(control.isSimulation())
+			acceptance_radius_std = 0.3f;
+
 		System.out.println("Autopilot: acceptance radius: "+acceptance_radius_std+" m");
+
 		acceptance_radius = acceptance_radius_std;
 
 		max_speed = config.getFloatProperty("autopilot_max_speed", String.valueOf(max_speed));
@@ -296,7 +310,7 @@ public class OffboardManager implements Runnable {
 			changeStateTo(MODE_LOITER);
 			logger.writeLocalMsg("[msp] Offboard action aborted. Loitering.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 		} 
-		
+
 		synchronized(this) {
 			notify();
 		}
@@ -481,7 +495,6 @@ public class OffboardManager implements Runnable {
 			// a new setpoint was provided
 			if(new_setpoint) {
 
-
 				if(mode==MODE_TRAJECTORY || mode == MODE_LOITER) {
 
 					// Safety: handle NaN targets for position
@@ -509,7 +522,6 @@ public class OffboardManager implements Runnable {
 				start.setTo(current);
 				ctl.set(spd);
 
-
 			}
 
 			delta_sec = (System.currentTimeMillis() - last_update_tms ) / 1000.0f;
@@ -519,6 +531,7 @@ public class OffboardManager implements Runnable {
 
 			case MODE_INIT:
 
+				is_fiducial = false; 
 				model.slam.flags = Slam.OFFBOARD_FLAG_NONE;
 				watch_tms = System.currentTimeMillis();
 				sendTypeControlToVehice(MAV_MASK.MASK_LOITER_SETPOINT_TYPE);
@@ -526,14 +539,13 @@ public class OffboardManager implements Runnable {
 
 			case MODE_IDLE:
 
+				is_fiducial = false; 
 				model.slam.flags = Slam.OFFBOARD_FLAG_NONE;
 				watch_tms = System.currentTimeMillis();
 				sendTypeControlToVehice(MAV_MASK.MASK_IDLE_SETPOINT_TYPE);
 				break;
 
 			case MODE_LOITER:	// Loiter at current position, yaw controlled
-				
-				// TODO: Check Fiducial und use it to correct drift
 
 				model.slam.flags = Slam.OFFBOARD_FLAG_HOLD;
 				watch_tms = System.currentTimeMillis();
@@ -541,7 +553,28 @@ public class OffboardManager implements Runnable {
 				if(Float.isNaN(target.w)) {
 					target.setW(MSPMathUtils.normAngle(model.attitude.y));
 				}
+				
+				if(control.isSimulation())
+					StandardActionFactory.simulateFiducial(control,0.1f);
 
+				if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) { 
+                // Control XY loitering by fiducial if visible 
+					if(!is_fiducial) {
+						fiducial_delta.setTo(target.x - model.vision.px,target.y - model.vision.py);
+						logger.writeLocalMsg("[msp] Drift compensation active",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+						is_fiducial = true;
+					}
+
+				} else {
+					if(is_fiducial) {
+						target.setTo(model.vision.px+fiducial_delta.x,model.vision.py+fiducial_delta.y,target.z,target.w);
+						logger.writeLocalMsg("[msp] Drift compensation deactivated",MAV_SEVERITY.MAV_SEVERITY_INFO);
+					fiducial_delta.setTo(0,0);
+					is_fiducial = false; 
+					}
+				}
+
+				// Control XY loitering by original target
 				yaw_diff = MSPMathUtils.normAngle(target.w - current.w);
 
 				if(valid_setpoint && Math.abs(yaw_diff) < YAW_ACCEPT) {
@@ -551,8 +584,6 @@ public class OffboardManager implements Runnable {
 
 				if(!already_fired) {
 
-					// simple P controller for yaw with ramp up
-					// TODO: Still required?
 					d_yaw_target = yaw_diff * YAW_P;
 					if(d_yaw_target > 0) {
 						d_yaw = d_yaw + (RAMP_YAW_SPEED * delta_sec);
@@ -565,28 +596,31 @@ public class OffboardManager implements Runnable {
 					}
 
 
+					if(Math.abs(d_yaw)>MAX_YAW_SPEED)
+						d_yaw = MAX_YAW_SPEED * Math.signum(d_yaw_target);
+
 					// limit min yaw speed if action not fired yet
 					if(Math.abs(d_yaw)< MIN_YAW_SPEED)
 						d_yaw = MIN_YAW_SPEED * Math.signum(d_yaw_target);
 
-					if(Math.abs(d_yaw)>MAX_YAW_SPEED)
-						d_yaw = MAX_YAW_SPEED * Math.signum(d_yaw_target);
-
-					cmd.setTo(target.x,target.y,target.z, current.w + d_yaw);
-
 				} else {
-
-					cmd.setTo(target.x,target.y,target.z, target.w);
+					d_yaw = 0;
 				}
 
-				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
+				if(is_fiducial && !(Float.isNaN(model.vision.px) || Float.isNaN(model.vision.py)))
+					cmd.setTo(model.vision.px+fiducial_delta.x,model.vision.py+fiducial_delta.y,target.z, target.w+d_yaw);
+				else
+					cmd.setTo(target.x,target.y,target.z, target.w+d_yaw);
 
+				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 				updateSLAMModel(target,null);
 
 				break;
 
 			case MODE_LOCAL_SPEED: 	// Direct speed control via Joystick
 				// TODO: Use PX4 for this directly
+				
+				is_fiducial = false; 
 
 				model.slam.flags = Slam.OFFBOARD_FLAG_SPEED;
 				path.set(target_speed.x, target_speed.y, target_speed.z);
@@ -623,6 +657,8 @@ public class OffboardManager implements Runnable {
 			case MODE_TRAJECTORY:	
 
 				watch_tms = current_tms;
+				
+				is_fiducial = false; 
 
 				path.set(target, current);
 				if(path.value < acceptance_radius || current_tms > traj_eta) {
@@ -659,7 +695,10 @@ public class OffboardManager implements Runnable {
 
 
 			case MODE_LAND:    	// Performs an altitude controlled landing using precision lock for pos and yaw if available
-                // NOT USED; Sequencer instead
+				// NOT USED; Sequencer instead
+				
+				is_fiducial = false; 
+				
 				ctl.clear(); 
 				valid_setpoint = true;
 				watch_tms = System.currentTimeMillis();
@@ -703,7 +742,7 @@ public class OffboardManager implements Runnable {
 
 					// Maximum adjustment speed is determined max speed or absolute value of 0.3m/s
 					if(ctl.value > max) ctl.value = max;
-					if(ctl.value > 0.4) ctl.value = 0.4f;
+					if(ctl.value > PXY_MAX) ctl.value = PXY_MAX;
 
 					ctl.get(cmd);
 					lock = LOCK_NONE;
@@ -771,7 +810,7 @@ public class OffboardManager implements Runnable {
 
 
 		logger.writeLocalMsg("[msp] Offboard manager stopped",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-		already_fired = false; valid_setpoint = false; new_setpoint = false;
+		already_fired = false; valid_setpoint = false; new_setpoint = false; is_fiducial = false;
 
 	}
 
@@ -950,9 +989,9 @@ public class OffboardManager implements Runnable {
 
 		model.slam.tms = DataModel.getSynchronizedPX4Time_us();
 
-//		model.debug.x = (float)debug.x;
-//		model.debug.y = (float)debug.y;
-//		model.debug.z = (float)debug.z;
+		//		model.debug.x = (float)debug.x;
+		//		model.debug.y = (float)debug.y;
+		//		model.debug.z = (float)debug.z;
 
 		if(valid_setpoint && path!=null && target!=null) {
 			model.slam.px = target.getX();

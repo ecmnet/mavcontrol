@@ -171,7 +171,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		registerLanding();
 
 		registerDisarm();
-		
+
 
 
 	}
@@ -182,7 +182,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
 
 			takeoff_handler.abort("Disarmed");
-			//			if(future!=null) future.cancel(true);
+			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
 			wq.removeTask("LP",future);
 
 			if(offboard.isEnabled()) {
@@ -303,11 +303,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		case MSP_AUTOCONTROL_MODE.FCUM:
 			if(enable) {
 				wq.addSingleTask("LP", 500, () -> {
-				control.writeLogMessage(new LogMessage("[msp] FCUM mode entered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,1 );
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
+					control.writeLogMessage(new LogMessage("[msp] FCUM mode entered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,1 );
+					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+							MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+							MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
 				});
 			} else {
 				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FCUM)) {
@@ -347,11 +347,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
 			if(control.isSimulation())
 				// SequenceTestFactory.randomSequence(sequencer);
-			if(control.isSimulation()) {
-				StandardActionFactory.square(sequencer, 2);
-			}
-			else
-				logger.writeLocalMsg("[msp] Only available in simulation environment",MAV_SEVERITY.MAV_SEVERITY_INFO);
+				if(control.isSimulation()) {
+					StandardActionFactory.square(sequencer, 2);
+				}
+				else
+					logger.writeLocalMsg("[msp] Only available in simulation environment",MAV_SEVERITY.MAV_SEVERITY_INFO);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TAKEOFF:
 			if(enable)
@@ -434,25 +434,25 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public void moveto(float x, float y, float z, float yaw) {
 
 		final Vector4D_F32 target = new Vector4D_F32(x,y,z,yaw);
-//		if(flowCheck && !model.sys.isSensorAvailable(Status.MSP_PIX4FLOW_AVAILABILITY)) {
-//			logger.writeLocalMsg("[msp] Aborting. No Flow available.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-//			return;
-//		}
-//
-//		if(planner.isStarted()) {
-//			planner.setTarget(target);
-//			return;
-//		}
-//
-//		sequencer.abort();
-//
-//		offboard.registerActionListener( (m,d) -> {
-//			offboard.start(OffboardManager.MODE_LOITER);
-//			logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-//		});
-//		offboard.setTarget(target);
-//		offboard.start(OffboardManager.MODE_SPEED_POSITION);
-		
+		//		if(flowCheck && !model.sys.isSensorAvailable(Status.MSP_PIX4FLOW_AVAILABILITY)) {
+		//			logger.writeLocalMsg("[msp] Aborting. No Flow available.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+		//			return;
+		//		}
+		//
+		//		if(planner.isStarted()) {
+		//			planner.setTarget(target);
+		//			return;
+		//		}
+		//
+		//		sequencer.abort();
+		//
+		//		offboard.registerActionListener( (m,d) -> {
+		//			offboard.start(OffboardManager.MODE_LOITER);
+		//			logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+		//		});
+		//		offboard.setTarget(target);
+		//		offboard.start(OffboardManager.MODE_SPEED_POSITION);
+
 		offboard.startTrajectory(target);
 
 
@@ -474,7 +474,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public void offboardPosHold(boolean enable) {
 		if(enable) {
 			offboard.start();
-			if(!model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_RC_ATTACHED)) {
+			if(!model.sys.isStatus(Status.MSP_LANDED) && (!model.sys.isStatus(Status.MSP_RC_ATTACHED) || model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FCUM)) ) {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
 					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
 						offboard.stop();
@@ -495,9 +495,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	 * AutopilotAction: Aborts current AutoPilot sequence
 	 */
 	public void abort() {
+		
 		sequencer.abort();
 		clearAutopilotActions();
-		model.sys.autopilot &= 0b11000000000000000000000000000001;
+		
+		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FCUM))
+		  model.sys.autopilot &= 0b11000000000000000000000000000001;
+		
 		if(model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
 			if(model.sys.isStatus(Status.MSP_RC_ATTACHED)) {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
@@ -540,49 +544,29 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			return;
 		}
 
+		if(control.isSimulation())
+			StandardActionFactory.simulateFiducial(control,2f);
 
-		if(control.isSimulation()) {
-			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
-			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, true);
-		}
+		StandardActionFactory.precisionLanding(sequencer, control);
 
-	//	ExecutorService.get().submit(() -> {
+		// TEST planned landing
 
-			if(control.isSimulation()) {
-				model.vision.px = model.state.l_x + ((float)Math.random()-0.5f)*2.2f;
-				model.vision.py = model.state.l_y + ((float)Math.random()-0.5f)*2.2f;
-				model.vision.pw = ((float)Math.random()-0.5f)*12f;
-				//		model.vision.pw = Float.NaN;
+		//
+		//			if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
+		//				control.writeLogMessage(new LogMessage("[msp] Precision landing without lock.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+		//				if(!offboard.start_wait(OffboardManager.MODE_LAND, 30000)) {
+		//					control.writeLogMessage(new LogMessage("[msp] Precision landing procedure aborted", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+		//				}
+		//				//	offboardPosHold(true);
+		//			} else {
+		//
+		//				control.writeLogMessage(new LogMessage("[msp] Precision landing triggered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+		//				if(!offboard.start_wait(OffboardManager.MODE_LAND, 30000)) {
+		//					control.writeLogMessage(new LogMessage("[msp] Precision landing procedure aborted", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+		//				}
+		//			}
 
-				msg_msp_vision msg = new msg_msp_vision(2,1);
-				msg.px    =  model.vision.px;
-				msg.py    =  model.vision.py;
-				msg.pz    =  model.vision.pz;
-				msg.pw    =  model.vision.pw;
-				msg.flags = model.vision.flags;
-				control.sendMAVLinkMessage(msg);
-			}
-			
-			StandardActionFactory.precisionLanding(sequencer, control);
-			
-			// TEST planned landing
-			
-//
-//			if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
-//				control.writeLogMessage(new LogMessage("[msp] Precision landing without lock.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-//				if(!offboard.start_wait(OffboardManager.MODE_LAND, 30000)) {
-//					control.writeLogMessage(new LogMessage("[msp] Precision landing procedure aborted", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-//				}
-//				//	offboardPosHold(true);
-//			} else {
-//
-//				control.writeLogMessage(new LogMessage("[msp] Precision landing triggered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-//				if(!offboard.start_wait(OffboardManager.MODE_LAND, 30000)) {
-//					control.writeLogMessage(new LogMessage("[msp] Precision landing procedure aborted", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-//				}
-//			}
-
-//		});
+		//		});
 
 	}
 
@@ -593,10 +577,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	 */
 	public void returnToLand(boolean enable) {
 
-//		Vector4D_F32 takeoff = takeoff_handler.getTakeoffPosition();
-//		Vector4D_F32 landing_preparation = takeoff.copy();
-//		landing_preparation.z = -0.8f;
-//		landing_preparation.w = Float.NaN;
+		//		Vector4D_F32 takeoff = takeoff_handler.getTakeoffPosition();
+		//		Vector4D_F32 landing_preparation = takeoff.copy();
+		//		landing_preparation.z = -0.8f;
+		//		landing_preparation.w = Float.NaN;
 
 		if(control.isSimulation()) {
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
@@ -605,41 +589,41 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			model.vision.py = takeoff_handler.getTakeoffPosition().y + ((float)Math.random()-0.5f)*2.2f;
 			model.vision.pw = ((float)Math.random()-0.5f)*12f;
 		}
-		
+
 		StandardActionFactory.returnToLand(sequencer, control, takeoff_handler.getTakeoffPosition(), enable);
 
 		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
 
-//		sequencer.abort();
-//
-//		if(!enable) {
-//			logger.writeLocalMsg("[msp] Return to launch aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-//			return;
-//		}
-//
-//		if(Float.isNaN(takeoff.x) || Float.isNaN(takeoff.y) || Float.isNaN(takeoff.z)) {
-//			logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0,  Float.NaN );
-//			return;
-//		}
-//
-//		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-//	
-//		
-//		sequencer.add(new SeqItem(takeoff,ISeqAction.ABS, null,500));
-//		if(!model.vision.isStatus(Vision.FIDUCIAL_ENABLED))
-//			sequencer.add(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
-//		sequencer.add(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, ISeqAction.ABS, () -> {
-//			if(!model.vision.isStatus(Vision.FIDUCIAL_ENABLED)) {
-//				logger.writeLocalMsg("[msp] No precision landing.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-//				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, Float.NaN );
-//				clearAutopilotActions();
-//			} else {
-//				precisionLand(true);
-//			}
-//			return true;
-//		},0));
-//		sequencer.execute();
+		//		sequencer.abort();
+		//
+		//		if(!enable) {
+		//			logger.writeLocalMsg("[msp] Return to launch aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+		//			return;
+		//		}
+		//
+		//		if(Float.isNaN(takeoff.x) || Float.isNaN(takeoff.y) || Float.isNaN(takeoff.z)) {
+		//			logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+		//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0,  Float.NaN );
+		//			return;
+		//		}
+		//
+		//		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
+		//	
+		//		
+		//		sequencer.add(new SeqItem(takeoff,ISeqAction.ABS, null,500));
+		//		if(!model.vision.isStatus(Vision.FIDUCIAL_ENABLED))
+		//			sequencer.add(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
+		//		sequencer.add(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, ISeqAction.ABS, () -> {
+		//			if(!model.vision.isStatus(Vision.FIDUCIAL_ENABLED)) {
+		//				logger.writeLocalMsg("[msp] No precision landing.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+		//				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, Float.NaN );
+		//				clearAutopilotActions();
+		//			} else {
+		//				precisionLand(true);
+		//			}
+		//			return true;
+		//		},0));
+		//		sequencer.execute();
 	}
 
 	/**
