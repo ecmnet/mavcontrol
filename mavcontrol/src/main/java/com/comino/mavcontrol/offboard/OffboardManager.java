@@ -765,14 +765,6 @@ public class OffboardManager implements Runnable {
 				// Todo: Check abort condition and abort landing if necessary (gain height of 1m and loiter)
 				//       e.g. if landing target not reachable, or current z-speed is upwards
 
-
-				//				model.debug.x = (float)ctl.value;
-				//				model.debug.y = (float)yaw_diff;
-				//				model.debug.z = (float)tmp;
-
-				//System.out.println(cmd+" - "+ctl);
-
-
 				// Once in turnmode, stay there
 				if(tmp < LAND_MODE_ALT) {
 					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, Float.NaN);		

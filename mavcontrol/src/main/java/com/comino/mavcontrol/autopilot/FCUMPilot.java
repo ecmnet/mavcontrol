@@ -84,7 +84,6 @@ import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavutils.MSPMathUtils;
-import com.ochafik.lang.jnaerator.runtime.This;
 
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector4D_F32;
