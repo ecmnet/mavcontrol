@@ -218,7 +218,7 @@ public class TakeOffHandler {
 								MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 						state = STATE_IDLE;
 					}
-				}
+				} 
 
 				if(System.currentTimeMillis() > tms_takeoff_plan) {
 					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_TAKEOFF, (cmd, result) -> {
@@ -249,13 +249,15 @@ public class TakeOffHandler {
 
 				break;
 			case STATE_LOITER:
+				
 				if((System.currentTimeMillis() - tms_takeoff_act) > max_tko_time_ms) {
 					control.writeLogMessage(new LogMessage("[msp] Takeoff (2) did not complete within "+(max_tko_time_ms/1000)+" secs",
 							MAV_SEVERITY.MAV_SEVERITY_WARNING));
 					state = STATE_IDLE;
 				}
 
-				if(model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER)) {
+				// Note: In SITL NAVState is not reached without global position
+				if(model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) | control.isSimulation()) {
 					offboard.start();
 					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
 						if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
