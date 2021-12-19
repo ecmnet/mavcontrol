@@ -130,7 +130,7 @@ public class Sequencer {
 				SeqItem item = sequence.poll();
 				if(item.hasTarget()) {
 					offboard.setTarget(item.getTarget(model),item.getAcceptanceRadius());
-					if(!offboard.start_wait(OffboardManager.MODE_TRAJECTORY, item.getTimeout_ms())) {
+					if(!offboard.start_wait(OffboardManager.MODE_TRAJECTORY, !sequence.isEmpty(),item.getTimeout_ms())) {
 						model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.WAYPOINT_MODE, false);
 						control.writeLogMessage(new LogMessage("[msp] Sequence timeout occurred.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 						break;

@@ -167,6 +167,8 @@ public class OffboardManager implements Runnable {
 	private final Point3D_F64 traj_vel								= new Point3D_F64(0,0,0);
 	private final Point3D_F64 traj_pos								= new Point3D_F64(0,0,0);
 	private final Point3D_F64 debug								    = new Point3D_F64(0,0,0);
+	
+	private boolean wait_for_completion                             = false;  // Do not consider acceptance radiua but time only
 
 
 	public OffboardManager(IMAVController control, PX4Parameters params) {
@@ -229,7 +231,7 @@ public class OffboardManager implements Runnable {
 	}
 
 	public void start_wait(long timeout) {
-		start_wait(MODE_LOITER, timeout);
+		start_wait(MODE_LOITER, false, timeout);
 	}
 
 	public void startTrajectory(Vector4D_F32 tgt) {
@@ -256,12 +258,13 @@ public class OffboardManager implements Runnable {
 		}
 	}
 
-	public boolean start_wait(int m, long timeout) {
+	public boolean start_wait(int m, boolean wait, long timeout) {
 		long tstart = System.currentTimeMillis();
 		if(!valid_setpoint) {
 			MSP3DUtils.convertCurrentState(model, current);
 			setTarget(current);
 		}
+		wait_for_completion = wait;
 		start(m);
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
 			control.writeLogMessage(new LogMessage("[msp] Try to switch to offboard.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -554,8 +557,8 @@ public class OffboardManager implements Runnable {
 					target.setW(MSPMathUtils.normAngle(model.attitude.y));
 				}
 				
-				if(control.isSimulation())
-					StandardActionFactory.simulateFiducial(control,0.1f);
+//				if(control.isSimulation())
+//					StandardActionFactory.simulateFiducial(control,0.1f);
 
 				if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) { 
                 // Control XY loitering by fiducial if visible 
@@ -659,12 +662,13 @@ public class OffboardManager implements Runnable {
 				watch_tms = current_tms;
 				
 				is_fiducial = false; 
-
 				path.set(target, current);
-				if(path.value < acceptance_radius || current_tms > traj_eta) {
+				
+				if((path.value < acceptance_radius && wait_for_completion) || current_tms > traj_eta) {
 					if(current_tms < traj_eta) {
 						fireAction(model, path.value);
 					} else {
+						wait_for_completion = false;
 						valid_setpoint = false;
 						logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 						fireAction(model, path.value);
