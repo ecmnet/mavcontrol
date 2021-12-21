@@ -87,7 +87,7 @@ public class OffboardManager implements Runnable {
 	private static final int  LOCK_XYZ                              = 4;
 
 
-	private static final int  UPDATE_RATE                 			= 50;					  // offboard update rate in ms
+	private static final int  UPDATE_RATE                 			= 20;					  // offboard update rate in ms
 
 	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(60); // Max YawSpeed rad/s
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(10);  // Min yawSpeed rad/s
@@ -170,7 +170,6 @@ public class OffboardManager implements Runnable {
 	private final Point3D_F64 debug								    = new Point3D_F64(0,0,0);
 	
 	private boolean check_acceptance_radius                         = false;  // Do not consider acceptance radiua but time only
-	private final WorkQueue wq = WorkQueue.getInstance();
 
 	public OffboardManager(IMAVController control, PX4Parameters params) {
 
@@ -667,13 +666,13 @@ public class OffboardManager implements Runnable {
 						fireAction(model, path.value);
 					} else {
 						check_acceptance_radius = false;
-						valid_setpoint = false;
-						logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+						// use current target aas target forr LOITER
+						valid_setpoint = true;
 						fireAction(model, path.value);
-						target.setTo(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
 						changeStateTo(MODE_LOITER);	
 						updateTrajectoryModel(traj_length_s,-1);
-						continue;
+						logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+						break;
 						
 					}
 				}
@@ -690,7 +689,7 @@ public class OffboardManager implements Runnable {
 
 				sendTrajectoryControlToVehice(traj_pos,traj_vel,traj_acc,yawSpeedControl.update(yaw_diff, delta_sec));
 
-				debug.setTo(traj_vel);
+				// debug.setTo(traj_vel);
 
 				updateTrajectoryModel(traj_length_s, (float)traj_tim);
 				updateSLAMModel(target,path);
@@ -856,6 +855,7 @@ public class OffboardManager implements Runnable {
 			pos_cmd.yaw = MSPMathUtils.normAngle(target.w);
 
 		pos_cmd.coordinate_frame = frame;
+		pos_cmd.time_boot_ms = model.sys.t_boot_ms;
 
 
 		if(!control.sendMAVLinkMessage(pos_cmd))
@@ -929,7 +929,7 @@ public class OffboardManager implements Runnable {
 
 		speed_cmd.coordinate_frame = frame;
 
-
+		speed_cmd.time_boot_ms = model.sys.t_boot_ms;
 		if(!control.sendMAVLinkMessage(speed_cmd))
 			enabled = false;
 		else
@@ -976,9 +976,9 @@ public class OffboardManager implements Runnable {
 		synchronized(this) {
 			already_fired = true;
 			notify();
-			if(action_listener!= null)
-				action_listener.action(model, delta);
 		}
+		if(action_listener!= null)
+			action_listener.action(model, delta);
 	}
 
 	private void updateSLAMModel(Vector4D_F32 target, Polar3D_F32 path ) {
@@ -1053,7 +1053,7 @@ public class OffboardManager implements Runnable {
 		System.out.println("Generate trajectory: "+String.format("%#.1fs with costs of %#.2f", d_time, traj.getCost()*100));
 
 		traj_sta = tms;
-		traj_eta = (long)(d_time * 1000f) + traj_sta;
+		traj_eta = (long)(d_time * 1000f) + traj_sta+100;
 
 		// Send trajectory to MAVGCL
 		updateTrajectoryModel(d_time, 0);
