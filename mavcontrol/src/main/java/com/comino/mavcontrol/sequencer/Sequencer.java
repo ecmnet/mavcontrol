@@ -163,8 +163,8 @@ public class Sequencer {
 				}
 			}
 
-			offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, Float.NaN,0);
-			offboard.start(OffboardManager.MODE_LOITER);
+//			offboard.setTarget(Float.NaN, Float.NaN, Float.NaN, Float.NaN,0);
+//			offboard.start(OffboardManager.MODE_LOITER);
 
 			model.slam.wpcount = 0;
 			sequence.clear();

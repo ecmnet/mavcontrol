@@ -62,6 +62,7 @@ import com.comino.mavcontrol.controllib.IYawSpeedControl;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavutils.MSPMathUtils;
+import com.comino.mavutils.workqueue.WorkQueue;
 
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector2D_F32;
@@ -86,13 +87,13 @@ public class OffboardManager implements Runnable {
 	private static final int  LOCK_XYZ                              = 4;
 
 
-	private static final int  UPDATE_RATE                 			= 20;					  // offboard update rate in ms
+	private static final int  UPDATE_RATE                 			= 50;					  // offboard update rate in ms
 
 	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(60); // Max YawSpeed rad/s
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(10);  // Min yawSpeed rad/s
 	private static final float RAMP_YAW_SPEED                       = MSPMathUtils.toRad(30); // Ramp up Speed for yaw turning
 
-	private static final float MAX_SPEED							= 0.75f;					  // Max speed m/s
+	private static final float MAX_SPEED							= 0.75f;			      // Max speed m/s
 	private static final float MIN_SPEED							= 0f;					  // Min speed m/s
 
 	private static final float LAND_MODE_ALT                        = 0.10f;                  // rel. altitude to switch to PX4 landing 
@@ -147,7 +148,7 @@ public class OffboardManager implements Runnable {
 	private long traj_eta  = 0;
 	private long traj_sta  = 0;
 
-	private float	 	acceptance_radius_std						= 0.15f;
+	private float	 	acceptance_radius_std						= 0.3f;
 	private float	 	acceptance_radius				        	= 0;
 	private boolean    	already_fired			    				= false;
 	private boolean    	valid_setpoint                   			= false;
@@ -168,8 +169,8 @@ public class OffboardManager implements Runnable {
 	private final Point3D_F64 traj_pos								= new Point3D_F64(0,0,0);
 	private final Point3D_F64 debug								    = new Point3D_F64(0,0,0);
 	
-	private boolean wait_for_completion                             = false;  // Do not consider acceptance radiua but time only
-
+	private boolean check_acceptance_radius                         = false;  // Do not consider acceptance radiua but time only
+	private final WorkQueue wq = WorkQueue.getInstance();
 
 	public OffboardManager(IMAVController control, PX4Parameters params) {
 
@@ -183,14 +184,11 @@ public class OffboardManager implements Runnable {
 
 		acceptance_radius_std = config.getFloatProperty("autopilot_acceptance_radius", String.valueOf(acceptance_radius_std));
 
-		if(control.isSimulation())
-			acceptance_radius_std = 0.3f;
-
 		System.out.println("Autopilot: acceptance radius: "+acceptance_radius_std+" m");
 
-		acceptance_radius = acceptance_radius_std;
-
 		max_speed = config.getFloatProperty("autopilot_max_speed", String.valueOf(max_speed));
+		if(control.isSimulation())
+			max_speed = max_speed  * 2;
 
 		this.yawSpeedControl   = new YawSpeedControl(YAW_PV,0,MAX_YAW_SPEED);
 
@@ -238,10 +236,12 @@ public class OffboardManager implements Runnable {
 		target.setTo(tgt);
 		new_setpoint = true;
 		valid_setpoint = true;
+		check_acceptance_radius = true;
 		changeStateTo(MODE_TRAJECTORY);
 		if(!enabled) {
 			enabled = true;
 			Thread t = new Thread(this);
+			t.setPriority(Thread.MAX_PRIORITY);
 			t.start();
 		}
 
@@ -254,6 +254,7 @@ public class OffboardManager implements Runnable {
 		if(!enabled) {
 			enabled = true;
 			Thread t = new Thread(this);
+			t.setPriority(Thread.MAX_PRIORITY);
 			t.start();
 		}
 	}
@@ -264,7 +265,7 @@ public class OffboardManager implements Runnable {
 			MSP3DUtils.convertCurrentState(model, current);
 			setTarget(current);
 		}
-		wait_for_completion = wait;
+		check_acceptance_radius = wait;
 		start(m);
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
 			control.writeLogMessage(new LogMessage("[msp] Try to switch to offboard.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -513,12 +514,10 @@ public class OffboardManager implements Runnable {
 					if(Float.isNaN(target.z))
 						target.z = current.z;
 
-					traj_length_s = MSP3DUtils.distance3D(target, current) * (float)Math.PI / MAX_SPEED;
+					traj_length_s = MSP3DUtils.distance3D(target, current) * (float)Math.PI / max_speed;
 					traj_length_s = traj_length_s < MIN_TRAJ_TIME ? MIN_TRAJ_TIME : traj_length_s;
-
-					if(!doTrajectoryPLanning(current_tms, traj_length_s)) {
-						traj_eta = 0;
-					}
+					traj_eta = doTrajectoryPLanning(current_tms, traj_length_s);
+					
 				}
 
 				new_setpoint = false;
@@ -663,18 +662,19 @@ public class OffboardManager implements Runnable {
 				
 				is_fiducial = false; 
 				path.set(target, current);
-				
-				if((path.value < acceptance_radius && wait_for_completion) || current_tms > traj_eta) {
+				if((path.value < acceptance_radius && check_acceptance_radius) || current_tms > traj_eta) {
 					if(current_tms < traj_eta) {
 						fireAction(model, path.value);
 					} else {
-						wait_for_completion = false;
+						check_acceptance_radius = false;
 						valid_setpoint = false;
 						logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 						fireAction(model, path.value);
-						changeStateTo(MODE_LOITER);
+						target.setTo(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+						changeStateTo(MODE_LOITER);	
 						updateTrajectoryModel(traj_length_s,-1);
 						continue;
+						
 					}
 				}
 
@@ -838,12 +838,16 @@ public class OffboardManager implements Runnable {
 		pos_cmd.target_component = 1;
 		pos_cmd.target_system    = 1;
 
-		pos_cmd.type_mask        = MAV_MASK.MASK_VELOCITY_IGNORE | MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_FORCE_IGNORE |
-				MAV_MASK.MASK_YAW_RATE_IGNORE ;
-
 		pos_cmd.x   = target.x;
 		pos_cmd.y   = target.y;
 		pos_cmd.z   = target.z;
+		pos_cmd.vx  = 0;
+		pos_cmd.vy  = 0;
+		pos_cmd.vz  = 0;
+		pos_cmd.afx  = 0;
+		pos_cmd.afy  = 0;
+		pos_cmd.afz  = 0;
+		
 
 		if(Float.isInfinite(target.w)) {
 			pos_cmd.type_mask  = pos_cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
@@ -961,24 +965,20 @@ public class OffboardManager implements Runnable {
 			speed_cmd.yaw_rate = MSPMathUtils.normAngle(w);
 
 		speed_cmd.coordinate_frame = MAV_FRAME.MAV_FRAME_LOCAL_NED;
-
-
-		if(!control.sendMAVLinkMessage(speed_cmd))
-			enabled = false;
-		else
-			sent_count++;
+		control.sendMAVLinkMessage(speed_cmd);
+	
 	}
 
 	private void fireAction(DataModel model,float delta) {
 		if(already_fired)
 			return;
-		if(action_listener!= null)
-			action_listener.action(model, delta);
+		
 		synchronized(this) {
 			already_fired = true;
 			notify();
+			if(action_listener!= null)
+				action_listener.action(model, delta);
 		}
-
 	}
 
 	private void updateSLAMModel(Vector4D_F32 target, Polar3D_F32 path ) {
@@ -1043,11 +1043,11 @@ public class OffboardManager implements Runnable {
 		return (float)traj_length_s;
 	}
 
-	public boolean doTrajectoryPLanning( long tms, float d_time) {
+	public long doTrajectoryPLanning( long tms, float d_time) {
 
 		if(!traj.generate(d_time, model, target, null)) {
 			control.writeLogMessage(new LogMessage("[msp] Trajectory not feasible. Aborted.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
-			return false;
+			return 0;
 		}
 
 		System.out.println("Generate trajectory: "+String.format("%#.1fs with costs of %#.2f", d_time, traj.getCost()*100));
@@ -1058,7 +1058,7 @@ public class OffboardManager implements Runnable {
 		// Send trajectory to MAVGCL
 		updateTrajectoryModel(d_time, 0);
 
-		return true;
+		return traj_eta;
 
 	}
 
