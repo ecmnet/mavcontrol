@@ -130,7 +130,7 @@ public class StandardActionFactory {
 			//   2.if fiducial locked determine fiducial position via cb, otherwise remain at landing preparation position
 			//   3.move to target and perform PX4 landing
 			sequencer.replace_add(
-					new SeqItem(landing_preparation,ISeqAction.ABS, () -> {
+					new SeqItem(landing_preparation, ISeqAction.ABS, () -> {
 						control.writeLogMessage(new LogMessage("[msp] Precision landing triggered.",MAV_SEVERITY.MAV_SEVERITY_INFO));
 						return true; 
 					},10),

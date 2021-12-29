@@ -90,9 +90,10 @@ public class OffboardManager implements Runnable {
 	private static final int  UPDATE_RATE                 			= 20;					  // offboard update rate in ms
 
 	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(60); // Max YawSpeed rad/s
-	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(10);  // Min yawSpeed rad/s
+	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(10); // Min yawSpeed rad/s
 	private static final float RAMP_YAW_SPEED                       = MSPMathUtils.toRad(30); // Ramp up Speed for yaw turning
-
+	private static final float MAX_TURN_SLOPE                       = MSPMathUtils.toRad(85); // Max slope to turn into papth direction
+	
 	private static final float MAX_SPEED							= 0.75f;			      // Max speed m/s
 	private static final float MIN_SPEED							= 0f;					  // Min speed m/s
 
@@ -148,7 +149,7 @@ public class OffboardManager implements Runnable {
 	private long traj_eta  = 0;
 	private long traj_sta  = 0;
 
-	private float	 	acceptance_radius_std						= 0.3f;
+	private float	 	acceptance_radius_std						= 0.1f;
 	private float	 	acceptance_radius				        	= 0;
 	private boolean    	already_fired			    				= false;
 	private boolean    	valid_setpoint                   			= false;
@@ -431,6 +432,7 @@ public class OffboardManager implements Runnable {
 
 		double traj_tim = 0;
 
+
 		float delta_sec  = 0;
 
 		float tmp        = 0;
@@ -504,10 +506,12 @@ public class OffboardManager implements Runnable {
 					//	MSP3DUtils.replaceNaN(target, current_sp);
 					// if still not valid use current
 					MSP3DUtils.replaceNaN(target, current);
+					
 
 				}
 
 				if(mode==MODE_TRAJECTORY) {
+					
 					MSP3DUtils.convertCurrentState(model, current);
 
 					if(Float.isNaN(target.z))
@@ -672,7 +676,7 @@ public class OffboardManager implements Runnable {
 						changeStateTo(MODE_LOITER);	
 						updateTrajectoryModel(traj_length_s,-1);
 						logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-						break;
+						continue;
 						
 					}
 				}
@@ -686,6 +690,9 @@ public class OffboardManager implements Runnable {
 					yaw_diff = MSPMathUtils.normAngle(target.w - current.w);
 				else
 					yaw_diff = MSPMathUtils.normAngle(MSP3DUtils.angleXY(traj_vel) - current.w);
+
+				if(Math.abs(MSP3DUtils.angleXZ(target, current)) > MAX_TURN_SLOPE)
+					yaw_diff = 0;
 
 				sendTrajectoryControlToVehice(traj_pos,traj_vel,traj_acc,yawSpeedControl.update(yaw_diff, delta_sec));
 
@@ -985,10 +992,6 @@ public class OffboardManager implements Runnable {
 
 		model.slam.tms = DataModel.getSynchronizedPX4Time_us();
 
-		//		model.debug.x = (float)debug.x;
-		//		model.debug.y = (float)debug.y;
-		//		model.debug.z = (float)debug.z;
-
 		if(valid_setpoint && path!=null && target!=null) {
 			model.slam.px = target.getX();
 			model.slam.py = target.getY();
@@ -1053,7 +1056,7 @@ public class OffboardManager implements Runnable {
 		System.out.println("Generate trajectory: "+String.format("%#.1fs with costs of %#.2f", d_time, traj.getCost()*100));
 
 		traj_sta = tms;
-		traj_eta = (long)(d_time * 1000f) + traj_sta+100;
+		traj_eta = (long)(d_time * 1000f) + traj_sta;
 
 		// Send trajectory to MAVGCL
 		updateTrajectoryModel(d_time, 0);
