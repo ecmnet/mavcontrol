@@ -56,12 +56,12 @@ import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector4D_F32;
 
 public class RapidTrajectoryGenerator {
-	
-	private final double MIN_ACC		=  3.0;
-	private final double MAX_ACC		= 25.0;
-	private final double MAX_BODY_RATE  = 5;
+
+	private final double MIN_ACC		= 0.0;
+	private final double MAX_ACC		= 1.0;
+	private final double MAX_BODY_RATE  = 5.0;
 	private final double TIME_STEP      = 0.02;
-	
+
 
 	private final SingleAxisTrajectory _axis[] = new SingleAxisTrajectory[3];
 
@@ -143,12 +143,12 @@ public class RapidTrajectoryGenerator {
 	}
 
 	public boolean generate(double timeToFinish, DataModel model, Vector4D_F32 target, Vector4D_F32 velocity) {
-		
+
 		if(timeToFinish<0)
 			return false;
-		
+
 		reset();
-		
+
 		_axis[0].setInitialState(model.state.l_x, model.state.l_vx, model.state.l_ax);
 		_axis[1].setInitialState(model.state.l_y, model.state.l_vy, model.state.l_ay);
 		_axis[2].setInitialState(model.state.l_z, model.state.l_vz, model.state.l_az);
@@ -193,11 +193,15 @@ public class RapidTrajectoryGenerator {
 	public boolean checkInputFeasibilitySection(double fminAllowed, double fmaxAllowed, double wmaxAllowed, double t1, double t2, double minTimeSection) {
 
 
-		if (t2 - t1 < minTimeSection) return false;
-		if(Math.max(getThrust(t1,_tmp1), getThrust(t2,_tmp2)) > fmaxAllowed) 
+		if (t2 - t1 < minTimeSection) return true;
+		if(Math.max(getThrust(t1,_tmp1), getThrust(t2,_tmp2))  > fmaxAllowed) {
+			System.out.println("MaxThrust: "+Math.max(getThrust(t1,_tmp1), getThrust(t2,_tmp2))+" > "+fmaxAllowed);
 			return false;
-		if(Math.min(getThrust(t1,_tmp1), getThrust(t2,_tmp2)) < fminAllowed) 
+		}
+		if(Math.min(getThrust(t1,_tmp1), getThrust(t2,_tmp2)) < fminAllowed) {
+			System.out.println("MinThrust: "+Math.min(getThrust(t1,_tmp1), getThrust(t2,_tmp2))+" < "+fminAllowed);
 			return false;
+		}
 
 		double fminSqr = 0;
 		double fmaxSqr = 0;
@@ -208,12 +212,15 @@ public class RapidTrajectoryGenerator {
 			double v1 = _axis[i].getMinAcc() - _gravity.getIdx(i); //left
 			double v2 = _axis[i].getMaxAcc() - _gravity.getIdx(i); //right
 
-			if(Math.max(v1*v1, v2*v2) > (fmaxAllowed * fmaxAllowed)) return false;
+			if(Math.max(v1*v1, v2*v2) > (fmaxAllowed * fmaxAllowed)) {
+				System.out.println("AxisSQ: "+Math.max(v1*v1, v2*v2)+" > "+(fmaxAllowed * fmaxAllowed));
+				return false;
+			}
 
 			if (v1 * v2 < 0)
 				fminSqr += 0; //sign of acceleration changes, so we've gone through zero
 			else
-				fminSqr += Math.pow(Math.min(Math.abs(v1), Math.abs(v1)),2);
+				fminSqr += Math.pow(Math.min(Math.abs(v1), Math.abs(v2)),2);
 
 			fmaxSqr += Math.pow(Math.max(Math.abs(v1), Math.abs(v2)),2);	
 			jmaxSqr += _axis[i].getMaxJerkSquared(t1, t2);
@@ -229,19 +236,27 @@ public class RapidTrajectoryGenerator {
 		else 
 			wBound = Double.MAX_VALUE;
 
-		if(fmax < fminAllowed) 
+		if(fmax < fminAllowed)  {
+			System.out.println("ForceMax: "+fmax+" < "+fminAllowed);
 			return false;
-		if(fmin > fmaxAllowed) 
+		}
+		if(fmin > fmaxAllowed) {
+			System.out.println("ForceMin: "+fmin+" >"+fmaxAllowed);
 			return false;
-
+		}
+		
 		//possibly infeasible:
 		if (fmin < fminAllowed || fmax > fmaxAllowed || wBound > wmaxAllowed)
 		{ //indeterminate: must check more closely:
+			
 			double tHalf = (t1 + t2) / 2;
+		//	System.out.println("Rec.CheckingFirst "+t1+" - "+tHalf);
 			boolean r1 = checkInputFeasibilitySection(fminAllowed, fmaxAllowed, wmaxAllowed, t1, tHalf, minTimeSection);
-			if(r1 == true)
+			if(r1 == true) {
 				//continue with second half
+		//		System.out.println("Rec.CheckingSecond "+tHalf+" - "+t2);
 				return checkInputFeasibilitySection(fminAllowed, fmaxAllowed, wmaxAllowed, tHalf, t2, minTimeSection);
+			}
 			//first section is already infeasible, or indeterminate:
 			return r1;
 		}
@@ -341,15 +356,15 @@ public class RapidTrajectoryGenerator {
 			out.setIdx(i, _axis[i].getPosition(t));
 		return out;
 	}
-	
+
 	public double getInitialPosition(int i) {
 		return _axis[i].getInitialPos();
 	}
-	
+
 	public double getInitialVelocity(int i) {
 		return _axis[i].getInitialVel();
 	}
-	
+
 	public double getInitialAcceleration(int i) {
 		return _axis[i].getInitialAcc();
 	}
@@ -368,7 +383,7 @@ public class RapidTrajectoryGenerator {
 		if(out == null)
 			out = new Point3D_F64();
 		for(int i=0;i<3;i++)
-			out.setIdx(i, _axis[i].getAcceleration(t) - _gravity.getIdx(i));	
+			out.setIdx(i, _axis[i].getAcceleration(t));	
 		return out.norm();	
 	}
 

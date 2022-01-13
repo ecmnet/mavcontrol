@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2017,2020 Eike Mansfeld ecm@gmx.de. All rights reserved.
+ *   Copyright (c) 2017,2022 Eike Mansfeld ecm@gmx.de. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -101,7 +101,7 @@ public class OffboardManager implements Runnable {
 
 	private static final float LAND_MODE_MIN_SPEED                  = 0.20f;                  // Minimum landing speed (SP Z) in offboard phase
 
-	private static final int   MIN_TRAJ_TIME             		    = 4;				      // Minimum time a single trajectory is planned for
+	private static final int   MIN_TRAJ_TIME             		    = 6;				      // Minimum time a single trajectory is planned for
 
 	private static final int   RC_DEADBAND             				= 10;				      // RC XY deadband for safety check
 
@@ -163,7 +163,7 @@ public class OffboardManager implements Runnable {
 	private long        setpoint_timeout                       		= SETPOINT_TIMEOUT_MS;
 	private long	    last_update_tms                             = 0;
 
-	private final RapidTrajectoryGenerator traj                     = new RapidTrajectoryGenerator(new Point3D_F64(0,0,-9.81));
+	private final RapidTrajectoryGenerator traj                     = new RapidTrajectoryGenerator(new Point3D_F64(0,0,0));
 
 	private final Point3D_F64 traj_acc							 	= new Point3D_F64(0,0,0);
 	private final Point3D_F64 traj_vel								= new Point3D_F64(0,0,0);
@@ -520,6 +520,12 @@ public class OffboardManager implements Runnable {
 					traj_length_s = MSP3DUtils.distance3D(target, current) * (float)Math.PI / max_speed;
 					traj_length_s = traj_length_s < MIN_TRAJ_TIME ? MIN_TRAJ_TIME : traj_length_s;
 					traj_eta = doTrajectoryPLanning(current_tms, traj_length_s);
+					if(traj_eta < 0) {
+						mode = MODE_LOITER;
+						target.setTo(current);
+						continue;
+						
+					}
 					
 				}
 
@@ -559,25 +565,31 @@ public class OffboardManager implements Runnable {
 					target.setW(MSPMathUtils.normAngle(model.attitude.y));
 				}
 				
+				// Compensate drift via fiducial
+				// TODO: To be tested
+				
 //				if(control.isSimulation())
 //					StandardActionFactory.simulateFiducial(control,0.1f);
 
-				if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) { 
-                // Control XY loitering by fiducial if visible 
-					if(!is_fiducial) {
-						fiducial_delta.setTo(target.x - model.vision.px,target.y - model.vision.py);
-						logger.writeLocalMsg("[msp] Drift compensation active",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-						is_fiducial = true;
-					}
-
-				} else {
-					if(is_fiducial) {
-						target.setTo(model.vision.px+fiducial_delta.x,model.vision.py+fiducial_delta.y,target.z,target.w);
-						logger.writeLocalMsg("[msp] Drift compensation deactivated",MAV_SEVERITY.MAV_SEVERITY_INFO);
-					fiducial_delta.setTo(0,0);
-					is_fiducial = false; 
-					}
-				}
+//				if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) { 
+//                // Control XY loitering by fiducial if visible 
+//					
+//					fiducial_delta.setTo(target.x - model.vision.px,target.y - model.vision.py);
+//					if(!is_fiducial) {
+//						logger.writeLocalMsg("[msp] Drift compensation active",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+//						is_fiducial = true;
+//					}
+//
+//				} else {
+//					if(is_fiducial) {
+//						target.setTo(model.vision.px+fiducial_delta.x,model.vision.py+fiducial_delta.y,target.z,target.w);
+//						logger.writeLocalMsg("[msp] Drift compensation deactivated",MAV_SEVERITY.MAV_SEVERITY_INFO);
+//					fiducial_delta.setTo(0,0);
+//					is_fiducial = false; 
+//					}
+//				} else {
+//					fiducial_delta.setTo(0,0);
+//				}
 
 				// Control XY loitering by original target
 				yaw_diff = MSPMathUtils.normAngle(target.w - current.w);
@@ -1050,7 +1062,7 @@ public class OffboardManager implements Runnable {
 
 		if(!traj.generate(d_time, model, target, null)) {
 			control.writeLogMessage(new LogMessage("[msp] Trajectory not feasible. Aborted.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
-			return 0;
+			return -1;
 		}
 
 		System.out.println("Generate trajectory: "+String.format("%#.1fs with costs of %#.2f", d_time, traj.getCost()*100));
