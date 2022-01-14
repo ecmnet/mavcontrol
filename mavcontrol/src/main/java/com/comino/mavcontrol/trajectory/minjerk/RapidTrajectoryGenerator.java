@@ -58,8 +58,8 @@ import georegression.struct.point.Vector4D_F32;
 public class RapidTrajectoryGenerator {
 
 	private final double MIN_ACC		= 0.0;
-	private final double MAX_ACC		= 1.0;
-	private final double MAX_BODY_RATE  = 5.0;
+	private final double MAX_ACC		= 0.5;
+	private final double MAX_BODY_RATE  = 2;
 	private final double TIME_STEP      = 0.02;
 
 
@@ -76,6 +76,7 @@ public class RapidTrajectoryGenerator {
 		for(int i=0;i<3;i++) {
 			_axis[i] = new SingleAxisTrajectory();
 		}
+		this._gravity = new Point3D_F64();
 	}
 
 	public RapidTrajectoryGenerator(Point3D_F64 gravity) {
@@ -383,7 +384,7 @@ public class RapidTrajectoryGenerator {
 		if(out == null)
 			out = new Point3D_F64();
 		for(int i=0;i<3;i++)
-			out.setIdx(i, _axis[i].getAcceleration(t));	
+			out.setIdx(i, _axis[i].getAcceleration(t) - _gravity.getIdx(i));	
 		return out.norm();	
 	}
 

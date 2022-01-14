@@ -521,10 +521,18 @@ public class OffboardManager implements Runnable {
 					traj_length_s = traj_length_s < MIN_TRAJ_TIME ? MIN_TRAJ_TIME : traj_length_s;
 					traj_eta = doTrajectoryPLanning(current_tms, traj_length_s);
 					if(traj_eta < 0) {
-						mode = MODE_LOITER;
-						target.setTo(current);
+						// Experimental two step planning
+						control.writeLogMessage(new LogMessage("[msp] Trajectory not feasible. Extend time.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+						traj_length_s = traj_length_s *2;
+						traj_eta = doTrajectoryPLanning(current_tms, traj_length_s);
+						if(traj_eta < 0) {
+							control.writeLogMessage(new LogMessage("[msp] Trajectory not feasible. Loitering.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
+						  mode = MODE_LOITER;
+						  target.setTo(current);
 						continue;
-						
+						} else {
+							
+						}	
 					}
 					
 				}
@@ -1061,7 +1069,6 @@ public class OffboardManager implements Runnable {
 	public long doTrajectoryPLanning( long tms, float d_time) {
 
 		if(!traj.generate(d_time, model, target, null)) {
-			control.writeLogMessage(new LogMessage("[msp] Trajectory not feasible. Aborted.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
 			return -1;
 		}
 
