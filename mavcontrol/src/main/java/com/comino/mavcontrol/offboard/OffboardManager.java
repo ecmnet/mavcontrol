@@ -517,20 +517,24 @@ public class OffboardManager implements Runnable {
 					if(Float.isNaN(target.z))
 						target.z = current.z;
 
-					traj_length_s = MSP3DUtils.distance3D(target, current) * (float)Math.PI / max_speed;
+					traj_length_s = MSP3DUtils.distance3D(target, current) * (float)Math.PI / ( max_speed );
 					traj_length_s = traj_length_s < MIN_TRAJ_TIME ? MIN_TRAJ_TIME : traj_length_s;
-					traj_eta = doTrajectoryPLanning(current_tms, traj_length_s);
+					
+					traj_eta = doTrajectoryPlanning(current_tms, traj_length_s);
+
+					// Increase trajectory length by 10% as long as not feasible
+					int count = 0;
+					while(traj_eta < 0 && count++ < 10) {
+						traj_length_s = traj_length_s * 1.10f;
+						traj_eta = doTrajectoryPlanning(current_tms, traj_length_s);
+					}
+
 					if(traj_eta < 0) {
-						// Experimental two step planning
-						control.writeLogMessage(new LogMessage("[msp] Trajectory not feasible. Extend time.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-						traj_length_s = traj_length_s *2;
-						traj_eta = doTrajectoryPLanning(current_tms, traj_length_s);
-						if(traj_eta < 0) {
-							control.writeLogMessage(new LogMessage("[msp] Trajectory not feasible. Loitering.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
-						  mode = MODE_LOITER;
-						  target.setTo(current);
+						control.writeLogMessage(new LogMessage("[msp] No valid trajectory generated. Loitering.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
+						mode = MODE_LOITER;
+						target.setTo(current);
 						continue;
-						} 
+
 					}
 				}
 
@@ -1063,7 +1067,7 @@ public class OffboardManager implements Runnable {
 		return (float)traj_length_s;
 	}
 
-	public long doTrajectoryPLanning( long tms, float d_time) {
+	public long doTrajectoryPlanning( long tms, float d_time) {
 
 		if(!traj.generate(d_time, model, target, null)) {
 			return -1;
