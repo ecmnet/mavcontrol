@@ -530,11 +530,8 @@ public class OffboardManager implements Runnable {
 						  mode = MODE_LOITER;
 						  target.setTo(current);
 						continue;
-						} else {
-							
-						}	
+						} 
 					}
-					
 				}
 
 				new_setpoint = false;
