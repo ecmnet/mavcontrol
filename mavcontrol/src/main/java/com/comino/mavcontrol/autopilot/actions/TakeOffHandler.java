@@ -204,7 +204,7 @@ public class TakeOffHandler {
 					}
 
 					// Check EKF reports relative position
-					if((model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_REL) != ESTIMATOR_STATUS_FLAGS.ESTIMATOR_PRED_POS_HORIZ_REL  ||
+					if((model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_VELOCITY_HORIZ) != ESTIMATOR_STATUS_FLAGS.ESTIMATOR_VELOCITY_HORIZ  ||
 							(model.est.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_ACCEL_ERROR)==ESTIMATOR_STATUS_FLAGS.ESTIMATOR_ACCEL_ERROR) {
 						logger.writeLocalMsg("[msp] CountDown aborted. EKF reports fault.",
 								MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
@@ -229,7 +229,9 @@ public class TakeOffHandler {
 						} else {
 							state = STATE_IDLE;
 						}
-					},-1, 0, 0, Float.NaN, Float.NaN, Float.NaN,Float.NaN);
+					// TODO: WARNING: This leads in SITL to takeoff to LPOS 0,0
+					//       Might be in cases only, where GPOS is not valid
+					},0, 0, 0, Float.NaN, Float.NaN, Float.NaN,Float.NaN);
 
 				}
 
