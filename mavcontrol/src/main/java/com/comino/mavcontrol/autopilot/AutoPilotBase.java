@@ -153,7 +153,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		this.mapForget = config.getBoolProperty(MSPParams.AUTOPILOT_FORGET_MAP, "true");
 		System.out.println(instanceName+": Map forget enabled: "+mapForget);
-		this.map      = new LocalMap3D(new Map3DSpacialInfo(0.10f,20.0f,20.0f,5.0f),mapForget);
+		
+		Map3DSpacialInfo map_info = new Map3DSpacialInfo(0.10f,20.0f,20.0f,5.0f);
+		this.map      = new LocalMap3D(map_info,mapForget);
+		this.model.grid.setResolution(map_info.getCellSize());
 
 		this.flowCheck = config.getBoolProperty(MSPParams.AUTOPILOT_FLOW_CHECK, "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
