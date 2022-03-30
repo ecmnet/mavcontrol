@@ -102,6 +102,7 @@ public class OffboardManager implements Runnable {
 	private static final float LAND_MODE_MIN_SPEED                  = 0.20f;                  // Minimum landing speed (SP Z) in offboard phase
 
 	private static final int   MIN_TRAJ_TIME             		    = 6;				      // Minimum time a single trajectory is planned for
+	private static final int   TRAJ_TIMESTEPS                       = 10;                     // Steps to increase trajectory length
 
 	private static final int   RC_DEADBAND             				= 10;				      // RC XY deadband for safety check
 
@@ -262,7 +263,7 @@ public class OffboardManager implements Runnable {
 	public boolean start_wait(int m, boolean wait, long timeout) {
 		long tstart = System.currentTimeMillis();
 		if(!valid_setpoint) {
-			MSP3DUtils.convertCurrentState(model, current);
+			MSP3DUtils.convertCurrentPosition(model, current);
 			setTarget(current);
 		}
 		check_acceptance_radius = wait;
@@ -464,7 +465,7 @@ public class OffboardManager implements Runnable {
 
 			if(old_mode != mode) {
 				if(MSP3DUtils.isNaN(target)) {
-					MSP3DUtils.convertCurrentState(model, target);
+					MSP3DUtils.convertCurrentPosition(model, target);
 					logger.writeLocalMsg("[msp] Offboard: Using current as target",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 				}
 				//	logger.writeLocalMsg("[msp] Offboard: Switched to "+mode_string[mode],MAV_SEVERITY.MAV_SEVERITY_DEBUG);
@@ -484,7 +485,7 @@ public class OffboardManager implements Runnable {
 					logger.writeLocalMsg("[msp] Setpoint not reached. Loitering.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			}
 
-			MSP3DUtils.convertCurrentState(model, current);
+			MSP3DUtils.convertCurrentPosition(model, current);
 			MSP3DUtils.convertCurrentSpeed(model, spd);
 
 			// safety: if no valid setpoint, use current as target
@@ -499,20 +500,12 @@ public class OffboardManager implements Runnable {
 
 			// a new setpoint was provided
 			if(new_setpoint) {
-
-				if(mode==MODE_TRAJECTORY || mode == MODE_LOITER) {
-
-					// Safety: handle NaN targets for position
-					//	MSP3DUtils.replaceNaN(target, current_sp);
-					// if still not valid use current
+				
+				switch(mode) {
+				case MODE_TRAJECTORY:
 					MSP3DUtils.replaceNaN(target, current);
 					
-
-				}
-
-				if(mode==MODE_TRAJECTORY) {
-					
-					MSP3DUtils.convertCurrentState(model, current);
+					MSP3DUtils.convertCurrentPosition(model, current);
 
 					if(Float.isNaN(target.z))
 						target.z = current.z;
@@ -522,10 +515,12 @@ public class OffboardManager implements Runnable {
 					
 					traj_eta = doTrajectoryPlanning(current_tms, traj_length_s);
 
-					// Increase trajectory length by 10% as long as not feasible
+					// Increase trajectory length by 10% as long as not feasible (max 100 %)
+					// Note: This is not the only possible measure: If a subsequent target exists,
+					//       the speed of the target state could be modified as well
 					int count = 0;
-					while(traj_eta < 0 && count++ < 10) {
-						traj_length_s = traj_length_s * 1.10f;
+					while(traj_eta < 0 && count++ < TRAJ_TIMESTEPS) {
+						traj_length_s = traj_length_s * (1.0f+1.0f/TRAJ_TIMESTEPS);
 						traj_eta = doTrajectoryPlanning(current_tms, traj_length_s);
 					}
 
@@ -536,6 +531,19 @@ public class OffboardManager implements Runnable {
 						continue;
 
 					}
+					break;
+					
+				case MODE_LOITER:
+					MSP3DUtils.replaceNaN(target, current);
+				}
+
+				if(mode==MODE_TRAJECTORY || mode == MODE_LOITER) {
+
+					// Safety: handle NaN targets for position
+					//	MSP3DUtils.replaceNaN(target, current_sp);
+					// if still not valid use current
+					MSP3DUtils.replaceNaN(target, current);			
+
 				}
 
 				new_setpoint = false;
@@ -716,8 +724,6 @@ public class OffboardManager implements Runnable {
 					yaw_diff = 0;
 
 				sendTrajectoryControlToVehice(traj_pos,traj_vel,traj_acc,yawSpeedControl.update(yaw_diff, delta_sec));
-
-				// debug.setTo(traj_vel);
 
 				updateTrajectoryModel(traj_length_s, (float)traj_tim);
 				updateSLAMModel(target,path);

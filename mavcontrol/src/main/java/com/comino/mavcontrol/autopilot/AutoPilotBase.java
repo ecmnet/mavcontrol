@@ -86,6 +86,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected static final float WINDOWSIZE       	   = 3.0f;
 
 	protected static final float MAX_REL_DELTA_HEIGHT  = 0.10f;
+	protected static final long  MAP_RETENTION_TIME_MS = 5000;
 
 	private static AutoPilotBase  autopilot    = null;
 
@@ -104,6 +105,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected boolean			           mapForget = false;
 	protected boolean                      flowCheck = false;
+	protected boolean              publish_microgrid = true;
 
 	protected boolean                      isRunning = false;
 
@@ -160,6 +162,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		this.flowCheck = config.getBoolProperty(MSPParams.AUTOPILOT_FLOW_CHECK, "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
+		
+		this.publish_microgrid = config.getBoolProperty(MSPParams.PUBLISH_MICROGRID, "true");
+		System.out.println("[vis] Publishing microGrid enabled: "+publish_microgrid);
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE,
 				config.getBoolProperty(MSPParams.AUTOPILOT_TAKEOFF_PROC, "false"));
@@ -244,7 +249,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected void start(int cycle_ms) {
 
 		wq.addCyclicTask("NP", cycle_ms, this);
-		wq.addCyclicTask("LP", 100, new MapToModelTransfer());
+		wq.addCyclicTask("LP",10, new MapToModelTransfer());
 	}
 
 
@@ -277,8 +282,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	public void invalidate_map_transfer() {
 		map.getMapItems().forEachRemaining((p) -> {
-			model.grid.getTransfers().push(map.getMapInfo().encodeMapPoint(p, p.probability));
-		});
+			model.grid.add(map.getMapInfo().encodeMapPoint(p, p.probability));
+	  });
 	}
 
 
@@ -672,7 +677,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		LocaMap3DStorage store = new LocaMap3DStorage(map, model.state.g_lat, model.state.g_lon);
 		if(store.locateAndRead()) {
 			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-			invalidate_map_transfer();
 			System.out.println(model.grid.getTransfers().size());
 		}
 		else
@@ -682,16 +686,36 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	// put map transfer into the WQ
 
 	private class MapToModelTransfer implements Runnable {
-
-		private long map_tms = 0;
+		
+		private final msg_msp_micro_grid  grid     = new msg_msp_micro_grid(2,1);
+		private long map_tms = System.currentTimeMillis();
+		
 		@Override
 		public void run() {
+			
+			if(!publish_microgrid)
+				return;
 
 			map.getLatestMapItems(map_tms).forEachRemaining((p) -> {
-				model.grid.getTransfers().push(map.getMapInfo().encodeMapPoint(p, p.probability));
+				model.grid.add(map.getMapInfo().encodeMapPoint(p, p.probability));
 			});
 			map_tms = System.currentTimeMillis();
 			model.grid.count = map.size();
+			
+			if(mapForget)
+			 map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS  );
+			
+			if(model.grid.hasTransfers()) {
+				if(model.grid.toArray(grid.data)) {
+					grid.cx  = model.grid.ix;
+					grid.cy  = model.grid.iy;
+					grid.cz  = model.grid.iz;
+					grid.tms = DataModel.getSynchronizedPX4Time_us();
+					grid.count = model.grid.count;
+					grid.resolution = model.grid.resolution;
+					control.sendMAVLinkMessage(grid);
+				}
+			}
 
 		}
 

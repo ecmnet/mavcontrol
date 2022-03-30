@@ -76,7 +76,7 @@ public class StandardActionFactory {
 				control.sendMAVLinkMessage(msg);
 
 			} else {
-				MSP3DUtils.convertCurrentState(model, target);
+				MSP3DUtils.convertCurrentPosition(model, target);
 			}
 		}, 0.05f , ISeqAction.ABS, () -> {
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND,0, 0, 0, Float.NaN);

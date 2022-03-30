@@ -124,7 +124,7 @@ public class TakeOffHandler {
 		max_tko_time_ms = (int)((takeoff_alt_param.value * 4000 / takeoff_speed_param.value )) + count_down_secs *1000 + INITIAL_DELAY_MS;
 
 		logger.writeLocalMsg("[msp] Count down initiated.", MAV_SEVERITY.MAV_SEVERITY_INFO);
-		logger.writeLocalMsg("[msp] Target altitude will be reached in "+(max_tko_time_ms/1000)+" s.", MAV_SEVERITY.MAV_SEVERITY_INFO);
+		logger.writeLocalMsg("[msp] Altitude of "+takeoff_alt_param.getValueFormatted()+" m reached in "+(max_tko_time_ms/1000)+" s.", MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 		state = STATE_INITIATED;
 		task  = wq.addCyclicTask("LP", 100, new TakeOffStateMachine(count_down_secs));
@@ -309,7 +309,7 @@ public class TakeOffHandler {
 		private boolean initialChecks() {
 			
 			if(!model.sys.isStatus(Status.MSP_READY_FOR_FLIGHT)) {
-				if(!control.isSimulation()) {
+				if(model.sys.isSensorAvailable(Status.MSP_MSP_AVAILABILITY)) {
 					logger.writeLocalMsg("[msp] Takeoff aborted. Not ready for flight.",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 					return false;
 				}

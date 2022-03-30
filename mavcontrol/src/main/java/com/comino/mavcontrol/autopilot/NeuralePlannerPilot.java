@@ -36,8 +36,6 @@ package com.comino.mavcontrol.autopilot;
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
-import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
-import org.mavlink.messages.lquac.msg_rc_channels_override;
 
 /****************************************************************************
  *
@@ -81,23 +79,19 @@ import com.comino.mavcom.utils.MSP3DUtils;
 import georegression.struct.point.Vector4D_F32;
 
 
-public class SimplePlannerPilot extends AutoPilotBase {
+public class NeuralePlannerPilot extends AutoPilotBase {
 
 
 	private static final int   RC_LAND_CHANNEL						= 8;                      // RC channel 8 landing
 	private static final int   RC_LAND_THRESHOLD            		= 1600;		              // RC channel 8 landing threshold
 
 	private boolean is_landing = false;
-	private boolean valid_target = false;
-	private final Vector4D_F32 target  = new Vector4D_F32();
 	private final Vector4D_F32 current  = new Vector4D_F32();
 
 	private long sp_tms;
-	
-	private final msg_rc_channels_override  fcum_thrust = new msg_rc_channels_override(1,1);
 
 
-	protected SimplePlannerPilot(IMAVController control, MSPConfig config) {
+	protected NeuralePlannerPilot(IMAVController control, MSPConfig config) {
 		super(control,config);
 
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
@@ -110,24 +104,6 @@ public class SimplePlannerPilot extends AutoPilotBase {
 	public void run() {
 
 		MSP3DUtils.convertCurrentPosition(model, current);
-		
-		if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FCUM)) {
-
-			if(model.sys.isStatus(Status.MSP_ARMED)) {
-				fcum_thrust.chan4_raw = 1500;
-				fcum_thrust.chan1_raw = 1500;
-				fcum_thrust.chan2_raw = 1500;
-				fcum_thrust.chan3_raw = 1500;
-			} else {
-				fcum_thrust.chan4_raw = 1500;
-				fcum_thrust.chan1_raw = 900;
-				fcum_thrust.chan2_raw = 1500;
-				fcum_thrust.chan3_raw = 1500;
-			}
-			control.sendMAVLinkMessage(fcum_thrust);
-			return;
-		}
-
 
 
 		// Safety: Channel 8 triggers landing mode of PX4
