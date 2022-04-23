@@ -86,7 +86,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected static final float WINDOWSIZE       	   = 3.0f;
 
 	protected static final float MAX_REL_DELTA_HEIGHT  = 0.10f;
-	protected static final long  MAP_RETENTION_TIME_MS = 5000;
+	protected static final long  MAP_RETENTION_TIME_MS = 3000;
 
 	private static AutoPilotBase  autopilot    = null;
 
@@ -138,27 +138,25 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		wq = WorkQueue.getInstance();
 
-		/* TEST ONLY */
-		this.planner = new PlannerTest(control,config);
-
-
 		String instanceName = this.getClass().getSimpleName();
 
 		System.out.println(instanceName+" instantiated");
-
+		
 		this.control   = control;
 		this.model     = control.getCurrentModel();
 		this.logger    = MSPLogger.getInstance();
 		this.params    = PX4Parameters.getInstance();
-		this.offboard  = new OffboardManager(control, params);
-		this.sequencer = new Sequencer(offboard,logger,model,control);
-
+		
 		this.mapForget = config.getBoolProperty(MSPParams.AUTOPILOT_FORGET_MAP, "true");
 		System.out.println(instanceName+": Map forget enabled: "+mapForget);
-		
+
 		Map3DSpacialInfo map_info = new Map3DSpacialInfo(0.10f,20.0f,20.0f,5.0f);
 		this.map      = new LocalMap3D(map_info,mapForget);
 		this.model.grid.setResolution(map_info.getCellSize());
+
+		this.offboard  = new OffboardManager(control, map, params);
+		this.sequencer = new Sequencer(offboard,logger,model,control);
+		
 
 		this.flowCheck = config.getBoolProperty(MSPParams.AUTOPILOT_FLOW_CHECK, "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
@@ -175,14 +173,33 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		this.takeoff_handler = new TakeOffHandler(control, offboard,() -> takeoffCompletedAction());
 		this.safetycheck_handler = new SafetyCheckHandler(control);
+		
+		control.getStatusManager().addListener(StatusManager.TYPE_MSP_SERVICES,Status.MSP_SLAM_AVAILABILITY, (n) -> {
+			if(n.isSensorAvailable(Status.MSP_SLAM_AVAILABILITY)) {	
+				System.out.println("SLAM available -> reset MAP");
+				resetMap();
+			}
+		});
 
 		registerLanding();
 
 		registerDisarm();
+		
+		registerArm();
 
 
 
 	}
+	
+	protected void registerArm() {
+
+		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
+
+			
+		});
+
+	}
+
 
 
 	protected void registerDisarm() {
@@ -249,7 +266,15 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected void start(int cycle_ms) {
 
 		wq.addCyclicTask("NP", cycle_ms, this);
-		wq.addCyclicTask("LP",10, new MapToModelTransfer());
+		wq.addCyclicTask("NP",10, new MapToModelTransfer());
+		
+//		wq.addCyclicTask("NP",100, () -> {
+//			
+//			if(mapForget && MAP_RETENTION_TIME_MS > 0)
+//				 map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS  );
+//			
+//			
+//		});
 	}
 
 
@@ -677,33 +702,43 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		LocaMap3DStorage store = new LocaMap3DStorage(map, model.state.g_lat, model.state.g_lon);
 		if(store.locateAndRead()) {
 			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-			System.out.println(model.grid.getTransfers().size());
 		}
 		else
 			logger.writeLocalMsg("[msp] No Map for this home position found.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 	}
 
 	// put map transfer into the WQ
-
+    // TODO: Move this to dispatcher
+	
 	private class MapToModelTransfer implements Runnable {
 		
 		private final msg_msp_micro_grid  grid     = new msg_msp_micro_grid(2,1);
-		private long map_tms = System.currentTimeMillis();
+		private long  map_tms = 0;
+		private int   transfer_count = 0;
 		
 		@Override
 		public void run() {
 			
-			if(!publish_microgrid)
+			if(mapForget && MAP_RETENTION_TIME_MS > 0) {
+				 map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS  );
+			}
+			
+				
+			if(!publish_microgrid || !model.sys.isStatus(Status.MSP_GCL_CONNECTED)) {
 				return;
+			}
 
+			transfer_count = 0;
 			map.getLatestMapItems(map_tms).forEachRemaining((p) -> {
-				model.grid.add(map.getMapInfo().encodeMapPoint(p, p.probability));
+				 model.grid.add(map.getMapInfo().encodeMapPoint(p, p.probability));
+				 transfer_count++;
 			});
 			map_tms = System.currentTimeMillis();
-			model.grid.count = map.size();
 			
-			if(mapForget)
-			 map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS  );
+			
+			model.grid.count = map.size();
+			// TODO: display ratio transfer_count / map_size
+			// TODO: Reset map not with grid.count = 0 but grid.count -1
 			
 			if(model.grid.hasTransfers()) {
 				if(model.grid.toArray(grid.data)) {
@@ -716,7 +751,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 					control.sendMAVLinkMessage(grid);
 				}
 			}
-
+			
+			// TODO: Transfer forget immediately
+			
+		
+			
+			
 		}
 
 	}
