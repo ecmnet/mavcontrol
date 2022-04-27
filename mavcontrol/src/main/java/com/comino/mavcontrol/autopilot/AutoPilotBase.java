@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2017,2021 Eike Mansfeld ecm@gmx.de. All rights reserved.
+ *   Copyright (c) 2017,2022 Eike Mansfeld ecm@gmx.de. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,6 @@ import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import org.mavlink.messages.lquac.msg_msp_micro_grid;
-import org.mavlink.messages.lquac.msg_msp_vision;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.config.MSPParams;
@@ -63,14 +62,12 @@ import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavcontrol.sequencer.ISeqAction;
 import com.comino.mavcontrol.sequencer.Sequencer;
 import com.comino.mavcontrol.struct.SeqItem;
-
 import com.comino.mavmap.map.map3D.Map3DSpacialInfo;
 import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
 import com.comino.mavmap.map.map3D.store.LocaMap3DStorage;
 import com.comino.mavmap.test.MapTestFactory;
 import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
-import com.comino.mavutils.legacy.ExecutorService;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 import georegression.struct.point.Point3D_F64;
@@ -141,12 +138,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		String instanceName = this.getClass().getSimpleName();
 
 		System.out.println(instanceName+" instantiated");
-		
+
 		this.control   = control;
 		this.model     = control.getCurrentModel();
 		this.logger    = MSPLogger.getInstance();
 		this.params    = PX4Parameters.getInstance();
-		
+
 		this.mapForget = config.getBoolProperty(MSPParams.AUTOPILOT_FORGET_MAP, "true");
 		System.out.println(instanceName+": Map forget enabled: "+mapForget);
 
@@ -156,11 +153,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		this.offboard  = new OffboardManager(control, map, params);
 		this.sequencer = new Sequencer(offboard,logger,model,control);
-		
+
 
 		this.flowCheck = config.getBoolProperty(MSPParams.AUTOPILOT_FLOW_CHECK, "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
-		
+
 		this.publish_microgrid = config.getBoolProperty(MSPParams.PUBLISH_MICROGRID, "true");
 		System.out.println("[vis] Publishing microGrid enabled: "+publish_microgrid);
 
@@ -173,7 +170,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		this.takeoff_handler = new TakeOffHandler(control, offboard,() -> takeoffCompletedAction());
 		this.safetycheck_handler = new SafetyCheckHandler(control);
-		
+
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_SERVICES,Status.MSP_SLAM_AVAILABILITY, (n) -> {
 			if(n.isSensorAvailable(Status.MSP_SLAM_AVAILABILITY)) {	
 				System.out.println("SLAM available -> reset MAP");
@@ -184,18 +181,19 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		registerLanding();
 
 		registerDisarm();
-		
+
 		registerArm();
 
 
 
 	}
-	
+
 	protected void registerArm() {
 
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
+           resetMap();
+           map.setOrigin(model.state.l_x, model.state.l_y, 0);
 
-			
 		});
 
 	}
@@ -266,15 +264,15 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected void start(int cycle_ms) {
 
 		wq.addCyclicTask("NP", cycle_ms, this);
-		wq.addCyclicTask("NP",10, new MapToModelTransfer());
-		
-//		wq.addCyclicTask("NP",100, () -> {
-//			
-//			if(mapForget && MAP_RETENTION_TIME_MS > 0)
-//				 map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS  );
-//			
-//			
-//		});
+		wq.addCyclicTask("NP",20, new MapToModelTransfer());
+
+		//		wq.addCyclicTask("NP",100, () -> {
+		//			
+		//			if(mapForget && MAP_RETENTION_TIME_MS > 0)
+		//				 map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS  );
+		//			
+		//			
+		//		});
 	}
 
 
@@ -308,7 +306,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public void invalidate_map_transfer() {
 		map.getMapItems().forEachRemaining((p) -> {
 			model.grid.add(map.getMapInfo().encodeMapPoint(p, p.probability));
-	  });
+		});
 	}
 
 
@@ -366,7 +364,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
 			control.writeLogMessage(new LogMessage("[msp] Build virtual wall.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-			MapTestFactory.buildWall(map, model, 1, 0.5f);
+			MapTestFactory.buildWall(map, model, 1.5f, 0.5f);
 			break;
 		case MSP_AUTOCONTROL_ACTION.ROTATE:
 			StandardActionFactory.turn_to(sequencer, param);
@@ -528,13 +526,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	 * AutopilotAction: Aborts current AutoPilot sequence
 	 */
 	public void abort() {
-		
+
 		sequencer.abort();
 		clearAutopilotActions();
-		
+
 		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FCUM))
-		  model.sys.autopilot &= 0b11000000000000000000000000000001;
-		
+			model.sys.autopilot &= 0b11000000000000000000000000000001;
+
 		if(model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
 			if(model.sys.isStatus(Status.MSP_RC_ATTACHED)) {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
@@ -685,9 +683,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	public void resetMap() {
 		logger.writeLocalMsg("[msp] reset local map",MAV_SEVERITY.MAV_SEVERITY_NOTICE);
+		//	map.clear(model.state.l_x,model.state.l_y, model.state.l_z);
 		map.clear();
 		msg_msp_micro_grid grid = new msg_msp_micro_grid(2,1);
 		grid.count = 0;
+		grid.cx = (float)map.getOrigin().x;
+		grid.cy = (float)map.getOrigin().y;
+		grid.cz = (float)map.getOrigin().z;
 		control.sendMAVLinkMessage(grid);
 
 	}
@@ -708,55 +710,50 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	// put map transfer into the WQ
-    // TODO: Move this to dispatcher
-	
+	// TODO: Move this to dispatcher
+
 	private class MapToModelTransfer implements Runnable {
-		
+
 		private final msg_msp_micro_grid  grid     = new msg_msp_micro_grid(2,1);
 		private long  map_tms = 0;
-		private int   transfer_count = 0;
-		
+
 		@Override
 		public void run() {
-			
+
 			if(mapForget && MAP_RETENTION_TIME_MS > 0) {
-				 map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS  );
+				if(control.isSimulation())
+					map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS*10  );
+				else
+					map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS  );
 			}
-			
-				
+
+
 			if(!publish_microgrid || !model.sys.isStatus(Status.MSP_GCL_CONNECTED)) {
 				return;
 			}
 
-			transfer_count = 0;
-			map.getLatestMapItems(map_tms).forEachRemaining((p) -> {
-				 model.grid.add(map.getMapInfo().encodeMapPoint(p, p.probability));
-				 transfer_count++;
+			map.getLatestMapItems(map_tms, LocalMap3D.PROBABILITY_THRESHOLD).forEachRemaining((p) -> {			
+				model.grid.add(map.getMapInfo().encodeMapPoint(p, p.probability));
 			});
-			map_tms = System.currentTimeMillis();
-			
-			
+			map_tms = System.currentTimeMillis()-10;
+
 			model.grid.count = map.size();
-			// TODO: display ratio transfer_count / map_size
-			// TODO: Reset map not with grid.count = 0 but grid.count -1
-			
-			if(model.grid.hasTransfers()) {
+
+			while(model.grid.hasTransfers()) {
 				if(model.grid.toArray(grid.data)) {
-					grid.cx  = model.grid.ix;
-					grid.cy  = model.grid.iy;
-					grid.cz  = model.grid.iz;
+					grid.cx  = (float)map.getOrigin().x;
+					grid.cy  = (float)map.getOrigin().y;
+					grid.cz  = (float)map.getOrigin().z;
 					grid.tms = DataModel.getSynchronizedPX4Time_us();
 					grid.count = model.grid.count;
 					grid.resolution = model.grid.resolution;
 					control.sendMAVLinkMessage(grid);
 				}
 			}
-			
+
+
 			// TODO: Transfer forget immediately
-			
-		
-			
-			
+
 		}
 
 	}
