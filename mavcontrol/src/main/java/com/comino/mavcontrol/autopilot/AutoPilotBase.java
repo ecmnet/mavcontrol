@@ -79,11 +79,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	/* TEST ONLY */
 	private PlannerTest planner = null;
 
-	protected static final int   CERTAINITY_THRESHOLD  = 100;
-	protected static final float WINDOWSIZE       	   = 3.0f;
+	protected static final int   CERTAINITY_THRESHOLD          = 100;
+	protected static final float WINDOWSIZE       	           = 3.0f;
 
-	protected static final float MAX_REL_DELTA_HEIGHT  = 0.10f;
-	protected static final long  MAP_RETENTION_TIME_MS = 3000;
+	protected static final float MAX_REL_DELTA_HEIGHT          = 0.10f;
+	protected static final long  MAP_RETENTION_TIME_MS         = 3000;
+	protected static final long  MAP_RETENTION_TIME_NO_SLAM_MS = 30000;
 
 	private static AutoPilotBase  autopilot    = null;
 
@@ -143,12 +144,15 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.model     = control.getCurrentModel();
 		this.logger    = MSPLogger.getInstance();
 		this.params    = PX4Parameters.getInstance();
+		
+		this.publish_microgrid = config.getBoolProperty(MSPParams.PUBLISH_MICROGRID, "true");
+		System.out.println("[vis] Publishing microGrid enabled: "+publish_microgrid);
 
 		this.mapForget = config.getBoolProperty(MSPParams.AUTOPILOT_FORGET_MAP, "true");
 		System.out.println(instanceName+": Map forget enabled: "+mapForget);
 
 		Map3DSpacialInfo map_info = new Map3DSpacialInfo(0.10f,20.0f,20.0f,5.0f);
-		this.map      = new LocalMap3D(map_info,mapForget);
+		this.map      = new LocalMap3D(map_info,mapForget,publish_microgrid);
 		this.model.grid.setResolution(map_info.getCellSize());
 
 		this.offboard  = new OffboardManager(control, map, params);
@@ -157,9 +161,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		this.flowCheck = config.getBoolProperty(MSPParams.AUTOPILOT_FLOW_CHECK, "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
-
-		this.publish_microgrid = config.getBoolProperty(MSPParams.PUBLISH_MICROGRID, "true");
-		System.out.println("[vis] Publishing microGrid enabled: "+publish_microgrid);
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE,
 				config.getBoolProperty(MSPParams.AUTOPILOT_TAKEOFF_PROC, "false"));
@@ -264,7 +265,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected void start(int cycle_ms) {
 
 		wq.addCyclicTask("NP", cycle_ms, this);
-		wq.addCyclicTask("NP",20, new MapToModelTransfer());
+		
+		if(publish_microgrid)
+		  wq.addCyclicTask("NP",20, new MapToModelTransfer());
 
 		//		wq.addCyclicTask("NP",100, () -> {
 		//			
@@ -304,6 +307,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	public void invalidate_map_transfer() {
+		
+		if(!publish_microgrid)
+			return;
+		
 		map.getMapItems().forEachRemaining((p) -> {
 			model.grid.add(map.getMapInfo().encodeMapPoint(p, p.probability));
 		});
@@ -719,18 +726,19 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		@Override
 		public void run() {
+			
+			if(!publish_microgrid || !model.sys.isStatus(Status.MSP_GCL_CONNECTED)) {
+				return;
+			}
 
 			if(mapForget && MAP_RETENTION_TIME_MS > 0) {
-				if(control.isSimulation())
-					map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS*10  );
+				if(!control.getStatusManager().get().isSensorAvailable(Status.MSP_SLAM_AVAILABILITY)) {
+					map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_NO_SLAM_MS  );
+				}
 				else
 					map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS  );
 			}
 
-
-			if(!publish_microgrid || !model.sys.isStatus(Status.MSP_GCL_CONNECTED)) {
-				return;
-			}
 
 			map.getLatestMapItems(map_tms, LocalMap3D.PROBABILITY_THRESHOLD).forEachRemaining((p) -> {			
 				model.grid.add(map.getMapInfo().encodeMapPoint(p, p.probability));
