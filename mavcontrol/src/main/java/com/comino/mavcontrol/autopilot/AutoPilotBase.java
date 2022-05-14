@@ -738,6 +738,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				else
 					map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS  );
 			}
+			
+			model.sys.setSensor(Status.MSP_GRID_AVAILABILITY, true);
 
 
 			map.getLatestMapItems(map_tms, LocalMap3D.PROBABILITY_THRESHOLD).forEachRemaining((p) -> {			
