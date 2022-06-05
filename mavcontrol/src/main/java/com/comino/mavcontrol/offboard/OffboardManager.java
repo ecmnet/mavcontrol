@@ -61,6 +61,7 @@ import com.comino.mavcontrol.autopilot.actions.StandardActionFactory;
 import com.comino.mavcontrol.controllib.IYawSpeedControl;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
+import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
@@ -172,10 +173,12 @@ public class OffboardManager implements Runnable {
 	private final Point3D_F64 debug								    = new Point3D_F64(0,0,0);
 	
 	private boolean check_acceptance_radius                         = false;  // Do not consider acceptance radiua but time only
+	private final LocalMap3D map;
 
-	public OffboardManager(IMAVController control, PX4Parameters params) {
+	public OffboardManager(IMAVController control, LocalMap3D map, PX4Parameters params) {
 
 		this.control        = control;
+		this.map            = map;
 		this.model          = control.getCurrentModel();
 		this.logger         = MSPLogger.getInstance();
 
@@ -526,6 +529,8 @@ public class OffboardManager implements Runnable {
 
 					if(traj_eta < 0) {
 						control.writeLogMessage(new LogMessage("[msp] No valid trajectory generated. Loitering.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
+						check_acceptance_radius = false;
+						fireAction(model, path.value);
 						mode = MODE_LOITER;
 						target.setTo(current);
 						continue;
@@ -1078,6 +1083,9 @@ public class OffboardManager implements Runnable {
 		if(!traj.generate(d_time, model, target, null)) {
 			return -1;
 		}
+		
+//		if(doCollisionCheck(d_time) > 0)
+//			return - 1;
 
 		System.out.println("Generate trajectory: "+String.format("%#.1fs with costs of %#.2f", d_time, traj.getCost()*100));
 
@@ -1089,6 +1097,33 @@ public class OffboardManager implements Runnable {
 
 		return traj_eta;
 
+	}
+	
+	private double doCollisionCheck(float total_time) {
+		
+		Point3D_F64 speed    = new Point3D_F64();
+		Point3D_F64 position = new Point3D_F64();
+		double delta_t = 0; double speed_n = 0; double p=0;
+		
+		while(delta_t < total_time) {
+		  traj.getVelocity(delta_t, speed);
+		  speed_n = speed.norm();
+		  if(speed_n < 0.01)
+			 return -1;
+		  delta_t = delta_t + 0.1 / speed_n;
+		  
+//		  if(delta_t > 5)
+//			  map.update(position);
+		  
+		  traj.getPosition(delta_t, position);
+		  if(map.check(position) > 0.5) {
+			  System.err.println("Collsion detected in "+delta_t+" secs at "+position);
+			  return -1;
+		  }
+		  
+		}
+		
+		return -1;
 	}
 
 	private void updateTrajectoryModel(float length, float current) {
