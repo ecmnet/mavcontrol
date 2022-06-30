@@ -94,7 +94,7 @@ public class OffboardManager implements Runnable {
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(10); // Min yawSpeed rad/s
 	private static final float RAMP_YAW_SPEED                       = MSPMathUtils.toRad(30); // Ramp up Speed for yaw turning
 	private static final float MAX_TURN_SLOPE                       = MSPMathUtils.toRad(85); // Max slope to turn into papth direction
-	
+
 	private static final float MAX_SPEED							= 0.75f;			      // Max speed m/s
 	private static final float MIN_SPEED							= 0f;					  // Min speed m/s
 
@@ -171,8 +171,11 @@ public class OffboardManager implements Runnable {
 	private final Point3D_F64 traj_vel								= new Point3D_F64(0,0,0);
 	private final Point3D_F64 traj_pos								= new Point3D_F64(0,0,0);
 	private final Point3D_F64 debug								    = new Point3D_F64(0,0,0);
-	
+
 	private boolean check_acceptance_radius                         = false;  // Do not consider acceptance radiua but time only
+
+	private int   reset_counter                                     = 0;
+
 	private final LocalMap3D map;
 
 	public OffboardManager(IMAVController control, LocalMap3D map, PX4Parameters params) {
@@ -504,10 +507,12 @@ public class OffboardManager implements Runnable {
 			// a new setpoint was provided
 			if(new_setpoint) {
 				
+				reset_counter =  model.est.reset_counter;
+
 				switch(mode) {
 				case MODE_TRAJECTORY:
 					MSP3DUtils.replaceNaN(target, current);
-					
+
 					MSP3DUtils.convertCurrentPosition(model, current);
 
 					if(Float.isNaN(target.z))
@@ -515,7 +520,7 @@ public class OffboardManager implements Runnable {
 
 					traj_length_s = MSP3DUtils.distance3D(target, current) * (float)Math.PI / ( max_speed );
 					traj_length_s = traj_length_s < MIN_TRAJ_TIME ? MIN_TRAJ_TIME : traj_length_s;
-					
+
 					traj_eta = doTrajectoryPlanning(current_tms, traj_length_s);
 
 					// Increase trajectory length by 10% as long as not feasible (max 100 %)
@@ -537,7 +542,7 @@ public class OffboardManager implements Runnable {
 
 					}
 					break;
-					
+
 				case MODE_LOITER:
 					MSP3DUtils.replaceNaN(target, current);
 				}
@@ -555,6 +560,11 @@ public class OffboardManager implements Runnable {
 				start.setTo(current);
 				ctl.set(spd);
 
+			}
+
+			if(reset_counter != model.est.reset_counter) {
+                 reset_counter =  model.est.reset_counter;
+                 control.writeLogMessage(new LogMessage("[msp] EKF2 reset detected (Offboard).", MAV_SEVERITY.MAV_SEVERITY_WARNING)); 
 			}
 
 			delta_sec = (System.currentTimeMillis() - last_update_tms ) / 1000.0f;
@@ -586,32 +596,32 @@ public class OffboardManager implements Runnable {
 				if(Float.isNaN(target.w)) {
 					target.setW(MSPMathUtils.normAngle(model.attitude.y));
 				}
-				
+
 				// Compensate drift via fiducial
 				// TODO: To be tested
-				
-//				if(control.isSimulation())
-//					StandardActionFactory.simulateFiducial(control,0.1f);
 
-//				if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) { 
-//                // Control XY loitering by fiducial if visible 
-//					
-//					fiducial_delta.setTo(target.x - model.vision.px,target.y - model.vision.py);
-//					if(!is_fiducial) {
-//						logger.writeLocalMsg("[msp] Drift compensation active",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-//						is_fiducial = true;
-//					}
-//
-//				} else {
-//					if(is_fiducial) {
-//						target.setTo(model.vision.px+fiducial_delta.x,model.vision.py+fiducial_delta.y,target.z,target.w);
-//						logger.writeLocalMsg("[msp] Drift compensation deactivated",MAV_SEVERITY.MAV_SEVERITY_INFO);
-//					fiducial_delta.setTo(0,0);
-//					is_fiducial = false; 
-//					}
-//				} else {
-//					fiducial_delta.setTo(0,0);
-//				}
+				//				if(control.isSimulation())
+				//					StandardActionFactory.simulateFiducial(control,0.1f);
+
+				//				if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) { 
+				//                // Control XY loitering by fiducial if visible 
+				//					
+				//					fiducial_delta.setTo(target.x - model.vision.px,target.y - model.vision.py);
+				//					if(!is_fiducial) {
+				//						logger.writeLocalMsg("[msp] Drift compensation active",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+				//						is_fiducial = true;
+				//					}
+				//
+				//				} else {
+				//					if(is_fiducial) {
+				//						target.setTo(model.vision.px+fiducial_delta.x,model.vision.py+fiducial_delta.y,target.z,target.w);
+				//						logger.writeLocalMsg("[msp] Drift compensation deactivated",MAV_SEVERITY.MAV_SEVERITY_INFO);
+				//					fiducial_delta.setTo(0,0);
+				//					is_fiducial = false; 
+				//					}
+				//				} else {
+				//					fiducial_delta.setTo(0,0);
+				//				}
 
 				// Control XY loitering by original target
 				yaw_diff = MSPMathUtils.normAngle(target.w - current.w);
@@ -658,7 +668,7 @@ public class OffboardManager implements Runnable {
 
 			case MODE_LOCAL_SPEED: 	// Direct speed control via Joystick
 				// TODO: Use PX4 for this directly
-				
+
 				is_fiducial = false; 
 
 				model.slam.flags = Slam.OFFBOARD_FLAG_SPEED;
@@ -696,7 +706,7 @@ public class OffboardManager implements Runnable {
 			case MODE_TRAJECTORY:	
 
 				watch_tms = current_tms;
-				
+
 				is_fiducial = false; 
 				path.set(target, current);
 				if((path.value < acceptance_radius && check_acceptance_radius) || current_tms > traj_eta) {
@@ -711,7 +721,7 @@ public class OffboardManager implements Runnable {
 						updateTrajectoryModel(traj_length_s,-1);
 						logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 						continue;
-						
+
 					}
 				}
 
@@ -738,9 +748,9 @@ public class OffboardManager implements Runnable {
 
 			case MODE_LAND:    	// Performs an altitude controlled landing using precision lock for pos and yaw if available
 				// NOT USED; Sequencer instead
-				
+
 				is_fiducial = false; 
-				
+
 				ctl.clear(); 
 				valid_setpoint = true;
 				watch_tms = System.currentTimeMillis();
@@ -885,7 +895,7 @@ public class OffboardManager implements Runnable {
 		pos_cmd.afx  = 0;
 		pos_cmd.afy  = 0;
 		pos_cmd.afz  = 0;
-		
+
 
 		if(Float.isInfinite(target.w)) {
 			pos_cmd.type_mask  = pos_cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
@@ -1005,13 +1015,13 @@ public class OffboardManager implements Runnable {
 
 		speed_cmd.coordinate_frame = MAV_FRAME.MAV_FRAME_LOCAL_NED;
 		control.sendMAVLinkMessage(speed_cmd);
-	
+
 	}
 
 	private void fireAction(DataModel model,float delta) {
 		if(already_fired)
 			return;
-		
+
 		synchronized(this) {
 			already_fired = true;
 			notify();
@@ -1083,9 +1093,9 @@ public class OffboardManager implements Runnable {
 		if(!traj.generate(d_time, model, target, null)) {
 			return -1;
 		}
-		
-//		if(doCollisionCheck(d_time) > 0)
-//			return - 1;
+
+		//		if(doCollisionCheck(d_time) > 0)
+		//			return - 1;
 
 		System.out.println("Generate trajectory: "+String.format("%#.1fs with costs of %#.2f", d_time, traj.getCost()*100));
 
@@ -1098,31 +1108,31 @@ public class OffboardManager implements Runnable {
 		return traj_eta;
 
 	}
-	
+
 	private double doCollisionCheck(float total_time) {
-		
+
 		Point3D_F64 speed    = new Point3D_F64();
 		Point3D_F64 position = new Point3D_F64();
 		double delta_t = 0; double speed_n = 0; double p=0;
-		
+
 		while(delta_t < total_time) {
-		  traj.getVelocity(delta_t, speed);
-		  speed_n = speed.norm();
-		  if(speed_n < 0.01)
-			 return -1;
-		  delta_t = delta_t + 0.1 / speed_n;
-		  
-//		  if(delta_t > 5)
-//			  map.update(position);
-		  
-		  traj.getPosition(delta_t, position);
-		  if(map.check(position) > 0.5) {
-			  System.err.println("Collsion detected in "+delta_t+" secs at "+position);
-			  return -1;
-		  }
-		  
+			traj.getVelocity(delta_t, speed);
+			speed_n = speed.norm();
+			if(speed_n < 0.01)
+				return -1;
+			delta_t = delta_t + 0.1 / speed_n;
+
+			//		  if(delta_t > 5)
+			//			  map.update(position);
+
+			traj.getPosition(delta_t, position);
+			if(map.check(position) > 0.5) {
+				System.err.println("Collsion detected in "+delta_t+" secs at "+position);
+				return -1;
+			}
+
 		}
-		
+
 		return -1;
 	}
 

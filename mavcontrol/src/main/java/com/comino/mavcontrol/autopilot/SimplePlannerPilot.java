@@ -74,6 +74,7 @@ import org.mavlink.messages.lquac.msg_rc_channels_override;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.utils.MSP3DUtils;
@@ -94,6 +95,8 @@ public class SimplePlannerPilot extends AutoPilotBase {
 
 	private long sp_tms;
 	
+	private int reset_counter = 0;
+	
 	private final msg_rc_channels_override  fcum_thrust = new msg_rc_channels_override(1,1);
 
 
@@ -108,6 +111,12 @@ public class SimplePlannerPilot extends AutoPilotBase {
 	}
 
 	public void run() {
+		
+		if(reset_counter != model.est.reset_counter) {
+            if(reset_counter>0)
+              control.writeLogMessage(new LogMessage("[msp] EKF2 reset detected (AP).", MAV_SEVERITY.MAV_SEVERITY_DEBUG)); 
+            reset_counter =  model.est.reset_counter;
+		}
 
 		MSP3DUtils.convertCurrentPosition(model, current);
 		
