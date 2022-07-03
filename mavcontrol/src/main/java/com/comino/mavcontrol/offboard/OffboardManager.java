@@ -141,6 +141,10 @@ public class OffboardManager implements Runnable {
 	private final Vector4D_F32      start                     		= new Vector4D_F32();    // state, when setpoint was set incl. yaw
 	private final Vector4D_F32		cmd			  	            	= new Vector4D_F32();    // vehicle command state (coordinates/speeds)
 
+	private final Vector4D_F32		reset_offset			  	    = new Vector4D_F32();    // Position offset at point of EKF2 reset
+//  private final Vector4D_F32		reset_offset_speed			    = new Vector4D_F32();    // Velocity offset at point of EKF2 reset 
+
+
 	private final msg_set_position_target_local_ned pos_cmd   		= new msg_set_position_target_local_ned(1,1);
 	private final msg_set_position_target_local_ned speed_cmd 		= new msg_set_position_target_local_ned(1,1);
 
@@ -506,8 +510,9 @@ public class OffboardManager implements Runnable {
 
 			// a new setpoint was provided
 			if(new_setpoint) {
-				
+
 				reset_counter =  model.est.reset_counter;
+				reset_offset.setTo(0,0,0,0);
 
 				switch(mode) {
 				case MODE_TRAJECTORY:
@@ -563,8 +568,15 @@ public class OffboardManager implements Runnable {
 			}
 
 			if(reset_counter != model.est.reset_counter) {
-                 reset_counter =  model.est.reset_counter;
-                 control.writeLogMessage(new LogMessage("[msp] EKF2 reset detected (Offboard).", MAV_SEVERITY.MAV_SEVERITY_WARNING)); 
+				MSP3DUtils.convertTargetState(model, current_sp);
+				reset_counter =  model.est.reset_counter;
+
+				control.writeLogMessage(new LogMessage("[msp] EKF2 reset detected (Offboard).", MAV_SEVERITY.MAV_SEVERITY_WARNING)); 
+
+				reset_offset.x = current.x - current_sp.x;
+				reset_offset.y = current.y - current_sp.y;
+				reset_offset.z = current.z - current_sp.z;
+
 			}
 
 			delta_sec = (System.currentTimeMillis() - last_update_tms ) / 1000.0f;
@@ -661,6 +673,25 @@ public class OffboardManager implements Runnable {
 				else
 					cmd.setTo(target.x,target.y,target.z, target.w+d_yaw);
 
+
+				if(control.isSimulation()) {
+					// in SITL: Send corrected setpoints and report offsets
+					model.debug.x = (float)(reset_offset.x);
+					model.debug.y = (float)(reset_offset.y);
+					model.debug.z = (float)(reset_offset.z);
+
+					cmd.x = cmd.x + reset_offset.x;
+					cmd.y = cmd.y + reset_offset.y;
+					cmd.z = cmd.z + reset_offset.z;
+
+				} else {
+					// on vehicle: Send original setpoints and report corrected setpoint
+					model.debug.x = (float)(cmd.x + reset_offset.x);
+					model.debug.y = (float)(cmd.y + reset_offset.y);
+					model.debug.z = (float)(cmd.z + reset_offset.z);
+
+				}
+
 				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 				updateSLAMModel(target,null);
 
@@ -714,7 +745,7 @@ public class OffboardManager implements Runnable {
 						fireAction(model, path.value);
 					} else {
 						check_acceptance_radius = false;
-						// use current target aas target forr LOITER
+						// use current target aas target for LOITER
 						valid_setpoint = true;
 						fireAction(model, path.value);
 						changeStateTo(MODE_LOITER);	
@@ -737,6 +768,27 @@ public class OffboardManager implements Runnable {
 
 				if(Math.abs(MSP3DUtils.angleXZ(target, current)) > MAX_TURN_SLOPE)
 					yaw_diff = 0;
+
+
+				// In SITL correct trajectory by reset_offset
+				// TODO: How to simulate GPS glitch
+
+				if(control.isSimulation()) {
+					// in SITL: Send corrected setpoints and report offsets
+					model.debug.x = (float)(reset_offset.x);
+					model.debug.y = (float)(reset_offset.y);
+					model.debug.z = (float)(reset_offset.z);
+
+					traj_pos.x = traj_pos.x + reset_offset.x;
+					traj_pos.y = traj_pos.y + reset_offset.y;
+					traj_pos.z = traj_pos.z + reset_offset.z;
+
+				} else {
+					// on vehicle: Send original setpoints and report corrected setpoint
+					model.debug.x = (float)(traj_pos.x + reset_offset.x);
+					model.debug.y = (float)(traj_pos.y + reset_offset.y);
+					model.debug.z = (float)(traj_pos.z + reset_offset.z);
+				}
 
 				sendTrajectoryControlToVehice(traj_pos,traj_vel,traj_acc,yawSpeedControl.update(yaw_diff, delta_sec));
 
@@ -1137,6 +1189,8 @@ public class OffboardManager implements Runnable {
 	}
 
 	private void updateTrajectoryModel(float length, float current) {
+
+		// TODO: Consider reset_offsets also in model to plot them correctly
 
 		if(length > 0) {
 
