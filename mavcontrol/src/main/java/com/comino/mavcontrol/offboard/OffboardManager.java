@@ -96,6 +96,7 @@ public class OffboardManager implements Runnable {
 	private static final float MAX_TURN_SLOPE                       = MSPMathUtils.toRad(85); // Max slope to turn into papth direction
 
 	private static final float MAX_SPEED							= 0.75f;			      // Max speed m/s
+	private static final float MAX_SPEED_SIM						= 15.0f;			      // Max speed m/s
 	private static final float MIN_SPEED							= 0f;					  // Min speed m/s
 
 	private static final float LAND_MODE_ALT                        = 0.10f;                  // rel. altitude to switch to PX4 landing 
@@ -199,7 +200,7 @@ public class OffboardManager implements Runnable {
 
 		max_speed = config.getFloatProperty("autopilot_max_speed", String.valueOf(max_speed));
 		if(control.isSimulation())
-			max_speed = max_speed  * 20;
+			max_speed = MAX_SPEED_SIM;
 
 		this.yawSpeedControl   = new YawSpeedControl(YAW_PV,0,MAX_YAW_SPEED);
 
