@@ -107,7 +107,7 @@ public class OffboardManager implements Runnable {
 
 	private static final int   RC_DEADBAND             				= 10;				      // RC XY deadband for safety check
 
-	private static final int SETPOINT_TIMEOUT_MS         			= 75000;
+	private static final int SETPOINT_TIMEOUT_MS         			= 180000;
 
 	private static final float YAW_PV								= 0.10f;                  // P factor for yaw speed control
 	private static final float YAW_P								= 0.40f;                  // P factor for yaw position control
@@ -199,7 +199,7 @@ public class OffboardManager implements Runnable {
 
 		max_speed = config.getFloatProperty("autopilot_max_speed", String.valueOf(max_speed));
 		if(control.isSimulation())
-			max_speed = max_speed  * 2;
+			max_speed = max_speed  * 20;
 
 		this.yawSpeedControl   = new YawSpeedControl(YAW_PV,0,MAX_YAW_SPEED);
 
@@ -674,23 +674,23 @@ public class OffboardManager implements Runnable {
 					cmd.setTo(target.x,target.y,target.z, target.w+d_yaw);
 
 
-				if(control.isSimulation()) {
-					// in SITL: Send corrected setpoints and report offsets
-					model.debug.x = (float)(reset_offset.x);
-					model.debug.y = (float)(reset_offset.y);
-					model.debug.z = (float)(reset_offset.z);
-
-					cmd.x = cmd.x + reset_offset.x;
-					cmd.y = cmd.y + reset_offset.y;
-					cmd.z = cmd.z + reset_offset.z;
-
-				} else {
-					// on vehicle: Send original setpoints and report corrected setpoint
-					model.debug.x = (float)(cmd.x + reset_offset.x);
-					model.debug.y = (float)(cmd.y + reset_offset.y);
-					model.debug.z = (float)(cmd.z + reset_offset.z);
-
-				}
+//				if(control.isSimulation()) {
+//					// in SITL: Send corrected setpoints and report offsets
+//					model.debug.x = (float)(reset_offset.x);
+//					model.debug.y = (float)(reset_offset.y);
+//					model.debug.z = (float)(reset_offset.z);
+//
+//					cmd.x = cmd.x + reset_offset.x;
+//					cmd.y = cmd.y + reset_offset.y;
+//					cmd.z = cmd.z + reset_offset.z;
+//
+//				} else {
+//					// on vehicle: Send original setpoints and report corrected setpoint
+//					model.debug.x = (float)(cmd.x + reset_offset.x);
+//					model.debug.y = (float)(cmd.y + reset_offset.y);
+//					model.debug.z = (float)(cmd.z + reset_offset.z);
+//
+//				}
 
 				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 				updateSLAMModel(target,null);
@@ -773,22 +773,22 @@ public class OffboardManager implements Runnable {
 				// In SITL correct trajectory by reset_offset
 				// TODO: How to simulate GPS glitch
 
-				if(control.isSimulation()) {
-					// in SITL: Send corrected setpoints and report offsets
-					model.debug.x = (float)(reset_offset.x);
-					model.debug.y = (float)(reset_offset.y);
-					model.debug.z = (float)(reset_offset.z);
-
-					traj_pos.x = traj_pos.x + reset_offset.x;
-					traj_pos.y = traj_pos.y + reset_offset.y;
-					traj_pos.z = traj_pos.z + reset_offset.z;
-
-				} else {
-					// on vehicle: Send original setpoints and report corrected setpoint
-					model.debug.x = (float)(traj_pos.x + reset_offset.x);
-					model.debug.y = (float)(traj_pos.y + reset_offset.y);
-					model.debug.z = (float)(traj_pos.z + reset_offset.z);
-				}
+//				if(control.isSimulation()) {
+//					// in SITL: Send corrected setpoints and report offsets
+//					model.debug.x = (float)(reset_offset.x);
+//					model.debug.y = (float)(reset_offset.y);
+//					model.debug.z = (float)(reset_offset.z);
+//
+//					traj_pos.x = traj_pos.x + reset_offset.x;
+//					traj_pos.y = traj_pos.y + reset_offset.y;
+//					traj_pos.z = traj_pos.z + reset_offset.z;
+//
+//				} else {
+//					// on vehicle: Send original setpoints and report corrected setpoint
+//					model.debug.x = (float)(traj_pos.x + reset_offset.x);
+//					model.debug.y = (float)(traj_pos.y + reset_offset.y);
+//					model.debug.z = (float)(traj_pos.z + reset_offset.z);
+//				}
 
 				sendTrajectoryControlToVehice(traj_pos,traj_vel,traj_acc,yawSpeedControl.update(yaw_diff, delta_sec));
 
