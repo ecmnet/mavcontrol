@@ -178,7 +178,7 @@ public class MSPCommander  {
 		if(model.sys.isStatus(Status.MSP_LANDED) && !model.sys.isStatus(Status.MSP_ARMED)) {
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, 1);
 			if(!control.isSimulation()) { 
-				wq.addSingleTask("LP",500,() -> {
+				wq.addSingleTask("LP",50,() -> {
 					//	control.sendShellCommand("reboot");
 					executeConsoleCommand("service flightcontrol restart");
 				});
