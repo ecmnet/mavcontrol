@@ -159,10 +159,41 @@ public class MSPCommander  {
 							autopilot.resetMap(); break;
 						}
 						break;
+					case MSP_CMD.MSP_CMD_SET_HOMEPOS:
+						setGlobalOrigin(cmd.param1 / 1e7f, cmd.param2 / 1e7f, cmd.param3 / 1e3f );
+						break;
 					}
 				});
 			}
 		});
+	}
+
+
+	private void setGlobalOrigin(double lat, double lon, double altitude) {
+
+		if(model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY) || model.sys.isStatus(Status.MSP_GPOS_VALID))
+			return;
+
+		// Note: In SITL Set global origin causes BARO failure 
+		// TODO: To be investigated in PX4
+		if(control.isSimulation()) {
+			logger.writeLocalMsg("[msp] Global origin not set (SITL)",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+			return;
+		}
+
+		msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,1);
+		gor.target_system = 1;
+		gor.latitude = (long)(lat * 1e7);
+		gor.longitude = (long)(lon * 1e7);
+		if(altitude < 0)
+			gor.altitude = (int)(model.hud.ap * 1000f);
+		else
+			gor.altitude = (int)(altitude * 1000);
+		gor.time_usec = DataModel.getSynchronizedPX4Time_us();
+
+		control.sendMAVLinkMessage(gor);
+		logger.writeLocalMsg("[msp] Setting reference position",MAV_SEVERITY.MAV_SEVERITY_INFO);
+
 	}
 
 	public LocalMap3D getMap() {
