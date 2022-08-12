@@ -25,6 +25,8 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 	private float local_pos_y = 0;
 	private float local_pos_z = 0;
 	
+	private int counter = 0;
+	
 	private final msg_msp_ekf2_reset reset_msg = new msg_msp_ekf2_reset(2,1);
 
 	public EKF2ResetCheck(IMAVController control) {
@@ -56,11 +58,12 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 			reset_msg.offset_x = model.state.l_rx;
 			reset_msg.offset_y = model.state.l_ry;
 			reset_msg.offset_z = model.state.l_rz;
+			reset_msg.counter  = ++counter;
 			reset_msg.tms = DataModel.getSynchronizedPX4Time_us();
 			control.sendMAVLinkMessage(reset_msg);
 			
-			
 			control.writeLogMessage(new LogMessage("[msp] EKF2 reset detected.", MAV_SEVERITY.MAV_SEVERITY_DEBUG)); 
+			
 		} else {
 			
 			local_pos_x = model.state.l_x;
