@@ -39,6 +39,20 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 	public void addListener(Runnable r) {
 		listener.add(r);
 	}
+	
+	public void reset() {
+		
+		this.counter = 0;
+		
+		model.state.l_rx = 0;
+		model.state.l_ry = 0;
+		model.state.l_rz = 0;
+		
+		local_pos_x = 0;
+		local_pos_y = 0;
+		local_pos_z = 0;
+		
+	}
 
 	@Override
 	public void received(Object o) {
