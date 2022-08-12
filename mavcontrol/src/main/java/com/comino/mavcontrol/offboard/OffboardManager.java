@@ -96,7 +96,7 @@ public class OffboardManager implements Runnable {
 	private static final float MAX_TURN_SLOPE                       = MSPMathUtils.toRad(85); // Max slope to turn into papth direction
 
 	private static final float MAX_SPEED							= 0.75f;			      // Max speed m/s
-	private static final float MAX_SPEED_SIM						= 15.0f;			      // Max speed m/s
+	private static final float MAX_SPEED_SIM						= 5.00f;			      // Max speed m/s
 	private static final float MIN_SPEED							= 0f;					  // Min speed m/s
 
 	private static final float LAND_MODE_ALT                        = 0.10f;                  // rel. altitude to switch to PX4 landing 
@@ -142,9 +142,6 @@ public class OffboardManager implements Runnable {
 	private final Vector4D_F32      start                     		= new Vector4D_F32();    // state, when setpoint was set incl. yaw
 	private final Vector4D_F32		cmd			  	            	= new Vector4D_F32();    // vehicle command state (coordinates/speeds)
 
-	private final Vector4D_F32		reset_offset			  	    = new Vector4D_F32();    // Position offset at point of EKF2 reset
-//  private final Vector4D_F32		reset_offset_speed			    = new Vector4D_F32();    // Velocity offset at point of EKF2 reset 
-
 
 	private final msg_set_position_target_local_ned pos_cmd   		= new msg_set_position_target_local_ned(1,1);
 	private final msg_set_position_target_local_ned speed_cmd 		= new msg_set_position_target_local_ned(1,1);
@@ -178,8 +175,6 @@ public class OffboardManager implements Runnable {
 	private final Point3D_F64 debug								    = new Point3D_F64(0,0,0);
 
 	private boolean check_acceptance_radius                         = false;  // Do not consider acceptance radiua but time only
-
-	private int   reset_counter                                     = 0;
 
 	private final LocalMap3D map;
 
@@ -512,8 +507,6 @@ public class OffboardManager implements Runnable {
 			// a new setpoint was provided
 			if(new_setpoint) {
 
-				reset_counter =  model.est.reset_counter;
-				reset_offset.setTo(0,0,0,0);
 
 				switch(mode) {
 				case MODE_TRAJECTORY:
@@ -524,6 +517,7 @@ public class OffboardManager implements Runnable {
 					if(Float.isNaN(target.z))
 						target.z = current.z;
 
+					// TODO: Too simple for long distances: Max speed will not be reached
 					traj_length_s = MSP3DUtils.distance3D(target, current) * (float)Math.PI / ( max_speed );
 					traj_length_s = traj_length_s < MIN_TRAJ_TIME ? MIN_TRAJ_TIME : traj_length_s;
 
@@ -565,18 +559,6 @@ public class OffboardManager implements Runnable {
 				new_setpoint = false;
 				start.setTo(current);
 				ctl.set(spd);
-
-			}
-
-			if(reset_counter != model.est.reset_counter) {
-				MSP3DUtils.convertTargetState(model, current_sp);
-				reset_counter =  model.est.reset_counter;
-
-				control.writeLogMessage(new LogMessage("[msp] EKF2 reset detected (Offboard).", MAV_SEVERITY.MAV_SEVERITY_WARNING)); 
-
-				reset_offset.x = current.x - current_sp.x;
-				reset_offset.y = current.y - current_sp.y;
-				reset_offset.z = current.z - current_sp.z;
 
 			}
 

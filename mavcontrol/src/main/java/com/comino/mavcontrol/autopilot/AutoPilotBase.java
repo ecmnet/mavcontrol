@@ -51,6 +51,7 @@ import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.model.segment.Vision;
 import com.comino.mavcom.param.PX4Parameters;
+
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
@@ -58,6 +59,7 @@ import com.comino.mavcontrol.autopilot.actions.SafetyCheckHandler;
 import com.comino.mavcontrol.autopilot.actions.StandardActionFactory;
 import com.comino.mavcontrol.autopilot.actions.TakeOffHandler;
 import com.comino.mavcontrol.autopilot.tests.PlannerTest;
+import com.comino.mavcontrol.ekf2utils.EKF2ResetCheck;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavcontrol.sequencer.ISeqAction;
 import com.comino.mavcontrol.sequencer.Sequencer;
@@ -100,6 +102,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected TakeOffHandler         takeoff_handler = null;
 	protected SafetyCheckHandler safetycheck_handler = null;
+	protected EKF2ResetCheck        ekf2_reset_check = null;
 
 	protected boolean			           mapForget = false;
 	protected boolean                      flowCheck = false;
@@ -144,6 +147,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.model     = control.getCurrentModel();
 		this.logger    = MSPLogger.getInstance();
 		this.params    = PX4Parameters.getInstance();
+		
+		this.ekf2_reset_check = new EKF2ResetCheck(control);
 		
 		this.publish_microgrid = config.getBoolProperty(MSPParams.PUBLISH_MICROGRID, "true");
 		System.out.println("[vis] Publishing microGrid enabled: "+publish_microgrid);
@@ -281,6 +286,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected void publishSLAMData() {
 		transferObstacleToModel(null);
+	}
+	
+	protected void addEKF2ResetListener(Runnable r) {
+		ekf2_reset_check.addListener(r);
 	}
 
 	protected void transferObstacleToModel(Polar3D_F32 obstacle) {
