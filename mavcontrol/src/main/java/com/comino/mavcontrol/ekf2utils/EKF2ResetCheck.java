@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.mavlink.messages.MAV_SEVERITY;
+import org.mavlink.messages.lquac.msg_msp_ekf2_reset;
 import org.mavlink.messages.lquac.msg_odometry;
 
 import com.comino.mavcom.control.IMAVController;
@@ -23,6 +24,8 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 	private float local_pos_x = 0;
 	private float local_pos_y = 0;
 	private float local_pos_z = 0;
+	
+	private final msg_msp_ekf2_reset reset_msg = new msg_msp_ekf2_reset(2,1);
 
 	public EKF2ResetCheck(IMAVController control) {
 		this.control = control;
@@ -48,6 +51,14 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 			
 			// Run listener
 			listener.forEach((r) -> r.run());
+			
+			// Send MSP message to GC
+			reset_msg.offset_x = model.state.l_rx;
+			reset_msg.offset_y = model.state.l_ry;
+			reset_msg.offset_z = model.state.l_rz;
+			reset_msg.tms = DataModel.getSynchronizedPX4Time_us();
+			control.sendMAVLinkMessage(reset_msg);
+			
 			
 			control.writeLogMessage(new LogMessage("[msp] EKF2 reset detected.", MAV_SEVERITY.MAV_SEVERITY_DEBUG)); 
 		} else {
