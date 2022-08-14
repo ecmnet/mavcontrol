@@ -45,48 +45,59 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 
 		this.counter = 0;
 
-		model.state.l_rx = 0;
-		model.state.l_ry = 0;
-		model.state.l_rz = 0;
+		model.est.l_x_reset = 0;
+		model.est.l_y_reset = 0;
+		model.est.l_z_reset = 0;
 
 		local_pos_x = 0;
 		local_pos_y = 0;
 		local_pos_z = 0;
 
 	}
-	
+
 	@Override
 	public void received(Object o) {
 		msg_odometry odom = (msg_odometry) o;
 
 		if(reset_counter_old != odom.reset_counter) {
 			reset_counter_old = odom.reset_counter;	
+			
+			counter++;
 
 			// calculate offset between previous lpos and new one
-			model.state.l_rx += (odom.x - local_pos_x);
-			model.state.l_ry += (odom.y - local_pos_y);
-			model.state.l_rz += (odom.z - local_pos_z);
+			model.est.l_x_reset += (odom.x - local_pos_x);
+			model.est.l_y_reset += (odom.y - local_pos_y);
+			model.est.l_z_reset += (odom.z - local_pos_z);
 
 			// Run listener
 			listener.forEach((r) -> r.run());
 
-			// Send MSP message to GC
-			reset_msg.offset_x = model.state.l_rx;
-			reset_msg.offset_y = model.state.l_ry;
-			reset_msg.offset_z = model.state.l_rz;
-			reset_msg.counter  = ++counter;
-			reset_msg.tms = DataModel.getSynchronizedPX4Time_us();
-			control.sendMAVLinkMessage(reset_msg);
-
 			control.writeLogMessage(new LogMessage("[msp] EKF2 reset detected.", MAV_SEVERITY.MAV_SEVERITY_DEBUG)); 
 
 		} else {
-			
+
 			local_pos_x = odom.x;
 			local_pos_y = odom.y;
 			local_pos_z = odom.z;
-			
+
 		}
+		
+		model.state.l_rx = model.state.l_x - model.est.l_x_reset;
+		model.state.l_ry = model.state.l_y - model.est.l_y_reset;
+		model.state.l_rz = model.state.l_z - model.est.l_z_reset;
+
+
+		// Send MSP message to GC
+		reset_msg.offset_x = model.est.l_x_reset;
+		reset_msg.offset_y = model.est.l_x_reset;
+		reset_msg.offset_z = model.est.l_x_reset;
+		reset_msg.cx       = model.state.l_rx;
+		reset_msg.cy       = model.state.l_ry;
+		reset_msg.cz       = model.state.l_rz;
+		reset_msg.counter  = counter;
+		reset_msg.tms = DataModel.getSynchronizedPX4Time_us();
+		control.sendMAVLinkMessage(reset_msg);
+
 	}	
 
 }
