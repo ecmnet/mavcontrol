@@ -202,7 +202,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected void registerArm() {
 
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
-           resetMap(); ekf2_reset_check.reset(true);
+           resetMap(); 
            map.setOrigin(model.state.l_x, model.state.l_y, 0);
 
 		});

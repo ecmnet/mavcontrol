@@ -444,7 +444,7 @@ public class OffboardManager implements Runnable {
 		
 		switch(mode) {
 		case MODE_LOITER:
-			sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
+			sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED,true);
 			break;
 		case MODE_TRAJECTORY:
 			sendTrajectoryControlToVehice(traj_pos,traj_vel,traj_acc,0);
@@ -697,7 +697,7 @@ public class OffboardManager implements Runnable {
 				//
 				//				}
 
-				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
+				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED, false);
 				updateSLAMModel(target,null);
 
 				break;
@@ -938,7 +938,7 @@ public class OffboardManager implements Runnable {
 	}
 
 
-	private void sendPositionControlToVehice(Vector4D_F32 target, int frame) {
+	private void sendPositionControlToVehice(Vector4D_F32 target, int frame, boolean ignore_yaw) {
 
 		pos_cmd.target_component = 1;
 		pos_cmd.target_system    = 1;
@@ -962,7 +962,7 @@ public class OffboardManager implements Runnable {
 		pos_cmd.afz  = 0;
 
 
-		if(Float.isInfinite(target.w)) {
+		if(Float.isInfinite(target.w) || ignore_yaw) {
 			pos_cmd.type_mask  = pos_cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
 			pos_cmd.yaw = model.attitude.y;
 		} else

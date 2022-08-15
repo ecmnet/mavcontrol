@@ -38,6 +38,7 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 		this.control = control;
 		this.model = control.getCurrentModel();
 		control.addMAVLinkListener(msg_odometry.class, this);
+		
 		System.out.println("EKF2 reset counter check initialized..");
 	}
 
@@ -80,7 +81,7 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 
 			counter++;
 
-			// calculate offset between previous lpos and new one
+			// calculate current offset between previous lpos and new one
 			model.est.l_x_reset += (odom.x - local_pos_x);
 			model.est.l_y_reset += (odom.y - local_pos_y);
 			model.est.l_z_reset += (odom.z - local_pos_z);
@@ -108,6 +109,7 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 
 		}
 
+		// Corrected LPOS is PX4 LPOS - current offset - cumulated offset 
 		model.state.l_rx = odom.x - model.est.l_x_reset - cum_x_reset;
 		model.state.l_ry = odom.y - model.est.l_y_reset - cum_y_reset;
 		model.state.l_rz = odom.z - model.est.l_z_reset - cum_z_reset;
