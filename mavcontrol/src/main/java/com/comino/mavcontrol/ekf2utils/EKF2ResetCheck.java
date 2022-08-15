@@ -87,6 +87,16 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 
 			// Run listener
 			listener.forEach((r) -> r.run());
+			
+			// Send MSP message to GC
+			reset_msg.offset_x = model.est.l_x_reset;
+			reset_msg.offset_y = model.est.l_x_reset;
+			reset_msg.offset_z = model.est.l_x_reset;
+
+			reset_msg.counter  = counter;
+
+			reset_msg.tms = DataModel.getSynchronizedPX4Time_us();
+			control.sendMAVLinkMessage(reset_msg);
 
 			control.writeLogMessage(new LogMessage("[msp] EKF2 reset detected.", MAV_SEVERITY.MAV_SEVERITY_DEBUG)); 
 
@@ -102,20 +112,6 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 		model.state.l_ry = odom.y - model.est.l_y_reset - cum_y_reset;
 		model.state.l_rz = odom.z - model.est.l_z_reset - cum_z_reset;
 
-
-		// Send MSP message to GC
-		reset_msg.offset_x = model.est.l_x_reset;
-		reset_msg.offset_y = model.est.l_x_reset;
-		reset_msg.offset_z = model.est.l_x_reset;
-
-		reset_msg.cx       = model.state.l_rx;
-		reset_msg.cy       = model.state.l_ry;
-		reset_msg.cz       = model.state.l_rz;
-
-		reset_msg.counter  = counter;
-
-		reset_msg.tms = DataModel.getSynchronizedPX4Time_us();
-		control.sendMAVLinkMessage(reset_msg);
 
 	}	
 
