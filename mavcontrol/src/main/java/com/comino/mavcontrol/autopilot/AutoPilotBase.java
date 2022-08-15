@@ -160,7 +160,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.map      = new LocalMap3D(map_info,mapForget,publish_microgrid);
 		this.model.grid.setResolution(map_info.getCellSize());
 
-		this.offboard  = new OffboardManager(control, map, params);
+		this.offboard  = new OffboardManager(control, ekf2_reset_check, map, params);
 		this.sequencer = new Sequencer(offboard,logger,model,control);
 
 
@@ -183,6 +183,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				resetMap();
 			}
 		});
+		
+		// Resend current offboard setpoint as soon as a reset is detected
+		ekf2_reset_check.addListener(() -> {
+			offboard.reSendCurrentSetpoint();
+		});
 
 		registerLanding();
 
@@ -197,7 +202,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected void registerArm() {
 
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
-           resetMap();
+           resetMap(); ekf2_reset_check.reset(true);
            map.setOrigin(model.state.l_x, model.state.l_y, 0);
 
 		});
@@ -305,6 +310,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			if(control.isSimulation())
 				model.slam.dm = Float.NaN;
 		}
+	}
+	
+	public EKF2ResetCheck getEKF2ResetCheck() {
+		return this.ekf2_reset_check;
 	}
 
 

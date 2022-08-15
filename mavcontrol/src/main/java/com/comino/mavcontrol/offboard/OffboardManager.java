@@ -57,9 +57,11 @@ import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavcontrol.autopilot.actions.StandardActionFactory;
 import com.comino.mavcontrol.controllib.IYawSpeedControl;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
+import com.comino.mavcontrol.ekf2utils.EKF2ResetCheck;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
 import com.comino.mavutils.MSPMathUtils;
@@ -88,7 +90,7 @@ public class OffboardManager implements Runnable {
 	private static final int  LOCK_XYZ                              = 4;
 
 
-	private static final int  UPDATE_RATE                 			= 20;					  // offboard update rate in ms
+	private static final int  UPDATE_RATE                 			= 40;					  // offboard update rate in ms
 
 	private static final float MAX_YAW_SPEED                		= MSPMathUtils.toRad(60); // Max YawSpeed rad/s
 	private static final float MIN_YAW_SPEED                        = MSPMathUtils.toRad(10); // Min yawSpeed rad/s
@@ -177,13 +179,16 @@ public class OffboardManager implements Runnable {
 	private boolean check_acceptance_radius                         = false;  // Do not consider acceptance radiua but time only
 
 	private final LocalMap3D map;
+	private final EKF2ResetCheck ekf2_reset_check;
 
-	public OffboardManager(IMAVController control, LocalMap3D map, PX4Parameters params) {
+	public OffboardManager(IMAVController control,  EKF2ResetCheck ekf2_reset_check, LocalMap3D map, PX4Parameters params) {
 
 		this.control        = control;
 		this.map            = map;
 		this.model          = control.getCurrentModel();
 		this.logger         = MSPLogger.getInstance();
+
+		this.ekf2_reset_check = ekf2_reset_check;
 
 		this.target.setTo(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 
@@ -431,6 +436,22 @@ public class OffboardManager implements Runnable {
 		return already_fired;
 	}
 
+	public void reSendCurrentSetpoint() {
+		// resend current setpoint for EKF2 check
+		
+		if(!valid_setpoint || !enabled)
+			return;
+		
+		switch(mode) {
+		case MODE_LOITER:
+			sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
+			break;
+		case MODE_TRAJECTORY:
+			sendTrajectoryControlToVehice(traj_pos,traj_vel,traj_acc,0);
+			break;
+		}	
+	}
+
 	@Override
 	public void run() {
 
@@ -507,6 +528,7 @@ public class OffboardManager implements Runnable {
 			// a new setpoint was provided
 			if(new_setpoint) {
 
+				ekf2_reset_check.reset(false);
 
 				switch(mode) {
 				case MODE_TRAJECTORY:
@@ -657,23 +679,23 @@ public class OffboardManager implements Runnable {
 					cmd.setTo(target.x,target.y,target.z, target.w+d_yaw);
 
 
-//				if(control.isSimulation()) {
-//					// in SITL: Send corrected setpoints and report offsets
-//					model.debug.x = (float)(reset_offset.x);
-//					model.debug.y = (float)(reset_offset.y);
-//					model.debug.z = (float)(reset_offset.z);
-//
-//					cmd.x = cmd.x + reset_offset.x;
-//					cmd.y = cmd.y + reset_offset.y;
-//					cmd.z = cmd.z + reset_offset.z;
-//
-//				} else {
-//					// on vehicle: Send original setpoints and report corrected setpoint
-//					model.debug.x = (float)(cmd.x + reset_offset.x);
-//					model.debug.y = (float)(cmd.y + reset_offset.y);
-//					model.debug.z = (float)(cmd.z + reset_offset.z);
-//
-//				}
+				//				if(control.isSimulation()) {
+				//					// in SITL: Send corrected setpoints and report offsets
+				//					model.debug.x = (float)(reset_offset.x);
+				//					model.debug.y = (float)(reset_offset.y);
+				//					model.debug.z = (float)(reset_offset.z);
+				//
+				//					cmd.x = cmd.x + reset_offset.x;
+				//					cmd.y = cmd.y + reset_offset.y;
+				//					cmd.z = cmd.z + reset_offset.z;
+				//
+				//				} else {
+				//					// on vehicle: Send original setpoints and report corrected setpoint
+				//					model.debug.x = (float)(cmd.x + reset_offset.x);
+				//					model.debug.y = (float)(cmd.y + reset_offset.y);
+				//					model.debug.z = (float)(cmd.z + reset_offset.z);
+				//
+				//				}
 
 				sendPositionControlToVehice(cmd, MAV_FRAME.MAV_FRAME_LOCAL_NED);
 				updateSLAMModel(target,null);
@@ -756,22 +778,22 @@ public class OffboardManager implements Runnable {
 				// In SITL correct trajectory by reset_offset
 				// TODO: How to simulate GPS glitch
 
-//				if(control.isSimulation()) {
-//					// in SITL: Send corrected setpoints and report offsets
-//					model.debug.x = (float)(reset_offset.x);
-//					model.debug.y = (float)(reset_offset.y);
-//					model.debug.z = (float)(reset_offset.z);
-//
-//					traj_pos.x = traj_pos.x + reset_offset.x;
-//					traj_pos.y = traj_pos.y + reset_offset.y;
-//					traj_pos.z = traj_pos.z + reset_offset.z;
-//
-//				} else {
-//					// on vehicle: Send original setpoints and report corrected setpoint
-//					model.debug.x = (float)(traj_pos.x + reset_offset.x);
-//					model.debug.y = (float)(traj_pos.y + reset_offset.y);
-//					model.debug.z = (float)(traj_pos.z + reset_offset.z);
-//				}
+				//				if(control.isSimulation()) {
+				//					// in SITL: Send corrected setpoints and report offsets
+				//					model.debug.x = (float)(reset_offset.x);
+				//					model.debug.y = (float)(reset_offset.y);
+				//					model.debug.z = (float)(reset_offset.z);
+				//
+				//					traj_pos.x = traj_pos.x + reset_offset.x;
+				//					traj_pos.y = traj_pos.y + reset_offset.y;
+				//					traj_pos.z = traj_pos.z + reset_offset.z;
+				//
+				//				} else {
+				//					// on vehicle: Send original setpoints and report corrected setpoint
+				//					model.debug.x = (float)(traj_pos.x + reset_offset.x);
+				//					model.debug.y = (float)(traj_pos.y + reset_offset.y);
+				//					model.debug.z = (float)(traj_pos.z + reset_offset.z);
+				//				}
 
 				sendTrajectoryControlToVehice(traj_pos,traj_vel,traj_acc,yawSpeedControl.update(yaw_diff, delta_sec));
 
@@ -921,9 +943,17 @@ public class OffboardManager implements Runnable {
 		pos_cmd.target_component = 1;
 		pos_cmd.target_system    = 1;
 
-		pos_cmd.x   = target.x;
-		pos_cmd.y   = target.y;
-		pos_cmd.z   = target.z;
+
+		if(control.isSimulation()) {
+			pos_cmd.x   = target.x + model.est.l_x_reset;
+			pos_cmd.y   = target.y + model.est.l_y_reset;
+			pos_cmd.z   = target.z + model.est.l_z_reset;
+		} else {
+			pos_cmd.x   = target.x;
+			pos_cmd.y   = target.y;
+			pos_cmd.z   = target.z;
+		}
+		
 		pos_cmd.vx  = 0;
 		pos_cmd.vy  = 0;
 		pos_cmd.vz  = 0;
@@ -1027,9 +1057,16 @@ public class OffboardManager implements Runnable {
 		//		speed_cmd.type_mask    = MAV_MASK.MASK_ACCELERATION_IGNORE | MAV_MASK.MASK_YAW_IGNORE;
 		speed_cmd.type_mask    = MAV_MASK.MASK_YAW_IGNORE;
 
-		speed_cmd.x       = (float)pos.x;
-		speed_cmd.y       = (float)pos.y;
-		speed_cmd.z       = (float)pos.z;
+		if(control.isSimulation()) {
+			speed_cmd.x       = (float)pos.x + model.est.l_x_reset;
+			speed_cmd.y       = (float)pos.y + model.est.l_y_reset;
+			speed_cmd.z       = (float)pos.z + model.est.l_z_reset;
+		}	 else {
+
+			speed_cmd.x       = (float)pos.x;
+			speed_cmd.y       = (float)pos.y;
+			speed_cmd.z       = (float)pos.z;
+		}
 
 		speed_cmd.vx       = (float)vel.x;
 		speed_cmd.vy       = (float)vel.y;

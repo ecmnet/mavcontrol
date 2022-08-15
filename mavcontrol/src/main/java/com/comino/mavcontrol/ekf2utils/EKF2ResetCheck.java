@@ -26,6 +26,10 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 	private float local_pos_y = 0;
 	private float local_pos_z = 0;
 
+	private float cum_x_reset = 0;
+	private float cum_y_reset = 0;
+	private float cum_z_reset = 0;
+
 	private int counter = 0;
 
 	private final msg_msp_ekf2_reset reset_msg = new msg_msp_ekf2_reset(2,1);
@@ -41,9 +45,21 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 		listener.add(r);
 	}
 
-	public void reset() {
+	public void reset(boolean reset_cumulated_reset) {
 
 		this.counter = 0;
+
+		if(reset_cumulated_reset) {
+			cum_x_reset = 0;
+			cum_y_reset = 0;
+			cum_z_reset = 0;
+		}	
+		else {
+			
+			cum_x_reset += model.est.l_x_reset;
+			cum_y_reset += model.est.l_y_reset;
+			cum_z_reset += model.est.l_z_reset;
+		}
 
 		model.est.l_x_reset = 0;
 		model.est.l_y_reset = 0;
@@ -61,7 +77,7 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 
 		if(reset_counter_old != odom.reset_counter) {
 			reset_counter_old = odom.reset_counter;	
-			
+
 			counter++;
 
 			// calculate offset between previous lpos and new one
@@ -81,20 +97,23 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 			local_pos_z = odom.z;
 
 		}
-		
-		model.state.l_rx = model.state.l_x - model.est.l_x_reset;
-		model.state.l_ry = model.state.l_y - model.est.l_y_reset;
-		model.state.l_rz = model.state.l_z - model.est.l_z_reset;
+
+		model.state.l_rx = odom.x - model.est.l_x_reset - cum_x_reset;
+		model.state.l_ry = odom.y - model.est.l_y_reset - cum_y_reset;
+		model.state.l_rz = odom.z - model.est.l_z_reset - cum_z_reset;
 
 
 		// Send MSP message to GC
 		reset_msg.offset_x = model.est.l_x_reset;
 		reset_msg.offset_y = model.est.l_x_reset;
 		reset_msg.offset_z = model.est.l_x_reset;
+
 		reset_msg.cx       = model.state.l_rx;
 		reset_msg.cy       = model.state.l_ry;
 		reset_msg.cz       = model.state.l_rz;
+
 		reset_msg.counter  = counter;
+
 		reset_msg.tms = DataModel.getSynchronizedPX4Time_us();
 		control.sendMAVLinkMessage(reset_msg);
 
