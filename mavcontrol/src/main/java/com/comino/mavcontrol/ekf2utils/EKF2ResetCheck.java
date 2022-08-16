@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.mavlink.messages.MAV_SEVERITY;
-import org.mavlink.messages.lquac.msg_local_position_ned;
-import org.mavlink.messages.lquac.msg_msp_ekf2_reset;
 import org.mavlink.messages.lquac.msg_odometry;
 
 import com.comino.mavcom.control.IMAVController;
@@ -13,7 +11,6 @@ import com.comino.mavcom.mavlink.IMAVLinkListener;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 
-import georegression.struct.point.Vector3D_F64;
 
 public class EKF2ResetCheck implements IMAVLinkListener {
 
@@ -31,8 +28,6 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 	private float cum_z_reset = 0;
 
 	private int counter = 0;
-
-	private final msg_msp_ekf2_reset reset_msg = new msg_msp_ekf2_reset(2,1);
 
 	public EKF2ResetCheck(IMAVController control) {
 		this.control = control;
@@ -89,16 +84,6 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 			// Run listener
 			listener.forEach((r) -> r.run());
 			
-			// Send MSP message to GC
-			reset_msg.offset_x = model.est.l_x_reset;
-			reset_msg.offset_y = model.est.l_x_reset;
-			reset_msg.offset_z = model.est.l_x_reset;
-
-			reset_msg.counter  = counter;
-
-			reset_msg.tms = DataModel.getSynchronizedPX4Time_us();
-			control.sendMAVLinkMessage(reset_msg);
-
 			control.writeLogMessage(new LogMessage("[msp] EKF2 reset detected.", MAV_SEVERITY.MAV_SEVERITY_DEBUG)); 
 
 		} else {
