@@ -27,7 +27,6 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 	private float cum_y_reset = 0;
 	private float cum_z_reset = 0;
 
-	private int counter = 0;
 
 	public EKF2ResetCheck(IMAVController control) {
 		this.control = control;
@@ -42,8 +41,6 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 	}
 
 	public void reset(boolean reset_cumulated_reset) {
-
-		this.counter = 0;
 
 		if(reset_cumulated_reset) {
 			cum_x_reset = 0;
@@ -73,8 +70,6 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 
 		if(reset_counter_old != odom.reset_counter) {
 			reset_counter_old = odom.reset_counter;	
-
-			counter++;
 
 			// calculate current offset between previous lpos and new one
 			model.est.l_x_reset += (odom.x - local_pos_x);
