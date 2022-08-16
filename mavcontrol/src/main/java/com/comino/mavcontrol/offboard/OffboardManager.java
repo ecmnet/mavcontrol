@@ -507,6 +507,7 @@ public class OffboardManager implements Runnable {
 
 			if(valid_setpoint && (System.currentTimeMillis()-watch_tms ) > setpoint_timeout ) {
 				valid_setpoint = false; mode = MODE_LOITER;
+				// TODO: Switch to PX4 HOLD or other action if this occurs multiple times
 
 				if(model.sys.nav_state == Status.NAVIGATION_STATE_OFFBOARD)
 					logger.writeLocalMsg("[msp] Setpoint not reached. Loitering.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
