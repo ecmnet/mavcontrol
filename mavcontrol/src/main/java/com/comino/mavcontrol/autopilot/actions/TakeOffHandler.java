@@ -101,6 +101,9 @@ public class TakeOffHandler {
 		this.model     = control.getCurrentModel();
 		this.logger    = MSPLogger.getInstance();
 		this.completed = completedAction;
+		if(this.offboard != null) {
+			System.out.println("[ap] Switch to offboard after takeoff enabled" );
+		}
 	}
 
 	public void initiateTakeoff(int count_down_secs) {
@@ -252,10 +255,17 @@ public class TakeOffHandler {
 				break;
 			case STATE_LOITER:
 				
+				if(offboard==null) {
+					control.writeLogMessage(new LogMessage("[msp] Entering PX4 HOLD mode.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+					state = STATE_FINALIZED;
+					return;
+				}
+				
 				if((System.currentTimeMillis() - tms_takeoff_act) > max_tko_time_ms) {
 					control.writeLogMessage(new LogMessage("[msp] Takeoff (2) did not complete within "+(max_tko_time_ms/1000)+" secs",
 							MAV_SEVERITY.MAV_SEVERITY_WARNING));
 					state = STATE_IDLE;
+					return;
 				}
 
 				// Note: In SITL NAVState is not reached without global position
@@ -287,13 +297,14 @@ public class TakeOffHandler {
 				}
 
 				if(model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
+					control.writeLogMessage(new LogMessage("[msp] Entering PX4 OFFBOARD mode.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 					state = STATE_FINALIZED;
 				}
 
 				break;
 			case STATE_FINALIZED:
 
-				control.writeLogMessage(new LogMessage("[msp] Setting takeoff position.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+				control.writeLogMessage(new LogMessage("[msp] Setting takeoff position.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				takeoff.setTo(model.state.l_x,model.state.l_y,model.state.l_z, Float.NaN);
 
 				if(completed!=null && model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))

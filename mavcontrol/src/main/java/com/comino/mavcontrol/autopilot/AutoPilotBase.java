@@ -174,7 +174,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				config.getBoolProperty(MSPParams.AUTOPILOT_PRECISION_LOCK, "false"));
 
 
-		this.takeoff_handler = new TakeOffHandler(control, offboard,() -> takeoffCompletedAction());
+		if(config.getBoolProperty(MSPParams.AUTOPILOT_TAKEOFF_OFFBOARD, "false"))
+		  this.takeoff_handler = new TakeOffHandler(control, offboard,() -> takeoffCompletedAction());
+		else
+		  this.takeoff_handler = new TakeOffHandler(control, null, null);
+		
 		this.safetycheck_handler = new SafetyCheckHandler(control);
 
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_SERVICES,Status.MSP_SLAM_AVAILABILITY, (n) -> {
