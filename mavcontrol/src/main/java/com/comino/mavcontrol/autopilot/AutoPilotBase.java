@@ -206,6 +206,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected void registerArm() {
 
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
+		   ekf2_reset_check.reset(true);
            resetMap(); 
            map.setOrigin(model.state.l_x, model.state.l_y, 0);
 
@@ -229,6 +230,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
 
 			}
+			
+			
 			//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 			//					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
 			//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL,MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER);

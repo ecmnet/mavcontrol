@@ -46,6 +46,7 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 			cum_x_reset = 0;
 			cum_y_reset = 0;
 			cum_z_reset = 0;
+			control.writeLogMessage(new LogMessage("[msp] EKF2 reset offset cleared.", MAV_SEVERITY.MAV_SEVERITY_DEBUG)); 
 		}	
 		else {
 			

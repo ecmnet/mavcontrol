@@ -102,7 +102,7 @@ public class TakeOffHandler {
 		this.logger    = MSPLogger.getInstance();
 		this.completed = completedAction;
 		if(this.offboard != null) {
-			System.out.println("[ap] Switch to offboard after takeoff enabled" );
+			System.out.println("[msp] Switch to offboard after takeoff enabled" );
 		}
 	}
 
