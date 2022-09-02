@@ -3,8 +3,9 @@ package com.comino.mavcontrol.ekf2utils;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.mavlink.messages.ESTIMATOR_STATUS_FLAGS;
 import org.mavlink.messages.MAV_SEVERITY;
-import org.mavlink.messages.lquac.msg_odometry;
+import org.mavlink.messages.lquac.msg_estimator_status;
 
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.mavlink.IMAVLinkListener;
@@ -14,7 +15,6 @@ import com.comino.mavcom.model.segment.LogMessage;
 
 public class EKF2ResetCheck implements IMAVLinkListener {
 
-	private int   reset_counter_old = 0;
 	private final List<Runnable> listener = new ArrayList<Runnable>();
 	private final IMAVController control;
 	private final DataModel model;
@@ -26,14 +26,17 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 	private float cum_x_reset = 0;
 	private float cum_y_reset = 0;
 	private float cum_z_reset = 0;
+	
+	private int   est_flags_old = 0;
 
 
 	public EKF2ResetCheck(IMAVController control) {
 		this.control = control;
 		this.model = control.getCurrentModel();
-		control.addMAVLinkListener(msg_odometry.class, this);
+		control.addMAVLinkListener(msg_estimator_status.class, this);
 		
 		System.out.println("EKF2 reset counter check initialized..");
+		
 	}
 
 	public void addListener(Runnable r) {
@@ -62,20 +65,22 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 		local_pos_x = 0;
 		local_pos_y = 0;
 		local_pos_z = 0;
+		
+		est_flags_old = model.est.flags;
 
 	}
 
 	@Override
 	public void received(Object o) {
-		msg_odometry odom = (msg_odometry) o;
+		msg_estimator_status status = (msg_estimator_status) o;
 
-		if(reset_counter_old != odom.reset_counter) {
-			reset_counter_old = odom.reset_counter;	
+		if((status.flags & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_POS_HORIZ_ABS) == ESTIMATOR_STATUS_FLAGS.ESTIMATOR_POS_HORIZ_ABS &&
+			(est_flags_old & ESTIMATOR_STATUS_FLAGS.ESTIMATOR_POS_HORIZ_ABS) == 0) {
 
 			// calculate current offset between previous lpos and new one
-			model.est.l_x_reset += (odom.x - local_pos_x);
-			model.est.l_y_reset += (odom.y - local_pos_y);
-			model.est.l_z_reset += (odom.z - local_pos_z);
+			model.est.l_x_reset += (model.state.l_x - local_pos_x);
+			model.est.l_y_reset += (model.state.l_y - local_pos_y);
+			model.est.l_z_reset += (model.state.l_z - local_pos_z);
 
 			// Run listener
 			listener.forEach((r) -> r.run());
@@ -84,16 +89,18 @@ public class EKF2ResetCheck implements IMAVLinkListener {
 
 		} else {
 
-			local_pos_x = odom.x;
-			local_pos_y = odom.y;
-			local_pos_z = odom.z;
+			local_pos_x = model.state.l_x;
+			local_pos_y = model.state.l_y;
+			local_pos_z = model.state.l_z;
 
 		}
+		
+		est_flags_old = status.flags;
 
 		// Corrected LPOS is PX4 LPOS - current offset - cumulated offset 
-		model.state.l_rx = odom.x - model.est.l_x_reset - cum_x_reset;
-		model.state.l_ry = odom.y - model.est.l_y_reset - cum_y_reset;
-		model.state.l_rz = odom.z - model.est.l_z_reset - cum_z_reset;
+		model.state.l_rx = model.state.l_x - model.est.l_x_reset - cum_x_reset;
+		model.state.l_ry = model.state.l_y - model.est.l_y_reset - cum_y_reset;
+		model.state.l_rz = model.state.l_z - model.est.l_z_reset - cum_z_reset;
 
 
 	}	
