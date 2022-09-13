@@ -61,8 +61,10 @@ public class StatusCheck implements Runnable {
 
 		boolean is_ready = true;
 
-		if(logging)
+		if(logging) {
 			control.writeLogMessage(new LogMessage("[msp] Performing status check...",MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+			is_ready = performParameterChecks();
+		}
 
 
 		if (model.sys.isStatus(Status.MSP_CONNECTED) && !model.sys.isStatus(Status.MSP_SITL)
@@ -73,26 +75,25 @@ public class StatusCheck implements Runnable {
 
 			if (!model.sys.isSensorAvailable(Status.MSP_PIX4FLOW_AVAILABILITY) && !model.sys.isSensorAvailable(Status.MSP_OPCV_AVAILABILITY)) {
 				if(logging)
-					control.writeLogMessage(new LogMessage("[msp] No Flow or Vision sensor available.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					control.writeLogMessage(new LogMessage("[msp] No Flow or Vision sensor available.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
 				is_ready = false;
 			}
 
 			if (!model.sys.isSensorAvailable(Status.MSP_OPCV_AVAILABILITY) && model.vision.isStatus(Vision.ENABLED)) {
 				if(logging)
 					control.writeLogMessage(new LogMessage("[msp] Vision not enabled.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
-				is_ready = false;
 			}
 
 			if ((Float.isNaN(model.vision.x) || Float.isNaN(model.vision.y) || Float.isNaN(model.vision.z))
 					&& model.vision.isStatus(Vision.ENABLED)) {
 				if(logging)
-					control.writeLogMessage(new LogMessage("[msp] Vision does not provide any data.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					control.writeLogMessage(new LogMessage("[msp] Vision does not provide any data.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
 				is_ready = false;
 			}
 
 			if (!model.sys.isSensorAvailable(Status.MSP_LIDAR_AVAILABILITY)) {
 				if(logging)
-					control.writeLogMessage(new LogMessage("[msp] Distance sensor not available.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					control.writeLogMessage(new LogMessage("[msp] Distance sensor not available.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
 				is_ready = false;
 			}
 
@@ -108,7 +109,7 @@ public class StatusCheck implements Runnable {
 
 			if(!model.sys.isStatus(Status.MSP_GPOS_VALID)) {
 				if(logging)
-					control.writeLogMessage(new LogMessage("[msp] No global position.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					control.writeLogMessage(new LogMessage("[msp] No global position.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
 				is_ready = false;
 			}
 
@@ -128,37 +129,60 @@ public class StatusCheck implements Runnable {
 
 		if (!model.sys.isStatus(Status.MSP_GCL_CONNECTED)) {
 			if(logging)
-				control.writeLogMessage(new LogMessage("[msp] GC not connected.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				control.writeLogMessage(new LogMessage("[msp] GC not connected.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
 			return false;
 		}
 
 		if (!model.sys.isStatus(Status.MSP_LPOS_VALID)) {
 			if(logging)
-				control.writeLogMessage(new LogMessage("[msp] No local position.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				control.writeLogMessage(new LogMessage("[msp] No local position.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
 			return false;
 		}
 
 		if(Float.isNaN(model.hud.ag)) {
 			if(logging)
 				control.writeLogMessage(new LogMessage("[msp] No AMSL altitude.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
-			is_ready = false;
 		}
 
 		if(!model.sys.isSensorAvailable(Status.MSP_IMU_AVAILABILITY)) {
 			if(logging)
-				control.writeLogMessage(new LogMessage("[msp] IMU not available.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				control.writeLogMessage(new LogMessage("[msp] IMU not available.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
 			is_ready = false;
 		}
 
 		return is_ready;
 	}
+	
+	
+	private boolean performParameterChecks() {
+		
+		final PX4Parameters params = PX4Parameters.getInstance();
+		
+		boolean is_ok = true;
+		
+		if(params.getParam("RTL_RETURN_ALT")!=null && params.getParam("RTL_RETURN_ALT").value != 1.0) {
+			control.writeLogMessage(new LogMessage("[msp] Return altitude not set to 1.0m",MAV_SEVERITY.MAV_SEVERITY_ERROR));
+			is_ok = false;
+		}
+		
+		if(params.getParam("MIS_TAKEOFF_ALT")!=null && params.getParam("MIS_TAKEOFF_ALT").value > 2.0) {
+			control.writeLogMessage(new LogMessage("[msp] Takeoff altitude > 2.0m.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+		}
+     		
+		
+		return is_ok;
+	}
+	
 
 	@Override
 	public void run() {
 		if (model.sys.isStatus(Status.MSP_ACTIVE))
 			model.sys.setStatus(Status.MSP_READY_FOR_FLIGHT, checkFlightReadiness(false));
 	}
+	
+	
 
+	
 
 
 
