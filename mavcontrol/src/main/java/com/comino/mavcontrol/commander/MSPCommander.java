@@ -71,6 +71,7 @@ public class MSPCommander  {
 	private IMAVMSPController        control 	= null;
 	private AutoPilotBase           autopilot 	= null;
 	private DataModel                  model 	= null;
+	private StatusCheck          status_check   = null;
 
 	private MSPLogger                  logger   = null;
 
@@ -83,6 +84,9 @@ public class MSPCommander  {
 		this.control = control;
 		this.model   = control.getCurrentModel();
 		this.logger  = MSPLogger.getInstance();
+		
+		this.status_check   = new StatusCheck(control);
+		this.status_check.start();
 
 		registerCommands();
 		registerLowBattery();
@@ -158,6 +162,10 @@ public class MSPCommander  {
 						case MSP_COMPONENT_CTRL.RESET:
 							autopilot.resetMap(); break;
 						}
+						break;
+					case MSP_CMD.MSP_CMD_CHECK_READY:
+						if(status_check.checkFlightReadiness(true))
+							control.writeLogMessage(new LogMessage("[msp] Status checks successful.",MAV_SEVERITY.MAV_SEVERITY_NOTICE));
 						break;
 					case MSP_CMD.MSP_CMD_SET_HOMEPOS:
 						setGlobalOrigin(cmd.param1 / 1e7f, cmd.param2 / 1e7f, cmd.param3 / 1e3f );
