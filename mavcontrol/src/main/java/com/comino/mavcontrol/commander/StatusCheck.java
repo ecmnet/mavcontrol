@@ -1,5 +1,6 @@
 package com.comino.mavcontrol.commander;
 
+import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 
@@ -8,6 +9,8 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.model.segment.Vision;
+import com.comino.mavcom.param.PX4Parameters;
+import com.comino.mavcom.status.StatusManager;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 public class StatusCheck implements Runnable {
@@ -27,6 +30,15 @@ public class StatusCheck implements Runnable {
 		super();
 		this.model   = control.getCurrentModel();
 		this.control = control;
+
+		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS,Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
+
+		   if(!checkFlightReadiness(true)) {
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,0 );
+			control.writeLogMessage(new LogMessage("[msp] Disarmed. PreFlight health check failed", MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
+			} 
+		});
+		
 	}
 
 	public void start() {
@@ -89,8 +101,8 @@ public class StatusCheck implements Runnable {
 					control.writeLogMessage(new LogMessage("[msp] RC not attached",MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				is_ready = false;
 			}
-
 		}
+
 
 		if (model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY)) {
 
@@ -129,6 +141,12 @@ public class StatusCheck implements Runnable {
 		if(Float.isNaN(model.hud.ag)) {
 			if(logging)
 				control.writeLogMessage(new LogMessage("[msp] No AMSL altitude.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+			is_ready = false;
+		}
+
+		if(!model.sys.isSensorAvailable(Status.MSP_IMU_AVAILABILITY)) {
+			if(logging)
+				control.writeLogMessage(new LogMessage("[msp] IMU not available.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
 			is_ready = false;
 		}
 
