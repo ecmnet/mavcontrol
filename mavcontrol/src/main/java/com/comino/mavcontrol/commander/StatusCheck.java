@@ -105,7 +105,7 @@ public class StatusCheck implements Runnable {
 		}
 
 
-		if (model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY)) {
+		if (model.gps.fixtype > 2 ) {
 
 			if(!model.sys.isStatus(Status.MSP_GPOS_VALID)) {
 				if(logging)
@@ -125,6 +125,9 @@ public class StatusCheck implements Runnable {
 				is_ready = false;
 			}
 
+		} else {
+			if(logging)
+				control.writeLogMessage(new LogMessage("[msp] GPS data not available.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
 		}
 
 		if (!model.sys.isStatus(Status.MSP_GCL_CONNECTED)) {
