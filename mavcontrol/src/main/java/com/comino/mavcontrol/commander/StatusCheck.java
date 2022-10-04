@@ -119,7 +119,7 @@ public class StatusCheck implements Runnable {
 				is_ready = false;
 			}
 
-			if (model.est.posHorizAccuracy > 0.5f) {
+			if (model.est.posHorizAccuracy > 0.8f) {
 				if(logging)
 					control.writeLogMessage(new LogMessage("[msp] GPS horizontal accurracy.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				is_ready = false;
