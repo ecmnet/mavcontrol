@@ -606,6 +606,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			offboard.abort();
 			return;
 		}
+		
+		
 
 		if(control.isSimulation())
 			StandardActionFactory.simulateFiducial(control,2f);

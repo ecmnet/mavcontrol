@@ -10,6 +10,7 @@ import org.mavlink.messages.lquac.msg_msp_vision;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
+import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.model.segment.Vision;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.sequencer.ISeqAction;
@@ -62,9 +63,9 @@ public class StandardActionFactory {
 		control.writeLogMessage(new LogMessage("[msp] Precision landing triggered.",MAV_SEVERITY.MAV_SEVERITY_INFO));
 		sequencer.replace_add(new SeqItem((target) -> {
 			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
-				target.x = model.vision.px;
-				target.y = model.vision.py;
-				target.z = model.state.l_z + model.hud.al - 0.1f;
+				target.x = model.vision.px + model.state.l_x;
+				target.y = model.vision.py + model.state.l_y;
+				target.z = model.vision.pz + model.state.l_z;
 				target.w = model.vision.pw;
 
 				msg_msp_vision msg = new msg_msp_vision(2,1);
@@ -101,7 +102,7 @@ public class StandardActionFactory {
 		landing_preparation.w = Float.NaN;
 
 		if(control.isSimulation()) {
-			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
+		//	model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
 			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, true);
 		}
 
@@ -161,42 +162,53 @@ public class StandardActionFactory {
 		}
 
 	}
+	
+	final static msg_msp_vision msg = new msg_msp_vision(2,1);
 
 	public static void simulateFiducial(IMAVController control, float radius) {
 
 		final DataModel model = control.getCurrentModel();
-
-		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK)) {
-			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
-				model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
-				msg_msp_vision msg = new msg_msp_vision(2,1);
-				msg.flags =  model.vision.flags;
-				control.sendMAVLinkMessage(msg);
-			}
+//
+//		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.PRECISION_LOCK)) {
+//			if(model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
+//				model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
+//				msg_msp_vision msg = new msg_msp_vision(2,1);
+//				msg.flags =  model.vision.flags;
+//				control.sendMAVLinkMessage(msg);
+//			}
+//			return;
+//		}
+		
+		if(model.sys.isStatus(Status.MSP_LANDED)) {
+			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
+			msg.px    =  Float.NaN;
+			msg.py    =  Float.NaN;
+			msg.pz    =  Float.NaN;
+			msg.pw    =  Float.NaN;
+			msg.flags =  model.vision.flags;
+			control.sendMAVLinkMessage(msg);
 			return;
 		}
 
-		if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
+		if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED) && model.sys.isStatus(Status.MSP_LPOS_VALID) && 
+				!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_TAKEOFF) ) {
 
-			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
+		    model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
 			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, true);
 
 			model.vision.px = model.state.l_x + ((float)Math.random()-0.5f)*radius;
 			model.vision.py = model.state.l_y + ((float)Math.random()-0.5f)*radius;
+			model.vision.pz = 0.5f;	
 			model.vision.pw = ((float)Math.random()-0.5f)*12f;
-			//		model.vision.pw = Float.NaN;
-		}
+			
+			msg.px    =  model.vision.px;
+			msg.py    =  model.vision.py;
+			msg.pz    =  model.vision.pz;
+			msg.pw    =  model.vision.pw;
+			msg.flags =  model.vision.flags;
+			control.sendMAVLinkMessage(msg);
+		} 
 
-		// simulate LPOS drift
-		model.vision.py = model.vision.py +0.0001f;
-
-		msg_msp_vision msg = new msg_msp_vision(2,1);
-		msg.px    =  model.vision.px;
-		msg.py    =  model.vision.py;
-		msg.pz    =  model.vision.pz;
-		msg.pw    =  model.vision.pw;
-		msg.flags =  model.vision.flags;
-		control.sendMAVLinkMessage(msg);
 	}
 
 }
