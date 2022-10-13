@@ -179,7 +179,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		else
 		  this.takeoff_handler = new TakeOffHandler(control, null, null);
 		
-		this.safetycheck_handler = new SafetyCheckHandler(control);
+		this.safetycheck_handler = new SafetyCheckHandler(control, sequencer);
 
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_SERVICES,Status.MSP_SLAM_AVAILABILITY, (n) -> {
 			if(n.isSensorAvailable(Status.MSP_SLAM_AVAILABILITY)) {	
