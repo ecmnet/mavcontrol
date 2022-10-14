@@ -283,6 +283,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		wq.addCyclicTask("NP", cycle_ms, this);
 		
+		safetycheck_handler.start();
+		
 		if(publish_microgrid)
 		  wq.addCyclicTask("NP",20, new MapToModelTransfer());
 

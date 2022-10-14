@@ -53,8 +53,6 @@ public class SafetyCheckHandler implements Runnable {
 	private static final int   RC_LAND_CHANNEL		   = 8;                       // RC channel 8 landing
 	private static final int   RC_LAND_THRESHOLD       = 1600;		              // RC channel 8 landing threshold
 
-	private final String message = "[msp] Emergency landing triggered by RC";
-
 	private final IMAVController  control;
 	private final DataModel       model;
 	private final MSPLogger       logger;
@@ -62,27 +60,26 @@ public class SafetyCheckHandler implements Runnable {
 
 	private final WorkQueue wq = WorkQueue.getInstance();
 
-	private boolean emergency = false;
-	private Runnable action;
+	private boolean emergency        = false;
 
 	public SafetyCheckHandler(IMAVController control, Sequencer sequencer) {
-		this(control,sequencer, null);
-	}
-
-	public SafetyCheckHandler(IMAVController control, Sequencer sequencer, Runnable action) {
 		this.control   = control;
 		this.sequencer = sequencer;
 		this.model     = control.getCurrentModel();
 		this.logger    = MSPLogger.getInstance();
-		this.action    = action;
 
 		System.out.println("Safetycheck handler started");
-		wq.addCyclicTask("HP", 100, this);
 		
 		control.getStatusManager().addListener(Status.MSP_ARMED, (n) -> {
 			if(n.isStatus(Status.MSP_ARMED) && n.isStatus(Status.MSP_LANDED))
-				emergency = false;
+				emergency = false; 
 		});
+	}
+	
+	public void start() {
+		if(wq.addCyclicTask("HP", 100, this) != 0) {
+			System.out.println("SafetyCheckHandler started..");
+		}
 	}
 
 	@Override
@@ -100,9 +97,9 @@ public class SafetyCheckHandler implements Runnable {
 			if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, ( cmd,result) -> {
 					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED)
-						logger.writeLocalMsg("[mgc] PX4 landing rejected ("+result+")",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+						logger.writeLocalMsg("[msp] PX4 landing rejected ("+result+")",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 					else
-						logger.writeLocalMsg("[mgc] PX4 landing initiated",MAV_SEVERITY.MAV_SEVERITY_INFO);
+						logger.writeLocalMsg("[msp] PX4 landing initiated",MAV_SEVERITY.MAV_SEVERITY_INFO);
 				}, 0, 0, 0, Float.NaN );
 			} else {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
@@ -116,6 +113,8 @@ public class SafetyCheckHandler implements Runnable {
 		}
 		
 		// Safety:  ...
+		
+		// publish emergency case via MessageBus if required
 	}
 
 	public boolean isEmergencyLanding() {
