@@ -32,7 +32,7 @@
  ****************************************************************************/
 
 
-package com.comino.mavcontrol.autopilot.actions;
+package com.comino.mavcontrol.autopilot.safety;
 
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_MODE_FLAG;
@@ -60,7 +60,8 @@ public class SafetyCheckHandler implements Runnable {
 
 	private final WorkQueue wq = WorkQueue.getInstance();
 
-	private boolean emergency        = false;
+	private boolean emergency           = false;
+	private long landing_trigger_tms    = 0;
 
 	public SafetyCheckHandler(IMAVController control, Sequencer sequencer) {
 		this.control   = control;
@@ -74,6 +75,7 @@ public class SafetyCheckHandler implements Runnable {
 			if(n.isStatus(Status.MSP_ARMED) && n.isStatus(Status.MSP_LANDED))
 				emergency = false; 
 		});
+		
 	}
 	
 	public void start() {
@@ -86,27 +88,30 @@ public class SafetyCheckHandler implements Runnable {
 	public void run() {
 
 		if(!model.sys.isStatus(Status.MSP_ARMED)) {
-			emergency = false;
+			emergency = false; landing_trigger_tms = 0;
 			return;
 		}
 
 		// Safety: Channel 8 triggers landing mode / precision landing of PX4
-		if(model.rc.get(RC_LAND_CHANNEL) > RC_LAND_THRESHOLD && !control.isSimulation()) {
+		if(model.rc.get(RC_LAND_CHANNEL) > RC_LAND_THRESHOLD && !control.isSimulation() && (System.currentTimeMillis()-landing_trigger_tms) > 500) {
+			landing_trigger_tms = System.currentTimeMillis();
 			emergency = true;
 			sequencer.abort();
 			if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, ( cmd,result) -> {
 					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED)
 						logger.writeLocalMsg("[msp] PX4 landing rejected ("+result+")",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-					else
-						logger.writeLocalMsg("[msp] PX4 landing initiated",MAV_SEVERITY.MAV_SEVERITY_INFO);
+					else {
+						logger.writeLocalMsg("[msp] PX4 landing initiated",MAV_SEVERITY.MAV_SEVERITY_INFO); 
+					}
 				}, 0, 0, 0, Float.NaN );
 			} else {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
 					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED)
 						logger.writeLocalMsg("[mgc] PX4 Prec.Landing rejected ("+result+")",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-					else
+					else {
 						logger.writeLocalMsg("[mgc] PX4 Prec.Landing initiated",MAV_SEVERITY.MAV_SEVERITY_INFO);
+					}
 				},	MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_PRECLAND );
 			}
