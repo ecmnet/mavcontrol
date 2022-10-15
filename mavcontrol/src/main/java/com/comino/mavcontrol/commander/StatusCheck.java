@@ -142,7 +142,7 @@ public class StatusCheck implements Runnable {
 			return false;
 		}
 
-		if(Float.isNaN(model.hud.ag)) {
+		if(Float.isNaN(model.hud.ag) && !model.sys.isStatus(Status.MSP_LANDED)) {
 			if(logging)
 				control.writeLogMessage(new LogMessage("[msp] No AMSL altitude.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
 		}
