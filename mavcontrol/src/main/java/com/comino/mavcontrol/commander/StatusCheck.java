@@ -31,7 +31,7 @@ public class StatusCheck implements Runnable {
 		this.model   = control.getCurrentModel();
 		this.control = control;
 
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS,Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
+		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS,Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
 
 		   if(!checkFlightReadiness(true)) {
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,0 );

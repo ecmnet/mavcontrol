@@ -94,7 +94,7 @@ public class NeuralePlannerPilot extends AutoPilotBase {
 	protected NeuralePlannerPilot(IMAVController control, MSPConfig config) {
 		super(control,config);
 
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
+		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
 			is_landing = false;
 		});
 

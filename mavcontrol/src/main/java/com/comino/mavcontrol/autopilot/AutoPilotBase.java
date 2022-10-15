@@ -205,7 +205,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected void registerArm() {
 
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
+		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
 		   ekf2_reset_check.reset(true);
            resetMap(); 
            map.setOrigin(model.state.l_x, model.state.l_y, 0);
@@ -218,7 +218,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected void registerDisarm() {
 
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
+		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
 
 			takeoff_handler.abort("Disarmed");
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);

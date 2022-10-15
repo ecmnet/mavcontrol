@@ -90,6 +90,7 @@ public class MSPCommander  {
 
 		registerCommands();
 		registerLowBattery();
+		registerActions();
 
 		System.out.println("Commander initialized");
 
@@ -102,6 +103,11 @@ public class MSPCommander  {
 
 	public AutoPilotBase getAutopilot() {
 		return autopilot;
+	}
+	
+	private void registerActions() {
+		
+		
 	}
 
 
@@ -127,10 +133,10 @@ public class MSPCommander  {
 				logger.writeLocalMsg("[msp] Switching to ... (Test). Ap Status = "+autopilot.getAutopilotStatus(),MAV_SEVERITY.MAV_SEVERITY_INFO);
 			}
 
-
-
 			// Different actions depending on the current mode, e.g.
 			// Shutdown MSP, Switch off SLAM, RTL, Landing, etc
+
+
 
 		});
 	}
