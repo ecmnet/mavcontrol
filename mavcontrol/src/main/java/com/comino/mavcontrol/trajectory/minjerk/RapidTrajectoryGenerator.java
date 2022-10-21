@@ -52,6 +52,10 @@ import org.ejml.data.Complex_F64;
 import com.comino.mavcom.model.DataModel;
 
 import georegression.geometry.GeometryMath_F64;
+import georegression.struct.GeoTuple3D_F32;
+import georegression.struct.GeoTuple3D_F64;
+import georegression.struct.GeoTuple4D_F32;
+import georegression.struct.GeoTuple4D_F64;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector4D_F32;
 
@@ -104,6 +108,29 @@ public class RapidTrajectoryGenerator {
 		this._gravity = gravity;
 	}
 
+	public void setInitialState(GeoTuple4D_F32<?> x0, GeoTuple4D_F32 v0, GeoTuple4D_F32 a0) {
+		reset();
+		for(int i=0;i<3;i++) {
+			_axis[i].setInitialState(x0.getIdx(i),v0.getIdx(i),a0.getIdx(i));
+		}
+	}
+
+	public void setGoal(GeoTuple4D_F32<?> p, GeoTuple4D_F32<?> v) {
+		for(int i=0;i<3;i++) {
+			_axis[i].setGoalPosition(p.getIdx(i));
+			_axis[i].setGoalVelocity(v.getIdx(i));
+		}	
+	}
+
+	public void setGoal(GeoTuple4D_F32<?> p, GeoTuple4D_F32<?> v,GeoTuple3D_F32<?> a) {
+		for(int i=0;i<3;i++) {
+			_axis[i].setGoalPosition(p.getIdx(i));
+			_axis[i].setGoalVelocity(v.getIdx(i));
+			_axis[i].setGoalAcceleration(a.getIdx(i));
+		}	
+	}
+
+
 	public void setGoal(Point3D_F64 p, Point3D_F64 v, Point3D_F64 a) {
 		for(int i=0;i<3;i++) {
 			_axis[i].setGoalPosition(p.getIdx(i));
@@ -112,17 +139,32 @@ public class RapidTrajectoryGenerator {
 		}	
 	}
 
-	public void setGoalPosition(Point3D_F64 in) {
+	public void setGoalPosition(GeoTuple4D_F32<?> in) {
+		for(int i=0;i<3;i++)
+			_axis[i].setGoalPosition(in.getIdx(i));
+	}
+	
+	public void setGoalPosition(GeoTuple3D_F64<?> in) {
 		for(int i=0;i<3;i++)
 			_axis[i].setGoalPosition(in.getIdx(i));
 	}
 
-	public void setGoalVelocity(Point3D_F64 in) {
+	public void setGoalVelocity(GeoTuple4D_F32<?> in) {
+		for(int i=0;i<3;i++)
+			_axis[i].setGoalVelocity(in.getIdx(i));
+	}
+	
+	public void setGoalVelocity(GeoTuple3D_F64<?> in) {
 		for(int i=0;i<3;i++)
 			_axis[i].setGoalVelocity(in.getIdx(i));
 	}
 
-	public void setGoalAcceleration(Point3D_F64 in) {
+	public void setGoalAcceleration(GeoTuple4D_F32<?> in) {
+		for(int i=0;i<3;i++)
+			_axis[i].setGoalAcceleration(in.getIdx(i));
+	}
+	
+	public void setGoalAcceleration(GeoTuple3D_F64<?> in) {
 		for(int i=0;i<3;i++)
 			_axis[i].setGoalAcceleration(in.getIdx(i));
 	}
@@ -136,13 +178,17 @@ public class RapidTrajectoryGenerator {
 	public double getCost() {
 		return _axis[0].getCost() + _axis[1].getCost() + _axis[2].getCost();
 	}
-	
+
 	public boolean isPlanned() {
 		for(int i=0;i<3;i++) {
 			if(!_axis[i].isPlanned())
 				return false;
 		}
 		return true;
+	}
+	
+	public float getTotalTime() {
+		return (float)_tf;
 	}
 
 	public float  generate(double timeToFinish) {
@@ -254,17 +300,17 @@ public class RapidTrajectoryGenerator {
 			System.out.println("ForceMin: "+fmin+" >"+fmaxAllowed);
 			return false;
 		}
-		
+
 		//possibly infeasible:
 		if (fmin < fminAllowed || fmax > fmaxAllowed || wBound > wmaxAllowed)
 		{ //indeterminate: must check more closely:
-			
+
 			double tHalf = (t1 + t2) / 2;
-		//	System.out.println("Rec.CheckingFirst "+t1+" - "+tHalf);
+			//	System.out.println("Rec.CheckingFirst "+t1+" - "+tHalf);
 			boolean r1 = checkInputFeasibilitySection(fminAllowed, fmaxAllowed, wmaxAllowed, t1, tHalf, minTimeSection);
 			if(r1 == true) {
 				//continue with second half
-		//		System.out.println("Rec.CheckingSecond "+tHalf+" - "+t2);
+				//		System.out.println("Rec.CheckingSecond "+tHalf+" - "+t2);
 				return checkInputFeasibilitySection(fminAllowed, fmaxAllowed, wmaxAllowed, tHalf, t2, minTimeSection);
 			}
 			//first section is already infeasible, or indeterminate:
@@ -365,6 +411,18 @@ public class RapidTrajectoryGenerator {
 		for(int i=0;i<3;i++)
 			out.setIdx(i, _axis[i].getPosition(t));
 		return out;
+	}
+
+	public double getPosition(double t, int i) {
+		return _axis[i].getPosition(t);
+	}
+
+	public double getVelocity(double t, int i) {
+		return _axis[i].getVelocity(t);
+	}
+
+	public double getAcceleration(double t, int i) {
+		return _axis[i].getAcceleration(t);
 	}
 
 	public double getInitialPosition(int i) {
