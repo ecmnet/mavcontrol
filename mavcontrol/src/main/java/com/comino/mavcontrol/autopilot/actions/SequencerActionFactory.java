@@ -20,7 +20,7 @@ import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.point.Vector4D_F32;
 
-public class StandardActionFactory {
+public class SequencerActionFactory {
 
 
 	/**

@@ -55,7 +55,8 @@ import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
-import com.comino.mavcontrol.autopilot.actions.StandardActionFactory;
+import com.comino.mavcontrol.autopilot.actions.OffboardActionFactory;
+import com.comino.mavcontrol.autopilot.actions.SequencerActionFactory;
 import com.comino.mavcontrol.autopilot.actions.TakeOffHandler;
 import com.comino.mavcontrol.autopilot.safety.SafetyCheckHandler;
 import com.comino.mavcontrol.autopilot.tests.PlannerTest;
@@ -198,10 +199,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		registerDisarm();
 
 		registerArm();
-
-
-
 	}
+	
 
 	protected void registerArm() {
 
@@ -342,8 +341,14 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			model.grid.add(map.getMapInfo().encodeMapPoint(p, p.probability));
 		});
 	}
-
-
+	
+	public IMAVController getControl() {
+		return control;
+	}
+	
+	public OffboardManager getOffboardManager() {
+		return offboard;
+	}
 
 
 	@Override
@@ -401,7 +406,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			MapTestFactory.buildWall(map, model, 1.5f, 0.5f);
 			break;
 		case MSP_AUTOCONTROL_ACTION.ROTATE:
-			StandardActionFactory.turn_to(sequencer, param);
+			OffboardActionFactory.turn_to(param);
 			break;
 		case MSP_AUTOCONTROL_ACTION.LAND:
 			precisionLand(enable);
@@ -413,7 +418,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			if(control.isSimulation())
 				// SequenceTestFactory.randomSequence(sequencer);
 				if(control.isSimulation()) {
-					StandardActionFactory.square(sequencer, 2);
+					SequencerActionFactory.square(sequencer, 2);
 				}
 				else
 					logger.writeLocalMsg("[msp] Only available in simulation environment",MAV_SEVERITY.MAV_SEVERITY_INFO);
@@ -612,9 +617,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		
 
 		if(control.isSimulation())
-			StandardActionFactory.simulateFiducial(control,2f);
+			SequencerActionFactory.simulateFiducial(control,2f);
 
-		StandardActionFactory.precisionLanding(sequencer, control);
+		SequencerActionFactory.precisionLanding(sequencer, control);
 
 		// TEST planned landing
 
@@ -657,7 +662,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			model.vision.pw = ((float)Math.random()-0.5f)*12f;
 		}
 
-		StandardActionFactory.returnToLand(sequencer, control, takeoff_handler.getTakeoffPosition(), enable);
+		SequencerActionFactory.returnToLand(sequencer, control, takeoff_handler.getTakeoffPosition(), enable);
 
 		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
 

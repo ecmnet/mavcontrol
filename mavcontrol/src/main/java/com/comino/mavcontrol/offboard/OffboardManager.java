@@ -58,7 +58,7 @@ import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
-import com.comino.mavcontrol.autopilot.actions.StandardActionFactory;
+import com.comino.mavcontrol.autopilot.actions.SequencerActionFactory;
 import com.comino.mavcontrol.controllib.IYawSpeedControl;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavcontrol.ekf2utils.EKF2ResetCheck;

@@ -108,7 +108,7 @@ public class RapidTrajectoryGenerator {
 		for(int i=0;i<3;i++) {
 			_axis[i].setGoalPosition(p.getIdx(i));
 			_axis[i].setGoalVelocity(v.getIdx(i));
-			_axis[i].SetGoalAcceleration(a.getIdx(i));
+			_axis[i].setGoalAcceleration(a.getIdx(i));
 		}	
 	}
 
@@ -124,7 +124,7 @@ public class RapidTrajectoryGenerator {
 
 	public void setGoalAcceleration(Point3D_F64 in) {
 		for(int i=0;i<3;i++)
-			_axis[i].SetGoalAcceleration(in.getIdx(i));
+			_axis[i].setGoalAcceleration(in.getIdx(i));
 	}
 
 	public void reset() {
@@ -136,11 +136,20 @@ public class RapidTrajectoryGenerator {
 	public double getCost() {
 		return _axis[0].getCost() + _axis[1].getCost() + _axis[2].getCost();
 	}
+	
+	public boolean isPlanned() {
+		for(int i=0;i<3;i++) {
+			if(!_axis[i].isPlanned())
+				return false;
+		}
+		return true;
+	}
 
-	public void generate(double timeToFinish) {
+	public float  generate(double timeToFinish) {
 		_tf = timeToFinish;
 		for(int i=0;i<3;i++)
 			_axis[i].generateTrajectory(_tf);
+		return (float) _tf;
 	}
 
 	public boolean generate(double timeToFinish, DataModel model, Vector4D_F32 target, Vector4D_F32 velocity) {
@@ -160,7 +169,7 @@ public class RapidTrajectoryGenerator {
 				_axis[i].setGoalVelocity(velocity.getIdx(i));
 			else
 				_axis[i].setGoalVelocity(0);
-			_axis[i].SetGoalAcceleration(0);
+			_axis[i].setGoalAcceleration(0);
 		}
 
 		generate(timeToFinish);

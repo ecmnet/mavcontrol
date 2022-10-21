@@ -54,6 +54,9 @@ public class SingleAxisTrajectory {
 
 	private double _minAcc;
 	private double _maxAcc;
+	
+	private double  _totalTime;
+	private boolean _isPlanned;
 
 	private class accPeakTimes {										
 		double t[] = { 0, 0};
@@ -86,6 +89,13 @@ public class SingleAxisTrajectory {
 
 	public void setInitialState(double pos0, double vel0, double acc0)
 	{_p0=pos0; _v0=vel0; _a0=acc0; reset(); }
+	
+	public void setTargetState(double posf, double velf, double accf)
+	{ 
+		if(Double.isFinite(posf)) setGoalPosition(posf); 
+		if(Double.isFinite(velf)) setGoalVelocity(velf);
+		if(Double.isFinite(accf)) setGoalAcceleration(accf);
+	}
 
 	public void setGoalPosition(double posf)    
 	{_posGoalDefined = true; _pf = posf; }
@@ -93,10 +103,12 @@ public class SingleAxisTrajectory {
 	public void setGoalVelocity(double velf)    
 	{_velGoalDefined = true; _vf = velf; }
 
-	public void SetGoalAcceleration(double accf)
+	public void setGoalAcceleration(double accf)
 	{_accGoalDefined = true; _af = accf; }
 
 	public void reset() {
+		_isPlanned = false;
+		_totalTime = 0;
 		_posGoalDefined = _velGoalDefined = _accGoalDefined = false;
 		_cost = Double.MAX_VALUE;
 		_accPeakTimes.initialised = false;
@@ -104,7 +116,9 @@ public class SingleAxisTrajectory {
 		_maxAcc = 0;
 	}
 
-	public void generateTrajectory(double Tf) {
+	public float generateTrajectory(double Tf) {
+		
+		_totalTime = Tf;
 
 		final double delta_a = _af - _a0;
 		final double delta_v = _vf - _v0 - _a0*Tf;
@@ -164,6 +178,17 @@ public class SingleAxisTrajectory {
 		}
 
 		_cost =  _g*_g + _b*_g*Tf + _b*_b*T2/3.0 + _a*_g*T2/3.0 + _a*_b*T3/4.0 + _a*_a*T4/20.0;
+		_isPlanned = true;
+		
+		return (float)_totalTime;
+	}
+	
+	public boolean isPlanned() {
+		return _isPlanned;
+	}
+	
+	public double getTotalTime() {
+		return _totalTime;
 	}
 
 	public void calcMinMaxAcc(double t1, double t2) {
