@@ -26,6 +26,8 @@ import georegression.struct.point.Point4D_F32;
 import georegression.struct.point.Vector4D_F32;
 
 public class Offboard2Manager {
+	
+	private static Offboard2Manager instance;
 
 	private static final int   UPDATE_RATE                 	    = 50;					    // Offboard update rate in [ms]
 	private static final float RADIUS_ACCEPT                    = 0.2f;                     // Acceptance radius in [m]
@@ -41,9 +43,19 @@ public class Offboard2Manager {
 	private final Offboard2Worker   worker;
 	private final DataModel         model;
 	private final IMAVController    control;
+	
+	
+	public static Offboard2Manager getInstance(IMAVController control) {
+		if(instance==null) 
+			instance = new Offboard2Manager(control);
+	    return instance;
+	}
+		
+	public static Offboard2Manager getInstance() {
+		return instance;
+	}
 
-
-	public Offboard2Manager(IMAVController control) {
+	private Offboard2Manager(IMAVController control) {
 		this.control = control;
 		this.model   = control.getCurrentModel();
 		this.worker  = new Offboard2Worker(control);
@@ -55,16 +67,21 @@ public class Offboard2Manager {
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER))
 			return;
 
-		worker.setTarget(MSPMathUtils.toRad(degree));	
-		worker.start();
+//		worker.setTarget(MSPMathUtils.toRad(degree));	
+//		worker.start();
+		
+		moveTo(4,4,Float.NaN, Float.NaN);
+		
 	}
 	
-	public void moveTo(GeoTuple4D_F32<?> target) {
-
+	public void moveTo(float x, float y, float z, float w) {
+		
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER))
 			return;
-
-		worker.setTarget(target);	
+		
+		Point4D_F32 p = new Point4D_F32(x,y,z,w);
+		
+		worker.setTarget(p);	
 		worker.start();
 	}
 
@@ -79,9 +96,10 @@ public class Offboard2Manager {
 		private final WorkQueue wq = WorkQueue.getInstance();
 
 		// current state
-		private final Vector4D_F32 pos_current = new Vector4D_F32();
-		private final Vector4D_F32 vel_current = new Vector4D_F32();
-		private final Vector4D_F32 acc_current = new Vector4D_F32();
+		private final GeoTuple4D_F32<Vector4D_F32> pos_current  = new Vector4D_F32();
+		private final GeoTuple4D_F32<Vector4D_F32> vel_current  = new Vector4D_F32();
+		private final GeoTuple4D_F32<Vector4D_F32> acc_current  = new Vector4D_F32();
+		private final GeoTuple4D_F32<Vector4D_F32> pos_setpoint = new Vector4D_F32();
 
 		// Worker targets
 		private final GeoTuple4D_F32<Point4D_F32> pos = new Point4D_F32(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
@@ -219,6 +237,11 @@ public class Offboard2Manager {
 			float target_yaw; float estimated_yaw_duration; float estimated_xyz_duration;
 
 			updateCurrentState();
+			
+			// Replace NaNs by setpoints of by current
+			
+			if(!MSP3DUtils.replaceNaN3D(pos_target, pos_setpoint))
+					MSP3DUtils.replaceNaN3D(pos_target, pos_current);	
 
 			// Yaw planning
 
@@ -371,6 +394,7 @@ public class Offboard2Manager {
 			MSP3DUtils.convertCurrentPosition(model, pos_current);
 			MSP3DUtils.convertCurrentSpeed(model, vel_current);
 			MSP3DUtils.convertCurrentAcceleration(model, acc_current);
+			MSP3DUtils.convertTargetState(model, pos_setpoint);
 		}
 
 

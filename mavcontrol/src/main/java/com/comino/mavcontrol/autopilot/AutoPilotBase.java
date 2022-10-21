@@ -62,6 +62,7 @@ import com.comino.mavcontrol.autopilot.safety.SafetyCheckHandler;
 import com.comino.mavcontrol.autopilot.tests.PlannerTest;
 import com.comino.mavcontrol.ekf2utils.EKF2ResetCheck;
 import com.comino.mavcontrol.offboard.OffboardManager;
+import com.comino.mavcontrol.offboard2.Offboard2Manager;
 import com.comino.mavcontrol.sequencer.ISeqAction;
 import com.comino.mavcontrol.sequencer.Sequencer;
 import com.comino.mavcontrol.struct.SeqItem;
@@ -143,6 +144,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		String instanceName = this.getClass().getSimpleName();
 
 		System.out.println(instanceName+" instantiated");
+		
+		Offboard2Manager.getInstance(control);
 
 		this.control   = control;
 		this.model     = control.getCurrentModel();

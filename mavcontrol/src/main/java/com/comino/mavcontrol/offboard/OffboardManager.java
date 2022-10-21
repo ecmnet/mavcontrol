@@ -533,7 +533,7 @@ public class OffboardManager implements Runnable {
 
 				switch(mode) {
 				case MODE_TRAJECTORY:
-					MSP3DUtils.replaceNaN(target, current);
+					MSP3DUtils.replaceNaN3D(target, current);
 
 					MSP3DUtils.convertCurrentPosition(model, current);
 
@@ -567,7 +567,7 @@ public class OffboardManager implements Runnable {
 					break;
 
 				case MODE_LOITER:
-					MSP3DUtils.replaceNaN(target, current);
+					MSP3DUtils.replaceNaN3D(target, current);
 				}
 
 				if(mode==MODE_TRAJECTORY || mode == MODE_LOITER) {
@@ -575,7 +575,7 @@ public class OffboardManager implements Runnable {
 					// Safety: handle NaN targets for position
 					//	MSP3DUtils.replaceNaN(target, current_sp);
 					// if still not valid use current
-					MSP3DUtils.replaceNaN(target, current);			
+					MSP3DUtils.replaceNaN3D(target, current);			
 
 				}
 
