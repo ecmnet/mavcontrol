@@ -402,7 +402,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			loadMap2D();
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE1:
-			MapTestFactory.buildWall(map, model, 1, (float)(Math.random()*2 - 1.0));
+			control.writeLogMessage(new LogMessage("[msp] Simulate yaw following.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+			OffboardActionFactory.test_simulate_yaw_follow();
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
 			control.writeLogMessage(new LogMessage("[msp] Build virtual wall.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));

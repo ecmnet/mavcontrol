@@ -608,7 +608,7 @@ public class OffboardManager implements Runnable {
 
 			case MODE_LOITER:	// Loiter at current position, yaw controlled
 
-				model.slam.flags = Slam.OFFBOARD_FLAG_HOLD;
+				
 				watch_tms = System.currentTimeMillis();
 
 				if(Float.isNaN(target.w)) {
@@ -708,7 +708,7 @@ public class OffboardManager implements Runnable {
 
 				is_fiducial = false; 
 
-				model.slam.flags = Slam.OFFBOARD_FLAG_SPEED;
+				
 				path.set(target_speed.x, target_speed.y, target_speed.z);
 
 				lock = LOCK_NONE;
@@ -762,8 +762,7 @@ public class OffboardManager implements Runnable {
 					}
 				}
 
-				model.slam.flags = Slam.OFFBOARD_FLAG_MOVE;
-
+				
 				traj_tim = (current_tms-traj_sta)/1000d;
 				traj.getState(traj_tim, traj_pos, traj_vel, traj_acc);
 
@@ -883,7 +882,7 @@ public class OffboardManager implements Runnable {
 							),MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 					continue;
 				} else {
-					model.slam.flags = Slam.OFFBOARD_FLAG_LAND;
+					
 					sendSpeedControlToVehice(cmd, current_sp, MAV_FRAME.MAV_FRAME_LOCAL_NED, lock);
 					updateSLAMModel(target,path);
 				}

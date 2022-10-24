@@ -61,6 +61,7 @@ import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
+import com.comino.mavcontrol.autopilot.actions.OffboardActionFactory;
 import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
 import com.comino.mavutils.legacy.ExecutorService;
 import com.comino.mavutils.workqueue.WorkQueue;
@@ -251,10 +252,13 @@ public class MSPCommander  {
 
 
 	private void setOffboardPosition(msg_msp_command cmd) {
-		if(cmd.param3 == 0 || cmd.param3 == Float.NaN)
-			autopilot.moveto(cmd.param1, cmd.param2, Float.NaN, cmd.param4);
-		else
-			autopilot.moveto(cmd.param1, cmd.param2, cmd.param3, cmd.param4);
+//		if(cmd.param3 == 0 || cmd.param3 == Float.NaN)
+//			autopilot.moveto(cmd.param1, cmd.param2, Float.NaN, cmd.param4);
+//		else
+//			autopilot.moveto(cmd.param1, cmd.param2, cmd.param3, cmd.param4);
+		
+		OffboardActionFactory.move_to(cmd.param1, cmd.param2, Float.NaN);
+		
 	}
 
 
