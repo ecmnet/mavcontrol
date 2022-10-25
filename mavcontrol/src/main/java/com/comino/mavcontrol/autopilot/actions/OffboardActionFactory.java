@@ -43,7 +43,7 @@ public class OffboardActionFactory {
 			final long tms = System.currentTimeMillis();
 			
 			worker = wq.addCyclicTask("NP", 100, () -> {	
-				offboard.rotate(MSPMathUtils.fromRad(m.attitude.y)+(5),null);
+				offboard.rotate(m.attitude.y+(0.3f),null);
 				if((System.currentTimeMillis()-tms) > 10000) {
 					System.out.println("removed");
 					wq.removeTask("NP", worker);	

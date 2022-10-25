@@ -33,17 +33,16 @@ public class Offboard2Manager {
 	private static Offboard2Manager instance;
 
 	private static final int   UPDATE_RATE                 	    = 50;					    // Offboard update rate in [ms]
-	private static final int   DEFAULT_TIMEOUT                	= 1000;					    // Default timeout 1s
+	private static final int   DEFAULT_TIMEOUT                	= 5000;					    // Default timeout 1s
 	private static final float RADIUS_ACCEPT                    = 0.3f;                     // Acceptance radius in [m]
-	private static final float YAW_ACCEPT                	    = MSPMathUtils.toRad(0.5);  // Acceptance alignmnet yaw in [rad]
+	private static final float YAW_ACCEPT                	    = MSPMathUtils.toRad(0.3);  // Acceptance alignmnet yaw in [rad]
 
 	private static final float MAX_YAW_VEL                      = MSPMathUtils.toRad(45);   // Maxumum speed in [rad/s]
-	private static final float MAX_YAW_PLANNING_DEV             = MSPMathUtils.toRad(5);    // Minimum deviation for yaw planning
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
+	private static final float YAW_PV							= 0.10f;                    // P factor for yaw speed control
 
 	private static final float MAX_XYZ_VEL                      = 2;                        // Maxumum speed in [m/s]
-	private static final float MIN_XYZ_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
-	private static final float YAW_PV							= 0.10f;                    // P factor for yaw speed control
+	private static final float MIN_XYZ_PLANNING_DURATION        = 0.1f;                     // Minumum duration the planner ist used in [s]
 
 
 
@@ -73,13 +72,33 @@ public class Offboard2Manager {
 	}
 
 
-	public void rotate(float degree, ITargetReached action) {
+	public void rotate(float radians, ITargetReached action) {
 
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && !model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
 			return;
+		
+		// Do not allow replanning if planner is active
+		if(worker.isPlannerActive())
+			return;
 
-		worker.setTarget(MSPMathUtils.toRad(degree));	
+		worker.setTarget(radians);	
 		worker.start(action);
+
+	}
+	
+	public void rotateBy(float radians) {
+
+		if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && !model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
+			return;
+		
+		float target = MSPMathUtils.normAngle(model.attitude.y+radians);
+		
+		// Do not allow replanning if planner is active
+		if(worker.isPlannerActive())
+			return;
+
+		worker.setTarget(target);	
+		worker.start();
 
 	}
 
@@ -216,7 +235,7 @@ public class Offboard2Manager {
 
 		public void setTarget(float yaw, float mean_yaw_vel) {
 
-			float estimated_duration;
+			float estimated_duration; 
 
 			reset();
 			
@@ -234,6 +253,8 @@ public class Offboard2Manager {
 				estimated_duration = Math.abs(yaw -pos_current.w)/MAX_YAW_VEL;
 
 			if(estimated_duration > MIN_YAW_PLANNING_DURATION) {
+				if(estimated_duration < 3)
+					estimated_duration = 3;
 				t_planned_yaw = yawPlanner.generateTrajectory(estimated_duration);
 				System.out.println("\tYaw: "+MSPMathUtils.fromRad(yaw)+" in "+estimated_duration+" secs");
 			}
@@ -242,8 +263,8 @@ public class Offboard2Manager {
 				System.out.println("\tYaw without planner: "+MSPMathUtils.fromRad(yaw)+" : "+MSPMathUtils.fromRad(normAngleAbs(yaw, pos_current.w))+" in "+estimated_duration+" secs");
 			}
 
-			pos.setTo(Float.NaN, Float.NaN,Float.NaN, yaw);
-			vel.setTo(0, 0, 0, 0);
+			pos.setTo(Float.NaN,Float.NaN,Float.NaN, yaw);
+			vel.setTo(0, 0, 0, Float.NaN);
 			acc.setTo(0, 0, 0);
 
 		}
@@ -262,8 +283,8 @@ public class Offboard2Manager {
 
 			reset();
 
-			//			if(!MSP3DUtils.replaceNaN3D(pos_target, pos_setpoint))
-			MSP3DUtils.replaceNaN3D(pos_target, pos_current);	
+			if(!MSP3DUtils.replaceNaN3D(pos_target, pos_setpoint))
+			  MSP3DUtils.replaceNaN3D(pos_target, pos_current);	
 
 			acc.setTo(0, 0, 0);
 			vel.setTo(0,0,0,0);
@@ -285,6 +306,8 @@ public class Offboard2Manager {
 				estimated_yaw_duration = Math.abs(pos_target.w - pos_current.w)/MAX_YAW_VEL;
 
 				if(estimated_yaw_duration > MIN_YAW_PLANNING_DURATION) {
+					if(estimated_yaw_duration < 3)
+						estimated_yaw_duration = 3;
 					t_planned_yaw = yawPlanner.generateTrajectory(estimated_yaw_duration);
 					System.out.println("\tYaw: "+MSPMathUtils.fromRad(pos_target.w)+" in "+estimated_yaw_duration+" secs");
 				}
@@ -307,15 +330,21 @@ public class Offboard2Manager {
 			else
 				xyzPlanner.setGoal(pos_target, vel, acc);
 
-			estimated_xyz_duration = MSP3DUtils.distance3D(pos_target, pos_current) * 4 / MAX_XYZ_VEL;
+			estimated_xyz_duration = MSP3DUtils.distance3D(pos_target, pos_current) * 8.0f / MAX_XYZ_VEL;
 
 			if(estimated_xyz_duration > MIN_XYZ_PLANNING_DURATION) {
+				if(estimated_xyz_duration < 3)
+					estimated_xyz_duration = 3;
 				t_planned_xyz = xyzPlanner.generate(estimated_xyz_duration);
 			} else
 				xyzPlanner.reset();
 
 			System.out.println("\tXYZ: "+pos_target+" ("+MSP3DUtils.distance3D(pos_target, pos_current)+") in "+estimated_xyz_duration+" secs");
 
+		}
+		
+		public boolean isPlannerActive() {
+			return yawPlanner.isPlanned() || xyzPlanner.isPlanned();
 		}
 
 
@@ -341,7 +370,7 @@ public class Offboard2Manager {
 				if(reached!=null) reached.action();
 				stopAndLoiter();
 
-				updateTrajectoryModel(t_elapsed,Slam.OFFBOARD_FLAG_NONE);
+				updateTrajectoryModel(t_elapsed);
 				// notify waiting thread
 				return;
 			}
@@ -352,7 +381,7 @@ public class Offboard2Manager {
 				stopAndLoiter();
 				if(timeout!=null)
 					timeout.action();
-				updateTrajectoryModel(t_elapsed,Slam.OFFBOARD_FLAG_NONE);
+				updateTrajectoryModel(t_elapsed);
 				control.writeLogMessage(new LogMessage("[msp] Offboard timeout. Switched to HOLD.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
 
 				// notify waiting thread
@@ -366,7 +395,9 @@ public class Offboard2Manager {
 				model.slam.clearFlags();
 
 				if(Float.isNaN(pos.x) || Float.isNaN(pos.y) || Float.isNaN(pos.z)) {
-					cmd.type_mask = cmd.type_mask | MAV_MASK.MASK_POSITION_IGNORE;
+					pos.x = pos_current.x; 
+					pos.y = pos_current.y;
+					pos.z = pos_current.z;
 				}
 
 				if(xyzPlanner.isPlanned() && t_elapsed <= xyzPlanner.getTotalTime()) {
@@ -397,6 +428,7 @@ public class Offboard2Manager {
 					cmd.afy       = (float)xyzPlanner.getAcceleration(t_elapsed,1);
 					cmd.afz       = (float)xyzPlanner.getAcceleration(t_elapsed,2);
 				} else {
+					cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_ACCELERATION_IGNORE;
 					cmd.afx       = acc.x;
 					cmd.afy       = acc.y;
 					cmd.afz       = acc.z;
@@ -425,19 +457,17 @@ public class Offboard2Manager {
 						cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(pos.w - pos_current.w), t_elapsed - t_elapsed_last);
 					} else {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
-						cmd.yaw_rate = 0;
+						cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
 						cmd.yaw      = pos.w;
 					}
 
 				}
 
-				cmd.time_boot_ms = model.sys.t_boot_ms;
-				cmd.isValid  = true;
-
-				cmd.coordinate_frame = MAV_FRAME.MAV_FRAME_LOCAL_NED;
-
 
 				if(isRunning) {
+					cmd.time_boot_ms = model.sys.t_boot_ms;
+					cmd.isValid  = true;
+					cmd.coordinate_frame = MAV_FRAME.MAV_FRAME_LOCAL_NED;
 					control.sendMAVLinkMessage(cmd);
 
 					if(!offboardEnabled)
@@ -445,7 +475,7 @@ public class Offboard2Manager {
 
 
 					if(t_elapsed < xyzPlanner.getTotalTime())
-						updateTrajectoryModel(t_elapsed,model.slam.flags);
+						updateTrajectoryModel(t_elapsed);
 
 				}
 			}
@@ -526,14 +556,12 @@ public class Offboard2Manager {
 		}
 
 
-		private void updateTrajectoryModel(float elapsed_time, short flag) {
+		private void updateTrajectoryModel(float elapsed_time) {
 
-			if(flag != Slam.OFFBOARD_FLAG_XYZ_PLANNER) {
+			if(!model.slam.isFlag(Slam.OFFBOARD_FLAG_XYZ_PLANNER)) {
 				model.traj.clear();
 				return;
 			}
-
-			model.slam.flags = flag;
 
 			model.traj.ls = xyzPlanner.getTotalTime();
 			model.traj.fs = elapsed_time;

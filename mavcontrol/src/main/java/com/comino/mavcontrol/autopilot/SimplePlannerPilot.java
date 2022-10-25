@@ -33,6 +33,8 @@
 
 package com.comino.mavcontrol.autopilot;
 
+import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
+
 /****************************************************************************
  *
  *   Copyright (c) 2017,2020 Eike Mansfeld ecm@gmx.de. All rights reserved.
@@ -68,19 +70,67 @@ package com.comino.mavcontrol.autopilot;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.messaging.MessageBus;
+import com.comino.mavcom.messaging.ModelSubscriber;
+import com.comino.mavcom.messaging.msgs.msp_msg_nn_object;
+import com.comino.mavcom.model.segment.Battery;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.offboard2.Offboard2Manager;
+import com.comino.mavutils.MSPMathUtils;
 
+import georegression.struct.point.Point4D_F64;
 import georegression.struct.point.Vector4D_F32;
+import georegression.struct.point.Vector4D_F64;
 
 
 public class SimplePlannerPilot extends AutoPilotBase {
+	
+	private final static float MIN_DISTANCE_TO_PERSON_M  = 1.5f;
 
-	private final Vector4D_F32 target  = new Vector4D_F32();
-	private final Vector4D_F32 current  = new Vector4D_F32();
+	private final Point4D_F64 current      = new Point4D_F64();
+
+	private final Offboard2Manager offboard = Offboard2Manager.getInstance();
+	private final MessageBus       bus      = MessageBus.getInstance();
 
 
 	protected SimplePlannerPilot(IMAVController control, MSPConfig config) {
 		super(control,config);
+		
+		// Subscribe to detected objects 
+		bus.subscribe(new ModelSubscriber<msp_msg_nn_object>(msp_msg_nn_object.class, (n) -> {
+			
+			if(n.tms == 0) {
+				model.slam.dm = Float.NaN;
+				model.slam.ox = Float.NaN;
+				model.slam.oy = Float.NaN;
+				model.slam.oz = Float.NaN;
+				model.slam.pv = Float.NaN;
+				return;
+			}
+			
+			if(!MSP3DUtils.convertCurrentPosition(model, current))
+				return;
+			
+			float distance = MSP3DUtils.distance3D(current, n.position);
+			float angle    = MSPMathUtils.normAngle(MSP3DUtils.angleXY((float)(n.position.x - current.x),(float)(n.position.y - current.y)));
+			
+			if(distance > MIN_DISTANCE_TO_PERSON_M || control.isSimulation()) {
+			 
+			  if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.INTERACTIVE))
+				  offboard.rotate(angle, null);	 
+			}
+			
+			model.slam.dm = distance;
+			model.slam.ox = (float)n.position.x;
+			model.slam.oy = (float)n.position.y;
+			model.slam.oz = (float)n.position.z;
+			
+			model.slam.pd = angle;
+			model.slam.pv = 0.5f;
+			
+			
+		}));
+
 
 		start(200);
 	}
@@ -89,8 +139,6 @@ public class SimplePlannerPilot extends AutoPilotBase {
 		
 
 		MSP3DUtils.convertCurrentPosition(model, current);
-		
-
 
 		model.sys.t_takeoff_ms = getTimeSinceTakeoff();
 

@@ -410,7 +410,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			MapTestFactory.buildWall(map, model, 1.5f, 0.5f);
 			break;
 		case MSP_AUTOCONTROL_ACTION.ROTATE:
-			OffboardActionFactory.turn_to(param);
+			OffboardActionFactory.turn_to(MSPMathUtils.toRad(param));
 			break;
 		case MSP_AUTOCONTROL_ACTION.LAND:
 			precisionLand(enable);
