@@ -116,7 +116,7 @@ public class SimplePlannerPilot extends AutoPilotBase {
 			
 			if(distance > MIN_DISTANCE_TO_PERSON_M || control.isSimulation()) {
 			 
-			  if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.INTERACTIVE))
+			  if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.INTERACTIVE) && current.norm() > 0.1f)
 				  offboard.rotate(angle, null);	 
 			}
 			
