@@ -120,11 +120,13 @@ public class SimplePlannerPilot extends AutoPilotBase {
 				  offboard.rotate(angle, null);	 
 			}
 			
+			// TODO: Replace the transfer by Message bus:
 			model.slam.dm = distance;
 			model.slam.ox = (float)n.position.x;
 			model.slam.oy = (float)n.position.y;
 			model.slam.oz = (float)n.position.z;
 			
+			// Test only 
 			model.slam.pd = angle;
 			model.slam.pv = 0.5f;
 			

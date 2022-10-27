@@ -589,6 +589,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				control.writeLogMessage(new LogMessage("[msp] Autopilot disabled. Hold mode.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 			}
 		}
+		Offboard2Manager.getInstance().abort();
 		offboard.stop();
 	}
 

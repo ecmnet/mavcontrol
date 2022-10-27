@@ -29,6 +29,11 @@ public class YawSpeedControl implements IYawSpeedControl {
 	
 	@Override
 	public float update(float yaw_diff, float delta_sec) {
+		return update(yaw_diff,delta_sec, max_yaw_speed);
+	}
+	
+	
+	public float update(float yaw_diff, float delta_sec, float max_yaw_speed) {
 		
 		if(!Float.isFinite(yaw_diff) || Math.abs(yaw_diff) < NO_CONTROL)
 			return 0;

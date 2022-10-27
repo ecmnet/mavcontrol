@@ -112,7 +112,12 @@ public class Offboard2Manager {
 		worker.setTarget(p);	
 		worker.start();
 	}
-
+	
+	public void abort() {
+		if(!model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
+			return;
+		worker.stopAndLoiter();
+	}
 
 
 	private class Offboard2Worker implements Runnable {
@@ -240,9 +245,16 @@ public class Offboard2Manager {
 			reset();
 			
 			yaw = normAngle(yaw);  pos_current.w = normAngle(pos_current.w);
+
+			//System.err.print(yaw+"/"+pos_current.w);
 			
-			if(pos_current.w  < 0)
-				yaw = (yaw-2*(float)Math.PI) % (2*(float)Math.PI);
+			if(yaw >= Math.PI && pos_current.w < 0)
+				yaw = (yaw-(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
+			
+			if(yaw <= 0 && pos_current.w > Math.PI)
+				yaw = ((float)MSPMathUtils.PI2+yaw) % (float)MSPMathUtils.PI2;
+			
+			//System.err.println(" ==> "+yaw+"/"+pos_current.w);
 				
 			yawPlanner.setInitialState(pos_current.w, vel_current.w, 0);
 			yawPlanner.setTargetState(yaw, 0, Double.NaN);
@@ -253,8 +265,8 @@ public class Offboard2Manager {
 				estimated_duration = Math.abs(yaw -pos_current.w)/MAX_YAW_VEL;
 
 			if(estimated_duration > MIN_YAW_PLANNING_DURATION) {
-				if(estimated_duration < 3)
-					estimated_duration = 3;
+				if(estimated_duration < 2)
+					estimated_duration = 2;
 				t_planned_yaw = yawPlanner.generateTrajectory(estimated_duration);
 				System.out.println("\tYaw: "+MSPMathUtils.fromRad(yaw)+" in "+estimated_duration+" secs");
 			}
@@ -454,7 +466,9 @@ public class Offboard2Manager {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
 						pos.w = MSP3DUtils.angleXY(cmd.vx,cmd.vy);
 						cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
-						cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(pos.w - pos_current.w), t_elapsed - t_elapsed_last);
+						// TODO: depend max_yaw_speed on vehicle velocity or acceleration in case of moving
+						//       maybe also on planned trajectory time (e.g. yaw completed in a third of the time
+						cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(pos.w - pos_current.w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);
 					} else {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
 						cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
