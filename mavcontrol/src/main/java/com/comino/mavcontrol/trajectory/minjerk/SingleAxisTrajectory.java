@@ -95,6 +95,7 @@ public class SingleAxisTrajectory {
 		if(Double.isFinite(posf)) setGoalPosition(posf); 
 		if(Double.isFinite(velf)) setGoalVelocity(velf);
 		if(Double.isFinite(accf)) setGoalAcceleration(accf);
+
 	}
 
 	public void setGoalPosition(double posf)    
