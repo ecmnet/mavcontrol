@@ -362,6 +362,8 @@ public class Offboard2Manager {
 
 		@Override
 		public void run() {
+			
+			synchronized(this) {
 
 			// Convert current state
 			updateCurrentState();
@@ -404,7 +406,7 @@ public class Offboard2Manager {
 			}
 
 			// set setpoint synchronized and send to PX4
-			synchronized(this) {
+
 
 				cmd.type_mask    = 0;
 				model.slam.clearFlags();
@@ -504,11 +506,13 @@ public class Offboard2Manager {
 					if(!offboardEnabled)
 						enableOffboard();
 
-					if(t_elapsed < xyzPlanner.getTotalTime())
-						updateTrajectoryModel(t_elapsed);
 
 				}
 			}
+			
+			if(t_elapsed < xyzPlanner.getTotalTime())
+				updateTrajectoryModel(t_elapsed);
+			
 		}
 
 		private void reset() {

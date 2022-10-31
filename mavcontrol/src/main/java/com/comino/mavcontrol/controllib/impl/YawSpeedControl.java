@@ -7,8 +7,8 @@ import georegression.struct.point.Vector4D_F32;
 
 public class YawSpeedControl implements IYawSpeedControl {
 	
-	private static final float RAMP_YAW_SPEED  = MSPMathUtils.toRad(45); // Ramp up Speed for yaw turning
-	private static final float NO_CONTROL      = MSPMathUtils.toRad(1);
+	private static final float RAMP_YAW_SPEED  = MSPMathUtils.toRad(90); // Ramp up Speed for yaw turning
+	private static final float NO_CONTROL      = MSPMathUtils.toRad(0.5);
 	
 	private float yaw_d_target   = 0;
 	private float yaw_d_current  = 0;
@@ -38,7 +38,7 @@ public class YawSpeedControl implements IYawSpeedControl {
 		if(!Float.isFinite(yaw_diff) || Math.abs(yaw_diff) < NO_CONTROL)
 			return 0;
 		
-		yaw_d_target = MSPMathUtils.normAngle2(yaw_diff) / delta_sec * p;
+		yaw_d_target = MSPMathUtils.normAngle2(yaw_diff) * p / delta_sec;
 		if(yaw_d_target > 0) {
 			yaw_d_current = yaw_d_current + (RAMP_YAW_SPEED * delta_sec);
 			if(yaw_d_current > yaw_d_target)
