@@ -160,7 +160,7 @@ public class Offboard2Manager {
 		private float t_planned_yaw = 0;
 		private float t_planned_xyz = 0;
 
-		private float tmp = 0;
+		
 
 		public Offboard2Worker(IMAVController control) {
 			this.control = control;
@@ -172,12 +172,10 @@ public class Offboard2Manager {
 		}
 
 		public void start(ITargetReached reached) {
-			long timeout = (long) (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw ) * 4000;
-			if(timeout < DEFAULT_TIMEOUT) timeout = DEFAULT_TIMEOUT;
-			start(reached,null,timeout);
+			start(reached,null);
 		}
 
-		public void start(ITargetReached reached, ITimeout timeout, long timeout_ms) {
+		public void start(ITargetReached reached_action, ITimeout timeout_action) {
 
 			if(model.sys.isStatus(Status.MSP_LANDED)) {
 				reset();
@@ -185,10 +183,10 @@ public class Offboard2Manager {
 				return;
 			}
 
-			this.reached     = reached;
-			this.timeout     = timeout;
+			this.reached     = reached_action;
+			this.timeout     = timeout_action;
 			this.t_elapsed   = 0;
-			this.t_timeout   = timeout_ms;
+			this.t_timeout   = DEFAULT_TIMEOUT + ((long) (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw ));;
 
 			this.t_started      = System.currentTimeMillis();
 			this.t_elapsed_last = System.currentTimeMillis();
@@ -377,12 +375,12 @@ public class Offboard2Manager {
 					stopAndLoiter();
 
 					updateTrajectoryModel(t_elapsed);
-					// notify waiting thread
+					
 					return;
 				}
 
 				// check timeout
-				if(t_timeout > 0 && (System.currentTimeMillis()-t_started) > t_timeout) {
+				if(t_timeout > 0 && t_elapsed > t_timeout) {
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_TIMEOUT, true);
 					stopAndLoiter();
 					if(timeout!=null)
@@ -471,8 +469,8 @@ public class Offboard2Manager {
 						if(!yawPlanner.isPlanned() && !yawReached(pos_current.w, pos.w, acceptance_yaw)) {
 							model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
-							cmd.yaw     = pos.w;
-							cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(pos.w - pos_current.w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);		
+							cmd.yaw       = Float.NaN;
+							cmd.yaw_rate  = yawControl.update(MSPMathUtils.normAngle(pos.w - pos_current.w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);		
 						} else {
 							model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
