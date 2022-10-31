@@ -160,7 +160,7 @@ public class Offboard2Manager {
 		private float t_planned_yaw = 0;
 		private float t_planned_xyz = 0;
 
-		
+
 
 		public Offboard2Worker(IMAVController control) {
 			this.control = control;
@@ -191,8 +191,17 @@ public class Offboard2Manager {
 			this.t_started      = System.currentTimeMillis();
 			this.t_elapsed_last = System.currentTimeMillis();
 
+			updateCurrentState();
+
 			if(isRunning)
 				return;
+
+			if(targetReached(pos_current, pos, acceptance_radius, acceptance_yaw)) {
+				control.writeLogMessage(new LogMessage("[msp] Target already reached.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+				if(reached!=null) 
+					reached.action();
+				return;
+			}
 
 			isRunning = true;
 			offboard_worker = wq.addCyclicTask("NP", UPDATE_RATE, this);
@@ -314,7 +323,7 @@ public class Offboard2Manager {
 					System.out.println("\tYaw: "+MSPMathUtils.fromRad(pos_target.w)+" in "+estimated_yaw_duration+" secs");
 				}
 				else {
-					yawPlanner.reset();
+					yawPlanner.reset(); 
 					System.out.println("\tYaw without planner: "+MSPMathUtils.fromRad(normAngleAbs(pos_target.w, pos_current.w))+" in "+estimated_yaw_duration+" secs");
 				}
 				pos.w = pos_target.w;
@@ -323,7 +332,7 @@ public class Offboard2Manager {
 			}
 
 			// XYZ planning
-			
+
 
 			xyzPlanner.setInitialState(pos_current, vel_current,  acc_current);
 			if(vel_target!=null && acc_target!=null)
@@ -364,18 +373,19 @@ public class Offboard2Manager {
 			if((yawPlanner.isPlanned() || xyzPlanner.isPlanned()) &&
 					t_elapsed > t_planned_yaw && t_elapsed > t_planned_xyz) {
 
-				
 				if(targetReached(pos_current, pos, acceptance_radius, acceptance_yaw)) {
 
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
 
 					//System.out.println(t_elapsed+":"+t_planned+" -> "+targetReached(pos_current, pos, acceptance_radius, acceptance_yaw));
 
-					if(reached!=null) reached.action();
+					if(reached!=null) 
+						reached.action();
+					
 					stopAndLoiter();
 
 					updateTrajectoryModel(t_elapsed);
-					
+
 					return;
 				}
 
@@ -511,9 +521,9 @@ public class Offboard2Manager {
 			acceptance_radius = RADIUS_ACCEPT;
 			acceptance_yaw    = YAW_ACCEPT;
 			t_timeout         = DEFAULT_TIMEOUT;
-			t_elapsed_last   = 0;
-			t_planned_yaw = 0;
-			t_planned_xyz = 0;
+			t_elapsed_last    = 0;
+			t_planned_yaw     = 0;
+			t_planned_xyz     = 0;
 
 		}
 
