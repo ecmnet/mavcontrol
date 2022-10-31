@@ -40,7 +40,7 @@ public class Offboard2Manager {
 
 	private static final float MAX_YAW_VEL                      = MSPMathUtils.toRad(45);   // Maxumum speed in [rad/s]
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
-	private static final float YAW_PV							= 0.1f;                     // P factor for yaw speed control
+	private static final float YAW_PV							= 0.05f;                     // P factor for yaw speed control
 
 	private static final float MAX_XYZ_VEL                      = 2;                        // Maxumum speed in [m/s]
 	private static final float MIN_XYZ_PLANNING_DURATION        = 0.1f;                     // Minumum duration the planner ist used in [s]
@@ -191,10 +191,10 @@ public class Offboard2Manager {
 			this.t_started      = System.currentTimeMillis();
 			this.t_elapsed_last = System.currentTimeMillis();
 
-			updateCurrentState();
-
 			if(isRunning)
 				return;
+			
+			updateCurrentState();
 
 			if(targetReached(pos_current, pos, acceptance_radius, acceptance_yaw)) {
 				control.writeLogMessage(new LogMessage("[msp] Target already reached.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -473,24 +473,25 @@ public class Offboard2Manager {
 						cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
 						// TODO: depend max_yaw_speed on vehicle velocity or acceleration in case of moving
 						//       maybe also on planned trajectory time (e.g. yaw completed in a third of the time
+						cmd.yaw      = pos.w;
 						cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(pos.w - pos_current.w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);
 					} else {
 						// XYZ Target reached but not yaw: Further yaw turning via YAWControl
 						if(!yawPlanner.isPlanned() && !yawReached(pos_current.w, pos.w, acceptance_yaw)) {
 							model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
-							cmd.yaw       = Float.NaN;
+							cmd.yaw       = pos.w;
 							cmd.yaw_rate  = yawControl.update(MSPMathUtils.normAngle(pos.w - pos_current.w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);		
 						} else {
 							model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
-							cmd.yaw_rate = Float.NaN;
-							cmd.yaw      = pos_current.w;
+							cmd.yaw_rate = 0;
+							cmd.yaw      = pos.w;
 						}
 					}
 				}
 
-				//				model.debug.x = cmd.vx;
+				//				model.debug.x = cmd.yaw;
 				//				model.debug.x = cmd.vy;
 				//				model.debug.z = cmd.yaw_rate;
 
