@@ -75,6 +75,7 @@ import com.comino.mavcom.messaging.ModelSubscriber;
 import com.comino.mavcom.messaging.msgs.msp_msg_nn_object;
 import com.comino.mavcom.model.segment.Battery;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcom.utils.SimpleLowPassFilter;
 import com.comino.mavcontrol.offboard2.Offboard2Manager;
 import com.comino.mavutils.MSPMathUtils;
 
@@ -91,6 +92,8 @@ public class SimplePlannerPilot extends AutoPilotBase {
 
 	private final Offboard2Manager offboard = Offboard2Manager.getInstance();
 	private final MessageBus       bus      = MessageBus.getInstance();
+	
+	private final SimpleLowPassFilter yaw_filter = new SimpleLowPassFilter(0.5f);
 
 
 	protected SimplePlannerPilot(IMAVController control, MSPConfig config) {
@@ -112,7 +115,8 @@ public class SimplePlannerPilot extends AutoPilotBase {
 				return;
 			
 			float distance = MSP3DUtils.distance3D(current, n.position);
-			float angle    = MSPMathUtils.normAngle(MSP3DUtils.angleXY((float)(n.position.x - current.x),(float)(n.position.y - current.y)));
+			yaw_filter.add(MSPMathUtils.normAngle(MSP3DUtils.angleXY((float)(n.position.x - current.x),(float)(n.position.y - current.y))));
+			float angle = (float)yaw_filter.getMean();
 			
 			if(distance > MIN_DISTANCE_TO_PERSON_M || control.isSimulation()) {
 			 

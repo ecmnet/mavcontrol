@@ -5,6 +5,7 @@ import org.mavlink.messages.MAV_FRAME;
 import org.mavlink.messages.MAV_MODE_FLAG;
 import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
+import org.mavlink.messages.lquac.msg_msp_trajectory;
 import org.mavlink.messages.lquac.msg_set_position_target_local_ned;
 
 import com.comino.mavcom.control.IMAVController;
@@ -35,7 +36,7 @@ public class Offboard2Manager {
 	private static final int   UPDATE_RATE                 	    = 25;					    // Offboard update rate in [ms]
 	private static final int   DEFAULT_TIMEOUT                	= 5000;					    // Default timeout 1s
 	private static final float RADIUS_ACCEPT                    = 0.3f;                     // Acceptance radius in [m]
-	private static final float YAW_ACCEPT                	    = MSPMathUtils.toRad(0.5);  // Acceptance alignmnet yaw in [rad]
+	private static final float YAW_ACCEPT                	    = MSPMathUtils.toRad(1);    // Acceptance alignmnet yaw in [rad]
 
 	private static final float MAX_YAW_VEL                      = MSPMathUtils.toRad(45);   // Maxumum speed in [rad/s]
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
@@ -48,12 +49,6 @@ public class Offboard2Manager {
 
 	private final Offboard2Worker   worker;
 	private final DataModel         model;
-	private final IMAVController    control;
-
-	// TODO: start_and_wait
-	//       target update in flight
-	// 
-
 
 	public static Offboard2Manager getInstance(IMAVController control) {
 		if(instance==null) 
@@ -66,7 +61,6 @@ public class Offboard2Manager {
 	}
 
 	private Offboard2Manager(IMAVController control) {
-		this.control = control;
 		this.model   = control.getCurrentModel();
 		this.worker  = new Offboard2Worker(control);
 	}
@@ -244,19 +238,15 @@ public class Offboard2Manager {
 
 			float estimated_duration; 
 
-			reset();
+			reset(); updateCurrentState(); 
 
 			yaw = normAngle(yaw);  pos_current.w = normAngle(pos_current.w);
-
-			//System.err.print(yaw+"/"+pos_current.w);
 
 			if(yaw >= Math.PI && pos_current.w < 0)
 				yaw = (yaw-(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
 
 			if(yaw <= 0 && pos_current.w > Math.PI)
 				yaw = ((float)MSPMathUtils.PI2+yaw) % (float)MSPMathUtils.PI2;
-
-			//System.err.println(" ==> "+yaw+"/"+pos_current.w);
 
 			yawPlanner.setInitialState(pos_current.w, vel_current.w, 0);
 			yawPlanner.setTargetState(yaw, 0, 0);
@@ -294,9 +284,8 @@ public class Offboard2Manager {
 		public void setTarget(GeoTuple4D_F32<?> pos_target, GeoTuple4D_F32<?> vel_target,GeoTuple3D_F32<?> acc_target) {
 
 			float estimated_yaw_duration = 0; float estimated_xyz_duration = 0;
-			
 
-			reset();
+			reset(); updateCurrentState(); 
 
 			if(!MSP3DUtils.replaceNaN3D(pos_target, pos_setpoint))
 				MSP3DUtils.replaceNaN3D(pos_target, pos_current);	
@@ -336,6 +325,7 @@ public class Offboard2Manager {
 			}
 
 			// XYZ planning
+			
 
 			xyzPlanner.setInitialState(pos_current, vel_current,  acc_current);
 			if(vel_target!=null && acc_target!=null)
@@ -373,34 +363,36 @@ public class Offboard2Manager {
 			t_elapsed = (System.currentTimeMillis() - t_started) / 1000f;
 
 			// check current state and perform action 
-
 			if((yawPlanner.isPlanned() || xyzPlanner.isPlanned()) &&
-					t_elapsed > t_planned_yaw && t_elapsed > t_planned_xyz &&	
-					targetReached(pos_current, pos, acceptance_radius, acceptance_yaw)) {
+					t_elapsed > t_planned_yaw && t_elapsed > t_planned_xyz) {
 
-				model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
+				
+				if(targetReached(pos_current, pos, acceptance_radius, acceptance_yaw)) {
 
-				//System.out.println(t_elapsed+":"+t_planned+" -> "+targetReached(pos_current, pos, acceptance_radius, acceptance_yaw));
+					model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
 
-				if(reached!=null) reached.action();
-				stopAndLoiter();
+					//System.out.println(t_elapsed+":"+t_planned+" -> "+targetReached(pos_current, pos, acceptance_radius, acceptance_yaw));
 
-				updateTrajectoryModel(t_elapsed);
-				// notify waiting thread
-				return;
-			}
+					if(reached!=null) reached.action();
+					stopAndLoiter();
 
-			// check timeout
-			if(t_timeout > 0 && (System.currentTimeMillis()-t_started) > t_timeout) {
-				model.slam.setFlag(Slam.OFFBOARD_FLAG_TIMEOUT, true);
-				stopAndLoiter();
-				if(timeout!=null)
-					timeout.action();
-				updateTrajectoryModel(t_elapsed);
-				control.writeLogMessage(new LogMessage("[msp] Offboard timeout. Switched to HOLD.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
+					updateTrajectoryModel(t_elapsed);
+					// notify waiting thread
+					return;
+				}
 
-				// notify waiting thread
-				return;
+				// check timeout
+				if(t_timeout > 0 && (System.currentTimeMillis()-t_started) > t_timeout) {
+					model.slam.setFlag(Slam.OFFBOARD_FLAG_TIMEOUT, true);
+					stopAndLoiter();
+					if(timeout!=null)
+						timeout.action();
+					updateTrajectoryModel(t_elapsed);
+					control.writeLogMessage(new LogMessage("[msp] Offboard timeout. Switched to HOLD.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
+
+					// notify waiting thread
+					return;
+				}
 			}
 
 			// set setpoint synchronized and send to PX4
@@ -409,6 +401,7 @@ public class Offboard2Manager {
 				cmd.type_mask    = 0;
 				model.slam.clearFlags();
 
+				// For safety
 				if(Float.isNaN(pos.x) || Float.isNaN(pos.y) || Float.isNaN(pos.z)) {
 					pos.x = pos_current.x; 
 					pos.y = pos_current.y;
@@ -434,9 +427,9 @@ public class Offboard2Manager {
 					cmd.vy       = (float)xyzPlanner.getVelocity(t_elapsed,1);
 					cmd.vz       = (float)xyzPlanner.getVelocity(t_elapsed,2);
 				} else {
-					cmd.vx       = 0;
-					cmd.vy       = 0;
-					cmd.vz       = 0;   
+					cmd.vx       = Float.NaN;
+					cmd.vy       = Float.NaN;
+					cmd.vz       = Float.NaN;  
 				}
 
 				if(xyzPlanner.isPlanned() && t_elapsed <= xyzPlanner.getTotalTime()) {
@@ -444,18 +437,15 @@ public class Offboard2Manager {
 					cmd.afy       = (float)xyzPlanner.getAcceleration(t_elapsed,1);
 					cmd.afz       = (float)xyzPlanner.getAcceleration(t_elapsed,2);
 				} else {
-					cmd.afx       = 0;
-					cmd.afy       = 0;
-					cmd.afz       = 0;
+					cmd.afx       = Float.NaN;
+					cmd.afy       = Float.NaN;
+					cmd.afz       = Float.NaN;
 				}
 
 				if(yawPlanner.isPlanned()) {	
 
 					// Yaw controlled by planner
 					if(t_elapsed <= yawPlanner.getTotalTime()) {
-						// TODO: Keep position fixed if no XYZ Planner active, but how?
-						// => during yaw_rate control XYZ velocity 
-						
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_PLANNER, true);
 						cmd.yaw_rate = (float)yawPlanner.getVelocity(t_elapsed);
 						cmd.yaw      = (float)yawPlanner.getPosition(t_elapsed);
@@ -477,25 +467,24 @@ public class Offboard2Manager {
 						//       maybe also on planned trajectory time (e.g. yaw completed in a third of the time
 						cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(pos.w - pos_current.w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);
 					} else {
-                        // XYZ Target reached but not yaw: Further yaw turning via YAWControl
-						// TODO: Keep position fixed, but how?
+						// XYZ Target reached but not yaw: Further yaw turning via YAWControl
 						if(!yawPlanner.isPlanned() && !yawReached(pos_current.w, pos.w, acceptance_yaw)) {
 							model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
-
 							cmd.yaw     = pos.w;
 							cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(pos.w - pos_current.w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);		
 						} else {
 							model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
-							cmd.yaw_rate = 0;
-							cmd.yaw      = pos.w;
+							cmd.yaw_rate = Float.NaN;
+							cmd.yaw      = pos_current.w;
 						}
 					}
-
 				}
-				
-				model.debug.x = cmd.yaw_rate;
+
+				//				model.debug.x = cmd.vx;
+				//				model.debug.x = cmd.vy;
+				//				model.debug.z = cmd.yaw_rate;
 
 				if(isRunning) {
 					cmd.time_boot_ms = model.sys.t_boot_ms;
@@ -505,7 +494,6 @@ public class Offboard2Manager {
 
 					if(!offboardEnabled)
 						enableOffboard();
-
 
 					if(t_elapsed < xyzPlanner.getTotalTime())
 						updateTrajectoryModel(t_elapsed);
@@ -528,8 +516,6 @@ public class Offboard2Manager {
 			t_elapsed_last   = 0;
 			t_planned_yaw = 0;
 			t_planned_xyz = 0;
-
-			updateCurrentState(); 
 
 		}
 
@@ -564,11 +550,13 @@ public class Offboard2Manager {
 				float dz = t.z - c.z;
 
 				if(Math.sqrt(dx*dx+dy*dy+dz*dz) > max) {
+					//System.err.println("=> position not reached");
 					return false;
 				}
 			}
 
 			if(Float.isFinite(t.w) && Float.isFinite(max_yaw) && normAngleAbs(t.w,c.w) > max_yaw) {
+				//System.err.println("=> yaw not reached");
 				return false;	
 			}
 			return true;
@@ -601,6 +589,8 @@ public class Offboard2Manager {
 
 			if(!model.slam.isFlag(Slam.OFFBOARD_FLAG_XYZ_PLANNER)) {
 				model.traj.clear();
+				// Clear trajectory in MAVGCL
+				control.sendMAVLinkMessage(new msg_msp_trajectory(2,1));
 				return;
 			}
 
