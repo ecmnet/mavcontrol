@@ -95,16 +95,20 @@ public class Offboard2Manager {
 		worker.start();
 
 	}
-
-	public void moveTo(float x, float y, float z, float w) {
-
+	
+	public void moveTo(float x, float y, float z, float w,ITargetReached action) {
+		
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && !model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
 			return;
 
 		Point4D_F32 p = new Point4D_F32(x,y,z,w);
 
 		worker.setTarget(p);	
-		worker.start();
+		worker.start(action);
+	}
+
+	public void moveTo(float x, float y, float z, float w) {
+        moveTo(x,y,z,w,null);
 	}
 
 	public void abort() {
@@ -149,7 +153,7 @@ public class Offboard2Manager {
 		private final RapidTrajectoryGenerator  xyzPlanner = new RapidTrajectoryGenerator(new Point3D_F64(0,0,0));
 
 		// Controllers
-		private final YawSpeedControl           yawControl = new YawSpeedControl(YAW_PV,0,MAX_YAW_VEL);
+		private final YawSpeedControl           yawControl = new YawSpeedControl(YAW_PV, 0 ,MAX_YAW_VEL);
 
 		// Timing
 		private long t_started = 0;
@@ -209,10 +213,12 @@ public class Offboard2Manager {
 		}
 
 		public void stopAndLoiter() {
+			
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
 			stop();
+			reset();
 		}
 
 		public void stop() {
@@ -229,7 +235,6 @@ public class Offboard2Manager {
 
 			model.slam.clearFlags();
 
-			reset();
 		}
 
 		public void setAcceptance(float max, float max_yaw) {
@@ -381,10 +386,12 @@ public class Offboard2Manager {
 
 					//System.out.println(t_elapsed+":"+t_planned+" -> "+targetReached(pos_current, pos, acceptance_radius, acceptance_yaw));
 
-					if(reached!=null) 
+					if(reached!=null) {
 						reached.action();
-					
-					stopAndLoiter();
+						stop();
+					}
+					else
+					    stopAndLoiter();
 
 					updateTrajectoryModel(t_elapsed);
 

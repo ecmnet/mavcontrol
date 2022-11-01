@@ -615,36 +615,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public void precisionLand(boolean enable) {
 
 		if(model.sys.isStatus(Status.MSP_LANDED) || !enable) {
-			offboard.abort();
 			return;
 		}
-		
-		
-
-		if(control.isSimulation())
-			SequencerActionFactory.simulateFiducial(control,2f);
-
-		SequencerActionFactory.precisionLanding(sequencer, control);
-
-		// TEST planned landing
-
-		//
-		//			if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
-		//				control.writeLogMessage(new LogMessage("[msp] Precision landing without lock.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-		//				if(!offboard.start_wait(OffboardManager.MODE_LAND, 30000)) {
-		//					control.writeLogMessage(new LogMessage("[msp] Precision landing procedure aborted", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-		//				}
-		//				//	offboardPosHold(true);
-		//			} else {
-		//
-		//				control.writeLogMessage(new LogMessage("[msp] Precision landing triggered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-		//				if(!offboard.start_wait(OffboardManager.MODE_LAND, 30000)) {
-		//					control.writeLogMessage(new LogMessage("[msp] Precision landing procedure aborted", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-		//				}
-		//			}
-
-		//		});
-
+		OffboardActionFactory.precision_landing_rotate();
 	}
 
 
