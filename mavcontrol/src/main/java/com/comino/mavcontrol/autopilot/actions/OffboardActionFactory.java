@@ -48,17 +48,17 @@ public class OffboardActionFactory {
 		
 		if(!m.vision.isStatus(Vision.FIDUCIAL_LOCKED))
 			return;
+		
+		logger.writeLocalMsg("[mgc] PX4 prec.Landing with rotate.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 		offboard.moveTo(m.vision.px,m.vision.py,Float.NaN,m.vision.pw,() -> {
 			
-			logger.writeLocalMsg("[mgc] PX4 prec.simulation",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-			
-//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
-//				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED)
-//					logger.writeLocalMsg("[mgc] PX4 Prec.Landing rejected ("+result+")",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-//				else
-//					logger.writeLocalMsg("[mgc] PX4 prec.landing initiated",MAV_SEVERITY.MAV_SEVERITY_INFO);
-//			},	MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_PRECLAND );
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
+				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED)
+					logger.writeLocalMsg("[mgc] PX4 Prec.Landing rejected ("+result+")",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+				else
+					logger.writeLocalMsg("[mgc] PX4 prec.landing initiated",MAV_SEVERITY.MAV_SEVERITY_INFO);
+			},	MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_PRECLAND );
 		});
 		
 		

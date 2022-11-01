@@ -48,7 +48,7 @@ public class TestActionFactory {
 			model.vision.pz = 0.5f;	
 			model.vision.pw = ((float)Math.random()-0.5f)*12f;
 			
-			model.vision.pw = MSPMathUtils.toRad(0);
+			//model.vision.pw = MSPMathUtils.toRad(135);
 			
 			System.out.println("Simulated fiducial rotation: "+MSPMathUtils.fromRad(model.vision.pw));
 			
