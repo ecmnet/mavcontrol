@@ -88,7 +88,7 @@ public class SingleAxisTrajectory {
 	{ return _cost; }
 
 	public void setInitialState(double pos0, double vel0, double acc0)
-	{_p0=pos0; _v0=vel0; _a0=acc0; reset(); }
+	{ reset(); _p0=pos0; _v0=vel0; _a0=acc0;  }
 	
 	public void setTargetState(double posf, double velf, double accf)
 	{ 
@@ -115,6 +115,10 @@ public class SingleAxisTrajectory {
 		_accPeakTimes.initialised = false;
 		_minAcc = 0;
 		_maxAcc = 0;
+		_p0 = _v0 = _a0 = 0;
+		_pf = _vf = _af = 0;
+		_a  =  _b =  _g = 0;
+		
 	}
 
 	public float generateTrajectory(double Tf) {

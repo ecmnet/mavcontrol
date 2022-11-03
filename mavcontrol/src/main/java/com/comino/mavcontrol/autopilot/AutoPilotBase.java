@@ -58,11 +58,13 @@ import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.autopilot.actions.OffboardActionFactory;
 import com.comino.mavcontrol.autopilot.actions.SequencerActionFactory;
 import com.comino.mavcontrol.autopilot.actions.TakeOffHandler;
+import com.comino.mavcontrol.autopilot.actions.TestActionFactory;
 import com.comino.mavcontrol.autopilot.safety.SafetyCheckHandler;
 import com.comino.mavcontrol.autopilot.tests.PlannerTest;
 import com.comino.mavcontrol.ekf2utils.EKF2ResetCheck;
 import com.comino.mavcontrol.offboard.OffboardManager;
 import com.comino.mavcontrol.offboard2.Offboard2Manager;
+import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavcontrol.sequencer.ISeqAction;
 import com.comino.mavcontrol.sequencer.Sequencer;
 import com.comino.mavcontrol.struct.SeqItem;
@@ -145,7 +147,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		System.out.println(instanceName+" instantiated");
 		
-		Offboard2Manager.getInstance(control);
+		Offboard3Manager.getInstance(control);
 
 		this.control   = control;
 		this.model     = control.getCurrentModel();
@@ -403,7 +405,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE1:
 			control.writeLogMessage(new LogMessage("[msp] Simulate yaw following.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-			OffboardActionFactory.test_simulate_yaw_follow();
+			TestActionFactory.test_simulate_yaw_follow();
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
 			control.writeLogMessage(new LogMessage("[msp] Build virtual wall.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
