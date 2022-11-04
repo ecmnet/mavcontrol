@@ -14,7 +14,7 @@ public class Offboard3Target {
 	// Targets
 	private final GeoTuple4D_F32<Point4D_F32> p = new Point4D_F32(Float.NaN, Float.NaN, Float.NaN, Float.NaN);
 	private final GeoTuple4D_F32<Point4D_F32> v = new Point4D_F32(0, 0, 0, Float.NaN);
-	private final GeoTuple3D_F32<Point3D_F32> a = new Point3D_F32(0,0,0);
+	private final GeoTuple4D_F32<Point4D_F32> a = new Point4D_F32(0,0,0,0);
 
 	private float vel    =  0;
 	private float d_sec  = -1;
@@ -23,17 +23,15 @@ public class Offboard3Target {
 
 
 	public Offboard3Target(GeoTuple4D_F32<?> p) {
-		this(p,0,-1);
+		this(p,-1);
 	}
 
 	public Offboard3Target(GeoTuple4D_F32<?> p, float d) {
-		this(p,0,d);
-	}
-
-	public Offboard3Target(GeoTuple4D_F32<?> p, float v, float d_sec) {
 		this.p.setTo(p.x,p.y,p.z,p.w);
-		this.vel   = v;
-		this.d_sec = d_sec;
+		this.v.setTo(0,0,0,Float.NaN);
+		this.vel   = 0;
+		this.d_sec = d;
+		
 	}
 
 	public Offboard3Target(GeoTuple4D_F32<?> p, GeoTuple4D_F32<?> c, float v, float d_sec) {
@@ -63,7 +61,7 @@ public class Offboard3Target {
 		return v;
 	}
 
-	public GeoTuple3D_F32<?> getTargetAcceleration() {
+	public GeoTuple4D_F32<?> getTargetAcceleration() {
 		return a;
 	}
 

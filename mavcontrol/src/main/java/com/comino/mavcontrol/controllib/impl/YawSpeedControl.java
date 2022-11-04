@@ -35,8 +35,9 @@ public class YawSpeedControl implements IYawSpeedControl {
 	
 	public float update(float yaw_diff, float delta_sec, float max_yaw_speed) {
 		
-		if(!Float.isFinite(yaw_diff) || Math.abs(yaw_diff) < NO_CONTROL)
+		if(!Float.isFinite(yaw_diff) || Math.abs(yaw_diff) < NO_CONTROL || delta_sec < 0.001) {
 			return 0;
+		}
 		
 		yaw_d_target = MSPMathUtils.normAngle2(yaw_diff) * p / delta_sec;
 		if(yaw_d_target > 0) {
