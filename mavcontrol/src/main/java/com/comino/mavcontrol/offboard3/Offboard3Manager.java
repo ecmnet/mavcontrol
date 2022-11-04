@@ -44,7 +44,7 @@ public class Offboard3Manager {
 
 	private static Offboard3Manager instance;
 
-	private static final int   UPDATE_RATE                 	    = 25;					    // Offboard update rate in [ms]
+	private static final int   UPDATE_RATE                 	    = 20;					    // Offboard update rate in [ms]
 	private static final int   DEFAULT_TIMEOUT                	= 5000;					    // Default timeout 1s
 	private static final float RADIUS_ACCEPT                    = 0.3f;                     // Acceptance radius in [m]
 	private static final float YAW_ACCEPT                	    = MSPMathUtils.toRad(1);    // Acceptance alignmnet yaw in [rad]
@@ -228,7 +228,7 @@ public class Offboard3Manager {
 
 
 			isRunning = true;
-			offboard_worker = wq.addCyclicTask("NP", UPDATE_RATE, this);
+			offboard_worker = wq.addCyclicTask("HP", UPDATE_RATE, this);
 
 		}
 
@@ -287,7 +287,7 @@ public class Offboard3Manager {
 			else {
 				System.out.println("Estimated duration: "+estimated_xyz_duration);
 				targets.add(new Offboard3Target(pos_target,pos_current,max_v,2.0f));
-			    targets.add(new Offboard3Target(pos_target,pos_current,max_v,estimated_xyz_duration-5.0f));
+			    targets.add(new Offboard3Target(pos_target,pos_current,max_v,estimated_xyz_duration*2f/3f));
 				targets.add(new Offboard3Target(pos_target));
 
 			}
@@ -435,7 +435,6 @@ public class Offboard3Manager {
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
 							cmd.yaw_rate = 0;
 							cmd.yaw      = current_target.getTargetPosition().w;
-							System.err.println("DIRECT YAW");
 						}
 					}
 				}
@@ -613,7 +612,8 @@ public class Offboard3Manager {
 				control.sendMAVLinkMessage(new msg_msp_trajectory(2,1));
 				return;
 			}
-
+			
+			
 			model.traj.ls = xyzPlanner.getTotalTime();
 			model.traj.fs = elapsed_time;
 			model.traj.ax = (float)xyzPlanner.getAxisParamAlpha(0);
