@@ -239,7 +239,6 @@ public class Offboard3Manager {
 			if(isRunning)
 				return;
 
-
 			isRunning = true;
 			offboard_worker = wq.addCyclicTask("HP", UPDATE_RATE, this);
 
@@ -270,12 +269,6 @@ public class Offboard3Manager {
 
 		}
 
-		public void setAcceptance(float max, float max_yaw) {
-			acceptance_radius = max;
-			acceptance_yaw    = max_yaw;
-		}
-
-
 		public void setTarget(float yaw) {
 
 			reset();
@@ -288,9 +281,6 @@ public class Offboard3Manager {
 
 			reset();
 			updateCurrentState();
-			
-			// TODO: segmented path calculation does not work
-
 			
 			float estimated_xyz_duration = MSP3DUtils.distance3D(pos_target, pos_current) / max_xyz_vel;
 
@@ -368,10 +358,8 @@ public class Offboard3Manager {
 				return;
 			}
 
-
 			// set setpoint synchronized and send to PX4
 			synchronized(this) {
-
 
 				cmd.type_mask    = 0;
 				model.slam.clearFlags();
@@ -455,9 +443,9 @@ public class Offboard3Manager {
 					}
 				}
 
-				model.debug.x = (float)Math.sqrt(cmd.vx * cmd.vx + cmd.vy * cmd.vy +cmd.vz * cmd.vz);
-				model.debug.y = cmd.yaw_rate;
-				model.debug.z = (t_elapsed -t_elapsed_last);
+//				model.debug.x = (float)Math.sqrt(cmd.vx * cmd.vx + cmd.vy * cmd.vy +cmd.vz * cmd.vz);
+//				model.debug.y = cmd.yaw_rate;
+//				model.debug.z = (t_elapsed -t_elapsed_last);
 
 
 				if(isRunning) {
@@ -591,10 +579,6 @@ public class Offboard3Manager {
 
 		private float normAngle(float a, float b) {
 			return normAngle(b-a);
-		}
-
-		private float normAngleAbs(float a, float b) {
-			return (float)Math.abs(normAngle(a,b));
 		}
 
 		private boolean isFinite(GeoTuple4D_F32<?> p) {
