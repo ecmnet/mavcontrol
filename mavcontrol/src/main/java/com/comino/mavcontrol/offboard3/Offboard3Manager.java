@@ -10,6 +10,8 @@ import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.lquac.msg_msp_trajectory;
 import org.mavlink.messages.lquac.msg_set_position_target_local_ned;
 
+import com.comino.mavcom.config.MSPConfig;
+import com.comino.mavcom.config.MSPParams;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.mavlink.MAV_MASK;
@@ -44,7 +46,7 @@ public class Offboard3Manager {
 
 	private static Offboard3Manager instance;
 
-	private static final int   UPDATE_RATE                 	    = 20;					    // Offboard update rate in [ms]
+	private static final int   UPDATE_RATE                 	    = 40;					    // Offboard update rate in [ms]
 	private static final int   DEFAULT_TIMEOUT                	= 5000;					    // Default timeout 1s
 	private static final float RADIUS_ACCEPT                    = 0.3f;                     // Acceptance radius in [m]
 	private static final float YAW_ACCEPT                	    = MSPMathUtils.toRad(1);    // Acceptance alignmnet yaw in [rad]
@@ -53,7 +55,7 @@ public class Offboard3Manager {
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
 	private static final float YAW_PV							= 0.05f;                    // P factor for yaw speed control
 
-	private static final float MAX_XYZ_VEL                      = 0.5f;                    // Maxumum speed in [m/s]
+	private static final float MAX_XYZ_VEL                      = 1.5f;                    // Maxumum speed in [m/s]
 	private static final float MIN_XYZ_PLANNING_DURATION        = 0.1f;                     // Minumum duration the planner ist used in [s]
 
 
@@ -81,6 +83,7 @@ public class Offboard3Manager {
 				control.writeLogMessage(new LogMessage("[msp] Offboard externally stopped.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 			}
 		});
+		
 	}
 
 
@@ -154,6 +157,8 @@ public class Offboard3Manager {
 
 		private float acceptance_radius = RADIUS_ACCEPT;
 		private float acceptance_yaw    = YAW_ACCEPT;
+		
+		private float max_xyz_vel       = MAX_XYZ_VEL;
 
 		private int     offboard_worker = 0;
 		private boolean isRunning       = false;
@@ -185,6 +190,14 @@ public class Offboard3Manager {
 		public Offboard3Worker(IMAVController control) {
 			this.control = control;
 			this.model   = control.getCurrentModel();
+			
+			MSPConfig config	= MSPConfig.getInstance();
+			
+			max_xyz_vel = config.getFloatProperty(MSPParams.AUTOPILOT_MAX_XYZ_VEL, String.valueOf(MAX_XYZ_VEL));
+			System.out.println("Maximum planning velocity: "+max_xyz_vel+" m/s");
+			acceptance_radius = config.getFloatProperty(MSPParams.AUTOPILOT_RADIUS_ACCEPT, String.valueOf(RADIUS_ACCEPT));
+			System.out.println("Acceptance radius: "+acceptance_radius+" m");
+			
 		}
 
 		public void start() {
@@ -242,13 +255,16 @@ public class Offboard3Manager {
 		}
 
 		public void stop() {
+			
 
 			this.isRunning       = false;
 			this.offboardEnabled = false;
+			
+			reset();
 
 			wq.removeTask("NP", offboard_worker);
 			offboard_worker = 0;
-			targets.clear();
+			
 
 			model.slam.clearFlags();
 
@@ -274,20 +290,18 @@ public class Offboard3Manager {
 			updateCurrentState();
 			
 			// TODO: segmented path calculation does not work
-			
-			float max_v = MAX_XYZ_VEL;
-			
-			float estimated_xyz_duration = MSP3DUtils.distance3D(pos_target, pos_current) / max_v;
-			System.out.println(estimated_xyz_duration);
 
-			if(estimated_xyz_duration < 10) {
+			
+			float estimated_xyz_duration = MSP3DUtils.distance3D(pos_target, pos_current) / max_xyz_vel;
+
+			if(estimated_xyz_duration < (5/max_xyz_vel+2.0f)) {
 				targets.add(new Offboard3Target(pos_target));
 			}
 
 			else {
 				System.out.println("Estimated duration: "+estimated_xyz_duration);
-				targets.add(new Offboard3Target(pos_target,pos_current,max_v,2.0f));
-			    targets.add(new Offboard3Target(pos_target,pos_current,max_v,estimated_xyz_duration*2f/3f));
+				targets.add(new Offboard3Target(pos_target,pos_current,max_xyz_vel,2.0f));
+			    targets.add(new Offboard3Target(pos_target,pos_current,max_xyz_vel,estimated_xyz_duration*5f/8f));
 				targets.add(new Offboard3Target(pos_target));
 
 			}
@@ -301,6 +315,8 @@ public class Offboard3Manager {
 		@Override
 		public void run() {
 
+			if(!isRunning)
+				return;
 
 			// Convert current state
 			updateCurrentState();
@@ -517,7 +533,7 @@ public class Offboard3Manager {
 					xyzPlanner.setGoal(target.getTargetPosition(), target.getTargetVelocity(), target.getTargetAcceleration());
 
 				if(target.getDuration() < 0)
-					estimated_xyz_duration = MSP3DUtils.distance3D(target.getTargetPosition(), pc) * 2.0f / MAX_XYZ_VEL;
+					estimated_xyz_duration = MSP3DUtils.distance3D(target.getTargetPosition(), pc) * 2.0f / max_xyz_vel;
 				else
 					estimated_xyz_duration = target.getDuration();
 
@@ -528,8 +544,8 @@ public class Offboard3Manager {
 				}
 				else {
 					if(estimated_xyz_duration > MIN_XYZ_PLANNING_DURATION) {
-						if(estimated_xyz_duration < 2)
-							estimated_xyz_duration = 2;
+						if(estimated_xyz_duration < 0.5f)
+							estimated_xyz_duration = 0.5f;
 						t_planned_xyz = xyzPlanner.generate(estimated_xyz_duration);
 						System.out.println("\tXYZ Position: "+target+" ("+MSP3DUtils.distance3D(target.getTargetPosition(), pc)+") in "+estimated_xyz_duration+" secs");
 					} 

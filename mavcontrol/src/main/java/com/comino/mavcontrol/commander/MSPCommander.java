@@ -130,10 +130,6 @@ public class MSPCommander  {
 				logger.writeLocalMsg("[msp] Shutdown simulated",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
 			//shutdownCompanion();	
 
-			if(model.sys.isStatus(Status.MSP_RC_ATTACHED) && model.sys.isStatus(Status.MSP_ARMED)) {
-				logger.writeLocalMsg("[msp] Switching to ... (Test). Ap Status = "+autopilot.getAutopilotStatus(),MAV_SEVERITY.MAV_SEVERITY_INFO);
-			}
-
 			// Different actions depending on the current mode, e.g.
 			// Shutdown MSP, Switch off SLAM, RTL, Landing, etc
 
@@ -162,7 +158,7 @@ public class MSPCommander  {
 						autopilot.setMode((int)(cmd.param1)==MSP_COMPONENT_CTRL.ENABLE,(int)(cmd.param2),cmd.param3);
 						break;
 					case MSP_CMD.MSP_CMD_OFFBOARD_SETLOCALVEL:
-						autopilot.setSpeed((int)(cmd.param1)==MSP_COMPONENT_CTRL.ENABLE,cmd.param2, cmd.param3, cmd.param4, cmd.param5);
+						
 						break;
 					case MSP_CMD.MSP_CMD_MICROSLAM:
 						switch((int)cmd.param1) {

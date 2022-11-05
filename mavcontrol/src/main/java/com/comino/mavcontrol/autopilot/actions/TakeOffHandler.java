@@ -66,15 +66,14 @@ public class TakeOffHandler {
 	private final int STATE_COUNT_DOWN  = 2;
 	private final int STATE_TAKEOFF     = 3;
 	private final int STATE_LOITER      = 4;
-	private final int STATE_OFFBOARD    = 5;
-	private final int STATE_FINALIZED   = 6;
+	private final int STATE_FINALIZED   = 5;
 
 	protected IMAVController  control  = null;
 	protected int             state    = STATE_IDLE;
 
 	private   int     max_tko_time_ms = 0;
 	private   double  delta_height    = 0;
-	
+
 	private float visx, visy, visz;
 
 	private final WorkQueue wq = WorkQueue.getInstance();
@@ -82,7 +81,6 @@ public class TakeOffHandler {
 
 	private DataModel       model;
 	private MSPLogger       logger;
-	private OffboardManager offboard;
 	private Runnable        completed;
 
 	private ParameterAttributes takeoff_alt_param;
@@ -91,19 +89,15 @@ public class TakeOffHandler {
 	protected final Vector4D_F32  takeoff = new Vector4D_F32();
 	protected long       tms_takeoff_plan = 0;
 
-	public TakeOffHandler(IMAVController control, OffboardManager offboard) {
-		this(control,offboard,null);
+	public TakeOffHandler(IMAVController control) {
+		this(control,null);
 	}
 
-	public TakeOffHandler(IMAVController control, OffboardManager offboard, Runnable completedAction) {
+	public TakeOffHandler(IMAVController control, Runnable completedAction) {
 		this.control   = control;
-		this.offboard  = offboard;
 		this.model     = control.getCurrentModel();
 		this.logger    = MSPLogger.getInstance();
 		this.completed = completedAction;
-		if(this.offboard != null) {
-			System.out.println("[msp] Switch to offboard after takeoff enabled" );
-		}
 	}
 
 	public void initiateTakeoff(int count_down_secs) {
@@ -194,7 +188,7 @@ public class TakeOffHandler {
 				}
 				break;
 			case STATE_COUNT_DOWN:
-				
+
 				takeoff.setTo(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 
 				if(!control.isSimulation()) {
@@ -216,7 +210,7 @@ public class TakeOffHandler {
 
 					// Check stability of CV
 					if(Math.abs(model.vision.x - visx) > MAX_REL_DELTA || Math.abs(model.vision.y - visy) > MAX_REL_DELTA 
-							  || Math.abs(model.vision.z - visz) > MAX_REL_DELTA) {
+							|| Math.abs(model.vision.z - visz) > MAX_REL_DELTA) {
 						logger.writeLocalMsg("[msp] CountDown aborted. Odometry not stable.",
 								MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 						state = STATE_IDLE;
@@ -232,8 +226,8 @@ public class TakeOffHandler {
 						} else {
 							state = STATE_IDLE;
 						}
-					// TODO: WARNING: This leads in SITL to takeoff to LPOS 0,0
-					//       Might be in cases only, where GPOS is not valid
+						// TODO: WARNING: This leads in SITL to takeoff to LPOS 0,0
+						//       Might be in cases only, where GPOS is not valid
 					},0, 0, 0, Float.NaN, Float.NaN, Float.NaN,Float.NaN);
 
 				}
@@ -254,13 +248,14 @@ public class TakeOffHandler {
 
 				break;
 			case STATE_LOITER:
-				
-				if(offboard==null) {
-					control.writeLogMessage(new LogMessage("[msp] Entering PX4 HOLD mode.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+
+				if(model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER)) {
+					control.writeLogMessage(new LogMessage("[msp] Switched to PX4 HOLD mode.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 					state = STATE_FINALIZED;
 					return;
 				}
-				
+
+
 				if((System.currentTimeMillis() - tms_takeoff_act) > max_tko_time_ms) {
 					control.writeLogMessage(new LogMessage("[msp] Takeoff (2) did not complete within "+(max_tko_time_ms/1000)+" secs",
 							MAV_SEVERITY.MAV_SEVERITY_WARNING));
@@ -268,40 +263,10 @@ public class TakeOffHandler {
 					return;
 				}
 
-				// Note: In SITL NAVState is not reached without global position
-				if(model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) | control.isSimulation()) {
-					offboard.start();
-					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
-						if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
-							offboard.stop();
-							control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+").", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-							control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-									MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-									MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
-							takeoff.setTo(model.state.l_x,model.state.l_y,model.state.l_z, Float.NaN);
-							state = STATE_IDLE;
-						} else {
-							state = STATE_OFFBOARD;
-						}
-					}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-							MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
-				}
 
 				break; 
-			case STATE_OFFBOARD:
 
-				if((System.currentTimeMillis() - tms_takeoff_act) > max_tko_time_ms) {
-					control.writeLogMessage(new LogMessage("[msp] Takeoff (3) did not complete within "+(max_tko_time_ms/1000)+" secs",
-							MAV_SEVERITY.MAV_SEVERITY_WARNING));
-					state = STATE_IDLE;
-				}
 
-				if(model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
-					control.writeLogMessage(new LogMessage("[msp] Entering PX4 OFFBOARD mode.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-					state = STATE_FINALIZED;
-				}
-
-				break;
 			case STATE_FINALIZED:
 
 				control.writeLogMessage(new LogMessage("[msp] Setting takeoff position.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -318,7 +283,7 @@ public class TakeOffHandler {
 		}
 
 		private boolean initialChecks() {
-			
+
 			if(!model.sys.isStatus(Status.MSP_READY_FOR_FLIGHT)) {
 				if(model.sys.isSensorAvailable(Status.MSP_MSP_AVAILABILITY)) {
 					logger.writeLocalMsg("[msp] Takeoff aborted. Not ready for flight.",MAV_SEVERITY.MAV_SEVERITY_CRITICAL);

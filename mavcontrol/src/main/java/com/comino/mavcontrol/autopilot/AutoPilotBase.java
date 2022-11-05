@@ -35,7 +35,6 @@ package com.comino.mavcontrol.autopilot;
 
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_MODE_FLAG;
-import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
@@ -51,10 +50,8 @@ import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.model.segment.Vision;
 import com.comino.mavcom.param.PX4Parameters;
-
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
-import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.autopilot.actions.OffboardActionFactory;
 import com.comino.mavcontrol.autopilot.actions.SequencerActionFactory;
 import com.comino.mavcontrol.autopilot.actions.TakeOffHandler;
@@ -62,8 +59,6 @@ import com.comino.mavcontrol.autopilot.actions.TestActionFactory;
 import com.comino.mavcontrol.autopilot.safety.SafetyCheckHandler;
 import com.comino.mavcontrol.autopilot.tests.PlannerTest;
 import com.comino.mavcontrol.ekf2utils.EKF2ResetCheck;
-import com.comino.mavcontrol.offboard.OffboardManager;
-import com.comino.mavcontrol.offboard2.Offboard2Manager;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavcontrol.sequencer.ISeqAction;
 import com.comino.mavcontrol.sequencer.Sequencer;
@@ -100,7 +95,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected MSPLogger                     logger   = null;
 	protected IMAVController                control  = null;
 	protected LocalMap3D				    map      = null;
-	protected OffboardManager               offboard = null;
 	protected PX4Parameters                 params   = null;
 
 
@@ -116,8 +110,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected Sequencer                    sequencer = null;
 
-	private final Vector4D_F32            body_speed = new Vector4D_F32();
-	private final Vector4D_F32            ned_speed  = new Vector4D_F32();
 
 
 	//	private Future<?> future;
@@ -166,9 +158,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.map      = new LocalMap3D(map_info,mapForget,publish_microgrid);
 		this.model.grid.setResolution(map_info.getCellSize());
 
-		this.offboard  = new OffboardManager(control, ekf2_reset_check, map, params);
-		this.sequencer = new Sequencer(offboard,logger,model,control);
-
 
 		this.flowCheck = config.getBoolProperty(MSPParams.AUTOPILOT_FLOW_CHECK, "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
@@ -181,9 +170,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 		if(config.getBoolProperty(MSPParams.AUTOPILOT_TAKEOFF_OFFBOARD, "false"))
-		  this.takeoff_handler = new TakeOffHandler(control, offboard,() -> takeoffCompletedAction());
+		  this.takeoff_handler = new TakeOffHandler(control, () -> takeoffCompletedAction());
 		else
-		  this.takeoff_handler = new TakeOffHandler(control, null, null);
+		  this.takeoff_handler = new TakeOffHandler(control, null);
 		
 		this.safetycheck_handler = new SafetyCheckHandler(control, sequencer);
 
@@ -194,10 +183,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}
 		});
 		
-		// Resend current offboard setpoint as soon as a reset is detected
-		ekf2_reset_check.addListener(() -> {
-			offboard.reSendCurrentSetpoint();
-		});
 
 		registerLanding();
 
@@ -227,13 +212,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			takeoff_handler.abort("Disarmed");
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
 			wq.removeTask("LP",future);
-
-			if(offboard.isEnabled()) {
-				offboard.abort(); offboard.stop();
-				control.writeLogMessage(new LogMessage("[msp] Disarmed. Switch to manual mode.", MAV_SEVERITY.MAV_SEVERITY_NOTICE));
-				model.sys.setAutopilotMode(MSP_AUTOCONTROL_ACTION.RTL, false);
-
-			}
 			
 			
 			//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
@@ -242,10 +220,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		});
 
-	}
-
-	public int getAutopilotStatus() {
-		return offboard.getMode();
 	}
 
 	protected void registerLanding() {
@@ -350,10 +324,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public IMAVController getControl() {
 		return control;
 	}
-	
-	public OffboardManager getOffboardManager() {
-		return offboard;
-	}
 
 
 	@Override
@@ -395,7 +365,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 			break;
 		case MSP_AUTOCONTROL_ACTION.RTL:
-			returnToLand(enable);
+			OffboardActionFactory.precision_landing_rotate();
 			break;
 		case MSP_AUTOCONTROL_ACTION.SAVE_MAP2D:
 			saveMap2D();
@@ -438,7 +408,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			//	countDownAndTakeoff(5,enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
-			offboardPosHold(enable);
+			
 			break;
 		case MSP_AUTOCONTROL_ACTION.APPLY_MAP_FILTER:
 
@@ -453,86 +423,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	// Standard setpoint setting
 
 
-	public void setSpeed(boolean enable, float p, float r, float h, float y) {
-
-		if(enable) {
-			model.sys.setStatus(Status.MSP_JOY_ATTACHED,true);
-			body_speed.setTo(
-					p == 0 && r == 0 ? Float.NaN : MSPMathUtils.expo(p,0.3f) * 2f,
-							p == 0 && r == 0 ? Float.NaN : MSPMathUtils.expo(r,0.3f) * 2f,
-									h == 0 ? Float.NaN : h,
-											y == 0 ? Float.NaN : y);
-
-			if(!offboard.isEnabled() || offboard.getMode()==OffboardManager.MODE_TRAJECTORY) {
-				//abort any sequence if sticks moved
-				if(!MSP3DUtils.isNaN(body_speed)) {
-					sequencer.clear(); offboard.abort();
-				}
-				return;
-			}
-
-			// If sticks in initial position switch to LOITER mode
-			// TODO: Should be done in OffboardManager as breaking should be controlled
-			if(MSP3DUtils.isNaN(body_speed)) {
-				offboard.enforceCurrentAsTarget();
-				offboard.start(OffboardManager.MODE_LOITER);
-			} else {
-				MSP3DUtils.rotateXY(body_speed, ned_speed, -model.attitude.y);
-				offboard.setSpeed(ned_speed);
-				offboard.start(OffboardManager.MODE_LOCAL_SPEED);
-			}
-		} else {
-			model.sys.setStatus(Status.MSP_JOY_ATTACHED,false);
-			logger.writeLocalMsg("[msp] Joystick control disabled",MAV_SEVERITY.MAV_SEVERITY_INFO);
-		}
-	}
-
 	public LocalMap3D getMap() {
 		return map;
 	}
 
-
-	public void setTarget(float x, float y, float z, float yaw) {
-		Vector4D_F32 target = new Vector4D_F32(x,y,z,yaw);
-		offboard.setTarget(target);
-		offboard.startTrajectory(target);
-
-	}
-
-	public void setTarget(float x, float y, float z) {
-		Vector4D_F32 target = new Vector4D_F32(x,y,z,Float.NaN);
-		offboard.finalize();
-		offboard.setTarget(target);
-		offboard.startTrajectory(target);
-
-	}
-
-	public void moveto(float x, float y, float z, float yaw) {
-
-		final Vector4D_F32 target = new Vector4D_F32(x,y,z,yaw);
-		//		if(flowCheck && !model.sys.isSensorAvailable(Status.MSP_PIX4FLOW_AVAILABILITY)) {
-		//			logger.writeLocalMsg("[msp] Aborting. No Flow available.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-		//			return;
-		//		}
-		//
-		//		if(planner.isStarted()) {
-		//			planner.setTarget(target);
-		//			return;
-		//		}
-		//
-		//		sequencer.abort();
-		//
-		//		offboard.registerActionListener( (m,d) -> {
-		//			offboard.start(OffboardManager.MODE_LOITER);
-		//			logger.writeLocalMsg("[msp] Target reached.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-		//		});
-		//		offboard.setTarget(target);
-		//		offboard.start(OffboardManager.MODE_SPEED_POSITION);
-
-		offboard.startTrajectory(target);
-
-
-	}
 
 	@Override
 	public boolean update(Point3D_F64 point, Point3D_F64 body) {
@@ -543,56 +437,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	// Standard actions
 
 
-	/**
-	 * AutopilotAction: Offboard position hold
-	 * @param enable
-	 */
-	public void offboardPosHold(boolean enable) {
-		if(enable) {
-			offboard.start();
-			if(!model.sys.isStatus(Status.MSP_LANDED) && (!model.sys.isStatus(Status.MSP_RC_ATTACHED) || model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FCUM)) ) {
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
-					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
-						offboard.stop();
-						control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+") (manual).", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-						control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-								MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-								MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
-					}
-				}, MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_OFFBOARD, 0 );
-			}
-		} else 
-			abort();
-	}
-
 
 	/**
 	 * AutopilotAction: Aborts current AutoPilot sequence
 	 */
 	public void abort() {
 
-		sequencer.abort();
-		clearAutopilotActions();
-
-		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FCUM))
-			model.sys.autopilot &= 0b11000000000000000000000000000001;
-
-		if(model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
-			if(model.sys.isStatus(Status.MSP_RC_ATTACHED)) {
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_POSCTL, 0 );
-				control.writeLogMessage(new LogMessage("[msp] Autopilot disabled.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-			} else {
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-						MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-						MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
-				control.writeLogMessage(new LogMessage("[msp] Autopilot disabled. Hold mode.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-			}
-		}
-		Offboard2Manager.getInstance().abort();
-		offboard.stop();
+		Offboard3Manager.getInstance().abort();
 	}
 
 	/**
@@ -622,81 +473,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		OffboardActionFactory.precision_landing_rotate();
 	}
 
-
-	/**
-	 * AutopilotAction: Return to takoff location and land vehicle with fiducial support
-	 * @param enable
-	 */
-	public void returnToLand(boolean enable) {
-
-		//		Vector4D_F32 takeoff = takeoff_handler.getTakeoffPosition();
-		//		Vector4D_F32 landing_preparation = takeoff.copy();
-		//		landing_preparation.z = -0.8f;
-		//		landing_preparation.w = Float.NaN;
-
-		if(control.isSimulation()) {
-			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
-			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, true);
-			model.vision.px = takeoff_handler.getTakeoffPosition().x + ((float)Math.random()-0.5f)*2.2f;
-			model.vision.py = takeoff_handler.getTakeoffPosition().y + ((float)Math.random()-0.5f)*2.2f;
-			model.vision.pw = ((float)Math.random()-0.5f)*12f;
-		}
-
-		SequencerActionFactory.returnToLand(sequencer, control, takeoff_handler.getTakeoffPosition(), enable);
-
-		// requires CMD_RC_OVERRIDE set to 0 in SITL; for real vehicle set to 1 (3?) as long as RC is used
-
-		//		sequencer.abort();
-		//
-		//		if(!enable) {
-		//			logger.writeLocalMsg("[msp] Return to launch aborted.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-		//			return;
-		//		}
-		//
-		//		if(Float.isNaN(takeoff.x) || Float.isNaN(takeoff.y) || Float.isNaN(takeoff.z)) {
-		//			logger.writeLocalMsg("[msp] No valid takeoff ccordinates. Landing.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-		//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0,  Float.NaN );
-		//			return;
-		//		}
-		//
-		//		logger.writeLocalMsg("[msp] Return to launch.",MAV_SEVERITY.MAV_SEVERITY_INFO);
-		//	
-		//		
-		//		sequencer.add(new SeqItem(takeoff,ISeqAction.ABS, null,500));
-		//		if(!model.vision.isStatus(Vision.FIDUCIAL_ENABLED))
-		//			sequencer.add(new SeqItem(landing_preparation,ISeqAction.ABS, null,0));
-		//		sequencer.add(new SeqItem(Float.NaN,Float.NaN, Float.NaN, 0, ISeqAction.ABS, () -> {
-		//			if(!model.vision.isStatus(Vision.FIDUCIAL_ENABLED)) {
-		//				logger.writeLocalMsg("[msp] No precision landing.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-		//				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, Float.NaN );
-		//				clearAutopilotActions();
-		//			} else {
-		//				precisionLand(true);
-		//			}
-		//			return true;
-		//		},0));
-		//		sequencer.execute();
-	}
-
-	/**
-	 * AutopilotAction: stops and turns to given angle
-	 * @param targetAngle
-	 */
-	public void emergency_stop_and_turn(float targetAngle) {
-		sequencer.abort();
-		clearAutopilotActions();
-		offboard.finalize();
-		offboard.setTarget(model.state.l_x, model.state.l_y, model.state.l_z, targetAngle,0);
-		offboard.start(OffboardManager.MODE_LOITER);
-		logger.writeLocalMsg("[msp] Emergency breaking",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY);
-	}
-
-
-	protected void clearAutopilotActions() {
-		model.sys.autopilot &= 0b11000000000000000111111111111111;
-		offboard.removeActionListener();
-		model.slam.clear();
-	}
 
 
 	//*******************************************************************************/
