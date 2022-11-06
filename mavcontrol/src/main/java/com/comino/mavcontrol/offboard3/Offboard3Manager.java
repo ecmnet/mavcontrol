@@ -418,15 +418,11 @@ public class Offboard3Manager {
 					if(xyzPlanner.isPlanned() && t_elapsed <= xyzPlanner.getTotalTime()) {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
 						cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
-						if(Math.sqrt(cmd.vx*cmd.vx + cmd.vy*cmd.vy) > 0.05) {
+						if(Math.sqrt(cmd.vx*cmd.vx + cmd.vy*cmd.vy) > 0.001) {
 							current_target.getTargetPosition().w = MSP3DUtils.angleXY(cmd.vx,cmd.vy);
 							cmd.yaw      = current_target.getTargetPosition().w;
 							cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - pos_current.w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);
 						} 
-						else {
-						   cmd.yaw_rate = 0;
-					       cmd.yaw      = pos_current.w;
-						}
 					} else {
 						// XYZ Target reached but not yaw: Further yaw turning via YAWControl
 						if(!yawPlanner.isPlanned() && !current_target.isYawReached(pos_current, acceptance_yaw)) {
@@ -443,9 +439,9 @@ public class Offboard3Manager {
 					}
 				}
 
-//				model.debug.x = (float)Math.sqrt(cmd.vx * cmd.vx + cmd.vy * cmd.vy +cmd.vz * cmd.vz);
-//				model.debug.y = cmd.yaw_rate;
-//				model.debug.z = (t_elapsed -t_elapsed_last);
+				model.debug.x = (float)Math.sqrt(cmd.vx * cmd.vx + cmd.vy * cmd.vy +cmd.vz * cmd.vz);
+				model.debug.y = cmd.yaw_rate;
+				model.debug.z = cmd.yaw;
 
 
 				if(isRunning) {
@@ -466,7 +462,7 @@ public class Offboard3Manager {
 
 		private Offboard3Target planNextTarget(GeoTuple4D_F32<?> pc, GeoTuple4D_F32<?> vc, GeoTuple4D_F32<?>ac) {
 
-			float estimated_xyz_duration = 0; float estimated_yaw_duration;
+			float estimated_xyz_duration = 0; float estimated_yaw_duration = 0;
 
 			if(targets.isEmpty())
 				return current_target;
@@ -520,8 +516,13 @@ public class Offboard3Manager {
 				else
 					xyzPlanner.setGoal(target.getTargetPosition(), target.getTargetVelocity(), target.getTargetAcceleration());
 
-				if(target.getDuration() < 0)
-					estimated_xyz_duration = MSP3DUtils.distance3D(target.getTargetPosition(), pc) * 2.0f / max_xyz_vel;
+				if(target.getDuration() < 0) {
+					  estimated_xyz_duration = MSP3DUtils.distance3D(target.getTargetPosition(), pc) * 2.0f / max_xyz_vel;
+					  
+					  if(estimated_xyz_duration < estimated_yaw_duration)
+						  estimated_xyz_duration = estimated_yaw_duration;
+					  
+				}
 				else
 					estimated_xyz_duration = target.getDuration();
 
@@ -531,12 +532,12 @@ public class Offboard3Manager {
 
 				}
 				else {
-					if(estimated_xyz_duration > MIN_XYZ_PLANNING_DURATION) {
-						if(estimated_xyz_duration < 0.5f)
-							estimated_xyz_duration = 0.5f;
+				//	if(estimated_xyz_duration > MIN_XYZ_PLANNING_DURATION) {
+						if(estimated_xyz_duration < 2)
+							estimated_xyz_duration = 2f;
 						t_planned_xyz = xyzPlanner.generate(estimated_xyz_duration);
 						System.out.println("\tXYZ Position: "+target+" ("+MSP3DUtils.distance3D(target.getTargetPosition(), pc)+") in "+estimated_xyz_duration+" secs");
-					} 
+				//	} 
 				}
 			}
 
