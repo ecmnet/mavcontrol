@@ -5,6 +5,7 @@ import com.comino.mavcom.utils.MSP3DUtils;
 import georegression.struct.GeoTuple3D_F32;
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F32;
+import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Point4D_F32;
 
 public class Offboard3Target {
@@ -21,6 +22,7 @@ public class Offboard3Target {
 
 	private long  t_started_ms = 0;
 
+	
 
 	public Offboard3Target(GeoTuple4D_F32<?> p) {
 		this(p,-1);
@@ -41,6 +43,13 @@ public class Offboard3Target {
 		this.d_sec = d_sec;
 
 		determineTargetVelocity(c);
+	}
+
+	public Offboard3Target(Point3D_F64 position) {
+		this.p.setTo((float)position.x,(float)position.y, (float)position.z, Float.NaN);
+		this.v.setTo(0,0,0,Float.NaN);
+		this.vel   =  0;
+		this.d_sec = -1;
 	}
 
 	public float getDuration() {

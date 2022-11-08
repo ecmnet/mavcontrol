@@ -76,7 +76,9 @@ import com.comino.mavcom.messaging.msgs.msp_msg_nn_object;
 import com.comino.mavcom.model.segment.Battery;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcom.utils.SimpleLowPassFilter;
+import com.comino.mavcontrol.autopilot.actions.TestActionFactory;
 import com.comino.mavcontrol.offboard2.Offboard2Manager;
+import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.point.Point4D_F64;
@@ -85,23 +87,25 @@ import georegression.struct.point.Vector4D_F64;
 
 
 public class SimplePlannerPilot extends AutoPilotBase {
-	
+
 	private final static float MIN_DISTANCE_TO_PERSON_M  = 1.5f;
 
 	private final Point4D_F64 current      = new Point4D_F64();
 
-	private final Offboard2Manager offboard = Offboard2Manager.getInstance();
+	private final Offboard3Manager offboard = Offboard3Manager.getInstance();
 	private final MessageBus       bus      = MessageBus.getInstance();
-	
+
 	private final SimpleLowPassFilter yaw_filter = new SimpleLowPassFilter(0.5f);
 
 
 	protected SimplePlannerPilot(IMAVController control, MSPConfig config) {
 		super(control,config);
-		
+
 		// Subscribe to detected objects 
 		bus.subscribe(new ModelSubscriber<msp_msg_nn_object>(msp_msg_nn_object.class, (n) -> {
 			
+		
+
 			if(n.tms == 0) {
 				model.slam.dm = Float.NaN;
 				model.slam.ox = Float.NaN;
@@ -113,28 +117,29 @@ public class SimplePlannerPilot extends AutoPilotBase {
 			
 			if(!MSP3DUtils.convertCurrentPosition(model, current))
 				return;
-			
+
 			float distance = MSP3DUtils.distance3D(current, n.position);
-			yaw_filter.add(MSPMathUtils.normAngle(MSP3DUtils.angleXY((float)(n.position.x - current.x),(float)(n.position.y - current.y))));
+			yaw_filter.add(MSP3DUtils.angleXY((float)(n.position.x - current.x),(float)(n.position.y - current.y)));
 			float angle = (float)yaw_filter.getMean();
-			
+
 			if(distance > MIN_DISTANCE_TO_PERSON_M || control.isSimulation()) {
-			 
-			  if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.INTERACTIVE) && current.norm() > 0.1f)
-				  offboard.rotate(angle, null);	 
+
+				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT) && Math.abs(angle) > 0.1f)
+					offboard.rotate(angle, null);	 
 			}
-			
+
+
 			// TODO: Replace the transfer by Message bus:
 			model.slam.dm = distance;
 			model.slam.ox = (float)n.position.x;
 			model.slam.oy = (float)n.position.y;
 			model.slam.oz = (float)n.position.z;
-			
+
 			// Test only 
 			model.slam.pd = angle;
 			model.slam.pv = 0.5f;
-			
-			
+
+
 		}));
 
 
@@ -142,7 +147,7 @@ public class SimplePlannerPilot extends AutoPilotBase {
 	}
 
 	public void run() {
-		
+
 
 		MSP3DUtils.convertCurrentPosition(model, current);
 
@@ -151,6 +156,8 @@ public class SimplePlannerPilot extends AutoPilotBase {
 	}
 
 	protected void takeoffCompleted() {
+		
+	
 
 	}
 

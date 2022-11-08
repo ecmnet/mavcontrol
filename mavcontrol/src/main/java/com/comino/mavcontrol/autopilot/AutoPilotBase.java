@@ -138,16 +138,16 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		String instanceName = this.getClass().getSimpleName();
 
 		System.out.println(instanceName+" instantiated");
-		
+
 		Offboard3Manager.getInstance(control);
 
 		this.control   = control;
 		this.model     = control.getCurrentModel();
 		this.logger    = MSPLogger.getInstance();
 		this.params    = PX4Parameters.getInstance();
-		
+
 		this.ekf2_reset_check = new EKF2ResetCheck(control);
-		
+
 		this.publish_microgrid = config.getBoolProperty(MSPParams.PUBLISH_MICROGRID, "true");
 		System.out.println("[vis] Publishing microGrid enabled: "+publish_microgrid);
 
@@ -170,10 +170,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 		if(config.getBoolProperty(MSPParams.AUTOPILOT_TAKEOFF_OFFBOARD, "false"))
-		  this.takeoff_handler = new TakeOffHandler(control, () -> takeoffCompletedAction());
+			this.takeoff_handler = new TakeOffHandler(control, () -> takeoffCompletedAction());
 		else
-		  this.takeoff_handler = new TakeOffHandler(control, null);
-		
+			this.takeoff_handler = new TakeOffHandler(control, null);
+
 		this.safetycheck_handler = new SafetyCheckHandler(control, sequencer);
 
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_SERVICES,Status.MSP_SLAM_AVAILABILITY, (n) -> {
@@ -182,7 +182,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				resetMap();
 			}
 		});
-		
+
 
 		registerLanding();
 
@@ -190,14 +190,14 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		registerArm();
 	}
-	
+
 
 	protected void registerArm() {
 
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
-		   ekf2_reset_check.reset(true);
-           resetMap(); 
-           map.setOrigin(model.state.l_x, model.state.l_y, 0);
+			ekf2_reset_check.reset(true);
+			resetMap(); 
+			map.setOrigin(model.state.l_x, model.state.l_y, 0);
 
 		});
 
@@ -212,8 +212,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			takeoff_handler.abort("Disarmed");
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
 			wq.removeTask("LP",future);
-			
-			
+
+
 			//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 			//					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
 			//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL,MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER);
@@ -242,11 +242,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected void takeoffCompletedAction() {
 
-		//		if(control.isSimulation()) {
-		//			try { Thread.sleep(1000); } catch(Exception e) { }
-		//			precisionLand(true);
-		//			return;
-		//		}
 
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, true);
 		control.writeLogMessage(new LogMessage("[msp] Obstacle survey executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -260,11 +255,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected void start(int cycle_ms) {
 
 		wq.addCyclicTask("NP", cycle_ms, this);
-		
+
 		safetycheck_handler.start();
-		
+
 		if(publish_microgrid)
-		  wq.addCyclicTask("NP",20, new MapToModelTransfer());
+			wq.addCyclicTask("NP",20, new MapToModelTransfer());
 
 		//		wq.addCyclicTask("NP",100, () -> {
 		//			
@@ -279,7 +274,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected void publishSLAMData() {
 		transferObstacleToModel(null);
 	}
-	
+
 	protected void addEKF2ResetListener(Runnable r) {
 		ekf2_reset_check.addListener(r);
 	}
@@ -298,7 +293,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				model.slam.dm = Float.NaN;
 		}
 	}
-	
+
 	public EKF2ResetCheck getEKF2ResetCheck() {
 		return this.ekf2_reset_check;
 	}
@@ -312,15 +307,15 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	public void invalidate_map_transfer() {
-		
+
 		if(!publish_microgrid)
 			return;
-		
+
 		map.getMapItems().forEachRemaining((p) -> {
 			model.grid.add(map.getMapInfo().encodeMapPoint(p, p.probability));
 		});
 	}
-	
+
 	public IMAVController getControl() {
 		return control;
 	}
@@ -339,31 +334,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		case MSP_AUTOCONTROL_MODE.ABORT:
 			abort();
 			break;
-		case MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT:
-			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.INTERACTIVE, false);
-			break;
-		case MSP_AUTOCONTROL_MODE.INTERACTIVE:
-			model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT, false);
-			break;
-		case MSP_AUTOCONTROL_MODE.FCUM:
-			if(enable) {
-				wq.addSingleTask("LP", 500, () -> {
-					control.writeLogMessage(new LogMessage("[msp] FCUM mode entered.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,1 );
-					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-							MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-							MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
-				});
-			} else {
-				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FCUM)) {
-					wq.addSingleTask("LP", 500, () -> {
-						control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM, 0, 21196 );
-						control.writeLogMessage(new LogMessage("[msp] FCUM mode left.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-					});
-				}
-			}
-
-			break;
 		case MSP_AUTOCONTROL_ACTION.RTL:
 			OffboardActionFactory.precision_landing_rotate();
 			break;
@@ -374,8 +344,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			loadMap2D();
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE1:
-			control.writeLogMessage(new LogMessage("[msp] Simulate yaw following.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-			TestActionFactory.test_simulate_yaw_follow();
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
 			control.writeLogMessage(new LogMessage("[msp] Build virtual wall.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -389,6 +357,17 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
 			planner.enable(enable);
+			break;
+		case MSP_AUTOCONTROL_MODE.OBSTACLE_STOP:
+			if(enable)
+				control.writeLogMessage(new LogMessage("[msp] Obstacle stop enabled.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+			break;
+		case MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT:
+			if(enable)
+				control.writeLogMessage(new LogMessage("[msp] Turn to person enabled.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+
+			if(control.isSimulation())
+				TestActionFactory.test_simulate_person(enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
 			if(control.isSimulation())
@@ -408,7 +387,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			//	countDownAndTakeoff(5,enable);
 			break;
 		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
-			
+
 			break;
 		case MSP_AUTOCONTROL_ACTION.APPLY_MAP_FILTER:
 
@@ -516,7 +495,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		@Override
 		public void run() {
-			
+
 			if(!publish_microgrid || !model.sys.isStatus(Status.MSP_GCL_CONNECTED)) {
 				return;
 			}
@@ -528,7 +507,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				else
 					map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS  );
 			}
-			
+
 			model.sys.setSensor(Status.MSP_GRID_AVAILABILITY, true);
 
 

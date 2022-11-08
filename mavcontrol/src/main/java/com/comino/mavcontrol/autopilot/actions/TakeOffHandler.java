@@ -272,7 +272,8 @@ public class TakeOffHandler {
 				control.writeLogMessage(new LogMessage("[msp] Setting takeoff position.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				takeoff.setTo(model.state.l_x,model.state.l_y,model.state.l_z, Float.NaN);
 
-				if(completed!=null && model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))
+			//	if(completed!=null && model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))
+				if(completed!=null)
 					completed.run();
 
 				state = STATE_IDLE;
