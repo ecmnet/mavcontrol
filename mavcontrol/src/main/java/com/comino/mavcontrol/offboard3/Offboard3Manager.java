@@ -48,7 +48,7 @@ public class Offboard3Manager {
 	private static Offboard3Manager instance;
 
 	private static final int   UPDATE_RATE                 	    = 40;					    // Offboard update rate in [ms]
-	private static final int   DEFAULT_TIMEOUT                	= 5000;					    // Default timeout 1s
+	private static final float DEFAULT_TIMEOUT                	= 5.0f;					    // Default timeout 1s
 
 	private static final float RADIUS_ACCEPT                    = 0.3f;                     // Acceptance radius in [m]
 	private static final float YAW_ACCEPT                	    = MSPMathUtils.toRad(1);    // Acceptance alignmnet yaw in [rad]
@@ -182,7 +182,7 @@ public class Offboard3Manager {
 		private final YawSpeedControl           yawControl = new YawSpeedControl(YAW_PV, 0 ,MAX_YAW_VEL);
 
 		// Timing
-		private long t_timeout = 0;
+		private float t_timeout = 0;
 
 		private float t_elapsed = 0;
 		private float t_elapsed_last = 0;
@@ -224,7 +224,6 @@ public class Offboard3Manager {
 			this.reached     = reached_action;
 			this.timeout     = timeout_action;
 			this.t_elapsed   = 0;
-			this.t_timeout   = DEFAULT_TIMEOUT + ((long) (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw ));;
 
 			this.t_elapsed_last = System.currentTimeMillis();
 
@@ -235,13 +234,14 @@ public class Offboard3Manager {
 			
 			current_target = planNextTarget(pos_current, vel_current, acc_current);
 			
-			
 			if(checkCollisionForPlannedTarget(current_target,0)) {
 				control.writeLogMessage(new LogMessage("[msp] Collision in planned path.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				current_target = planNextTarget(pos_current, vel_current, acc_current);	
 			//	stopAndLoiter(); reset();
 			//	return;
 			}
+			
+			t_timeout = DEFAULT_TIMEOUT + (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw) ;
 			
 			//System.err.println(xyzPlanner.isPlanned()+"/"+yawPlanner.isPlanned());
 
@@ -339,37 +339,23 @@ public class Offboard3Manager {
 					t_elapsed > yawPlanner.getTotalTime() && t_elapsed > xyzPlanner.getTotalTime()) {
 
 				if(current_target.isPosReached(pos_current, acceptance_radius, acceptance_yaw)) {
-
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
-
 					if(reached!=null) {
 						reached.action();
 						stop();
 					}
 					else
 						stopAndLoiter();
-
 					updateTrajectoryModel(t_elapsed);
-
 					return;
 				} 
 
-				// check timeout
-				if(t_timeout > 0 && t_elapsed > t_timeout) {
-					model.slam.setFlag(Slam.OFFBOARD_FLAG_TIMEOUT, true);
-					stopAndLoiter();
-					if(timeout!=null)
-						timeout.action();
-					updateTrajectoryModel(t_elapsed);
-					control.writeLogMessage(new LogMessage("[msp] Offboard timeout. Switched to HOLD.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
-
-					// notify waiting thread
-					return;
-				}
 			}
+			
 			// Plan next target if required
 			if(!targets.isEmpty() && xyzPlanner.isPlanned() && t_elapsed >= xyzPlanner.getTotalTime()) {
 				current_target = planNextTarget(pos_current, vel_current, acc_current);	
+				t_timeout = DEFAULT_TIMEOUT + (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw) ;
 				return;
 			}
 
@@ -377,6 +363,17 @@ public class Offboard3Manager {
 			if(checkCollisionForPlannedTarget(current_target,t_elapsed)) {
 				control.writeLogMessage(new LogMessage("[msp] Collison in planned path. Stopped.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
 				current_target = planNextTarget(pos_current, vel_current, acc_current);	
+				return;
+			}
+			
+			// check timeout
+			if(t_timeout > 0 && t_elapsed > t_timeout) {
+				model.slam.setFlag(Slam.OFFBOARD_FLAG_TIMEOUT, true);
+				stopAndLoiter();
+				if(timeout!=null)
+					timeout.action();
+				updateTrajectoryModel(t_elapsed);
+				control.writeLogMessage(new LogMessage("[msp] Offboard timeout. Switched to HOLD.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				return;
 			}
 
@@ -597,7 +594,9 @@ public class Offboard3Manager {
 			// Brute force method
 			for(time_elapsed = time_start; time_elapsed < xyzPlanner.getTotalTime(); time_elapsed += time_step) {
 				xyzPlanner.getPosition(time_elapsed, position);
-				if(MSP3DUtils.distance3D(position, obstacle) < MIN_DISTANCE_OBSTACLE) {
+				
+				// Check only YX distance
+				if(MSP3DUtils.distance2D(position, obstacle) < MIN_DISTANCE_OBSTACLE) {
 					float stop_time = time_elapsed-0.5f; targets.clear();
 					if(stop_time > 0) {
 						targets.clear();
