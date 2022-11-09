@@ -72,19 +72,29 @@ public class TestActionFactory {
 		final MessageBus bus = MessageBus.getInstance();
 
 		if(enable) {
+			
 			if(!MSP3DUtils.isFinite(person.position))
-				person.position.setTo(2, 0, -1.5);
+				person.position.setTo(-2, 0, -1.5);
+			
 			worker = wq.addCyclicTask("LP", 100, () -> {
+				
 				person.object_id = 0;
 				person.tms = System.currentTimeMillis();
-				if(person.position.y > 4) sign = -1.0f;
-				if(person.position.y < -4) sign = 1.0f;
+				
+				if(person.position.y > 4) 
+					sign = -1.0f;
+				if(person.position.y < -4) 
+					sign = 1.0f;
 				person.position.y += ( 0.01 * sign);
+				
 				bus.publish(person);
+				
 			});
 		} else {
+			
 			person.tms = 0;
 			bus.publish(person);
+			
 			wq.removeTask("LP", worker);
 		}
 	}

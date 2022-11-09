@@ -21,6 +21,8 @@ public class Offboard3Target {
 	private float d_sec  = -1;
 
 	private long  t_started_ms = 0;
+	
+	private boolean targetIsSetpoint = false;
 
 	
 
@@ -117,6 +119,14 @@ public class Offboard3Target {
 			return false;	
 		}
 		return true;
+	}
+	
+	public void setTargetIsSetpoint(boolean flag) {
+		targetIsSetpoint = flag;
+	}
+	
+	public boolean isTargetSetpoint() {
+		return targetIsSetpoint;
 	}
 	
 	public String toString() {

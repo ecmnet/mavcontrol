@@ -47,7 +47,7 @@ public class Offboard3Manager {
 
 	private static Offboard3Manager instance;
 
-	private static final int   UPDATE_RATE                 	    = 40;					    // Offboard update rate in [ms]
+	private static final int   UPDATE_RATE                 	    = 50;					    // Offboard update rate in [ms]
 	private static final float DEFAULT_TIMEOUT                	= 5.0f;					    // Default timeout 1s
 
 	private static final float RADIUS_ACCEPT                    = 0.3f;                     // Acceptance radius in [m]
@@ -389,7 +389,7 @@ public class Offboard3Manager {
 					cmd.y       = (float)xyzPlanner.getPosition(t_elapsed,1);
 					cmd.z       = (float)xyzPlanner.getPosition(t_elapsed,2);
 				} else {
-					if(current_target.isPositionFinite()) 
+					if(!current_target.isTargetSetpoint()) 
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_XYZ_DIRECT, true);
 					cmd.type_mask    = MAV_MASK.MASK_LOITER_SETPOINT_TYPE;
 					cmd.x       = current_target.getTargetPosition().x;
@@ -497,8 +497,10 @@ public class Offboard3Manager {
 
 			float estimated_xyz_duration = 0; float estimated_yaw_duration = 0;
 
-			if(MSP3DUtils.isFinite(pos_setpoint))
+			if(MSP3DUtils.isFinite(pos_setpoint)) {
 				MSP3DUtils.replaceNaN3D(target.getTargetPosition(), pos_setpoint);
+				target.setTargetIsSetpoint(true);
+			}
 			else
 				MSP3DUtils.replaceNaN3D(target.getTargetPosition(), pc);
 
