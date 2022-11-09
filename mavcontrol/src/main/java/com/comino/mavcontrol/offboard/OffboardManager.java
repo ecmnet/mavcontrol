@@ -878,7 +878,7 @@ public class OffboardManager implements Runnable {
 				if(tmp < LAND_MODE_ALT) {
 					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, 0, 0, 0, Float.NaN);		
 					stop();
-					logger.writeLocalMsg("[msp] Accurracy: "+String.format("% #.2fm [%#.1f°]",path.value, MSPMathUtils.fromRad2(yaw_diff)
+					logger.writeLocalMsg("[msp] Accurracy: "+String.format("% #.2fm [%#.1f°]",path.value, MSPMathUtils.fromRadSigned(yaw_diff)
 							),MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 					continue;
 				} else {

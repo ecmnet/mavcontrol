@@ -119,13 +119,19 @@ public class SimplePlannerPilot extends AutoPilotBase {
 				return;
 
 			float distance = MSP3DUtils.distance3D(current, n.position);
-			yaw_filter.add(MSP3DUtils.angleXY((float)(n.position.x - current.x),(float)(n.position.y - current.y)));
-			float angle = (float)yaw_filter.getMean();
+			
+			float angle = MSP3DUtils.angleXY((float)(n.position.x - current.x),(float)(n.position.y - current.y));
+			yaw_filter.add(angle);
+			
+            float angle_filtered = (float)yaw_filter.getMean();
+            
+        //    System.err.println(MSPMathUtils.fromRadSigned(angle_filtered)+" : "+MSPMathUtils.fromRadSigned(angle));
+
 
 			if(distance > MIN_DISTANCE_TO_PERSON_M || control.isSimulation()) {
-
-				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT) && Math.abs(angle) > 0.1f)
-					offboard.rotate(angle, null);	 
+				
+				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT) && Math.abs(angle_filtered) > 0.1f)
+					offboard.rotate(angle_filtered, null);	 
 			}
 
 
@@ -136,7 +142,7 @@ public class SimplePlannerPilot extends AutoPilotBase {
 			model.slam.oz = (float)n.position.z;
 
 			// Test only 
-			model.slam.pd = angle;
+			model.slam.pd = angle_filtered;
 			model.slam.pv = 0.5f;
 
 

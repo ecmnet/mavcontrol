@@ -1,5 +1,5 @@
 package com.comino.mavcontrol.offboard3;
 
-public class Offboard3Replanner {
+public class Offboard3Planner {
 
 }

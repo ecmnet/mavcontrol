@@ -98,6 +98,13 @@ public class TestActionFactory {
 			wq.removeTask("LP", worker);
 		}
 	}
+	
+	public static void turnTest() {
+		final Offboard3Manager offboard = Offboard3Manager.getInstance();
+		if(offboard!=null) {
+			offboard.rotate((float)(Math.random()*2*Math.PI),null);
+		}
+	}
 
 
 	public static void setRandomObstacle() {

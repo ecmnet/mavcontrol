@@ -261,12 +261,12 @@ public class Offboard3Manager {
 		}
 
 		public void stopAndLoiter() {
-
+			
+			stop();
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
-			stop();
-			reset();
+	
 		}
 
 		public void stop() {
@@ -511,12 +511,18 @@ public class Offboard3Manager {
 
 				target.getTargetPosition().w = normAngle(target.getTargetPosition().w );  
 				pc.w = normAngle(pc.w);
-
-				if(target.getTargetPosition().w  >= Math.PI && pos_current.w < 0)
+				
+//	        	System.err.println("1. from " + pc.w +" to " + target.getTargetPosition().w + " delta " +(target.getTargetPosition().w - pc.w));
+				
+				if((target.getTargetPosition().w - pc.w) > (float)Math.PI) {
 					target.getTargetPosition().w  = (target.getTargetPosition().w -(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
-
-				if(target.getTargetPosition().w  <= 0 && pos_current.w > Math.PI)
-					target.getTargetPosition().w  = ((float)MSPMathUtils.PI2+target.getTargetPosition().w ) % (float)MSPMathUtils.PI2;
+				}
+				
+				if((target.getTargetPosition().w - pc.w) < -(float)Math.PI) {
+					target.getTargetPosition().w  = (target.getTargetPosition().w +(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
+				}
+				
+//				System.err.println("2. from " + pc.w +" to " + target.getTargetPosition().w + " delta " +(target.getTargetPosition().w - pc.w));
 
 				yawPlanner.setInitialState(pc.w, vc.w, 0);
 				yawPlanner.setTargetState(target.getTargetPosition().w , 0, 0);
