@@ -477,6 +477,11 @@ public class RapidTrajectoryGenerator {
 	public double getAxisParamGamma(int i) {
 		return _axis[i].getParamGamma();
 	}
+	
+	public void set(RapidTrajectoryGenerator planner) {
+		for(int i=0;i<3;i++)
+			_axis[i].set(planner._axis[i]);
+	}
 
 
 

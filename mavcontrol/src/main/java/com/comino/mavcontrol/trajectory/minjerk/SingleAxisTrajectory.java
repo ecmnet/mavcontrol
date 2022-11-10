@@ -54,7 +54,7 @@ public class SingleAxisTrajectory {
 
 	private double _minAcc;
 	private double _maxAcc;
-	
+
 	private double  _totalTime;
 	private boolean _isPlanned;
 
@@ -65,6 +65,7 @@ public class SingleAxisTrajectory {
 
 	public accPeakTimes _accPeakTimes = new accPeakTimes();             // The times at which the acceleration has minimum/maximum
 
+
 	public double getJerk(double t)  									// Returns the jerk at time t
 	{  return _g  + _b*t  + (1.0/2.0)*_a*t*t; }
 
@@ -73,23 +74,23 @@ public class SingleAxisTrajectory {
 
 	public double getVelocity(double t)								    // Returns the velocity at time t
 	{ return _v0 + _a0*t + (1.0/2.0)*_g*t*t  + (1.0/6.0)*_b*t*t*t + (1.0/24.0)*_a*t*t*t*t; }
-	
+
 
 	public double getPosition(double t)								    // Returns the Position at time t
 	{ return _p0 + _v0*t + (1.0/2.0)*_a0*t*t + (1.0/6.0)*_g*t*t*t + (1.0/24.0)*_b*t*t*t*t + (1.0/120.0)*_a*t*t*t*t*t; }
-	
+
 	public double getMinAcc() 
 	{ return _minAcc; }
 
 	public double getMaxAcc() 
 	{ return _maxAcc; }
-	
+
 	public double getCosts() 
 	{ return _cost; }
 
 	public void setInitialState(double pos0, double vel0, double acc0)
 	{ reset(); _p0=pos0; _v0=vel0; _a0=acc0;  }
-	
+
 	public void setTargetState(double posf, double velf, double accf)
 	{ 
 		if(Double.isFinite(posf)) setGoalPosition(posf); 
@@ -118,11 +119,11 @@ public class SingleAxisTrajectory {
 		_p0 = _v0 = _a0 = 0;
 		_pf = _vf = _af = 0;
 		_a  =  _b =  _g = 0;
-		
+
 	}
 
 	public float generateTrajectory(double Tf) {
-		
+
 		_totalTime = Tf;
 
 		final double delta_a = _af - _a0;
@@ -184,14 +185,14 @@ public class SingleAxisTrajectory {
 
 		_cost =  _g*_g + _b*_g*Tf + _b*_b*T2/3.0 + _a*_g*T2/3.0 + _a*_b*T3/4.0 + _a*_a*T4/20.0;
 		_isPlanned = true;
-		
+
 		return (float)_totalTime;
 	}
-	
+
 	public boolean isPlanned() {
 		return _isPlanned;
 	}
-	
+
 	public double getTotalTime() {
 		return _totalTime;
 	}
@@ -255,7 +256,7 @@ public class SingleAxisTrajectory {
 
 		return jMaxSqr;
 	}
-	
+
 	public double getParamAlpha() { return _a; }
 	public double getParamBeta()  { return _b; }
 	public double getParamGamma() { return _g; }
@@ -263,6 +264,38 @@ public class SingleAxisTrajectory {
 	public double getInitialVel() { return _v0; }
 	public double getInitialPos() { return _p0; }
 	public double getCost()       { return _cost; }
+
+	public void set(SingleAxisTrajectory planner) {
+
+		_a  = planner._a;
+		_b  = planner._b;
+		_g  = planner._g;
+
+		_p0 = planner._p0;
+		_v0 = planner._v0;
+		_a0 = planner._a0;
+
+		_pf = planner._pf;
+		_vf = planner._vf;
+		_af = planner._af;
+
+		_cost   = planner._cost;
+		_minAcc = planner._minAcc;
+		_maxAcc = planner._maxAcc;
+
+		_totalTime = planner._totalTime;
+		_isPlanned = planner._isPlanned;
+
+		_accPeakTimes.initialised = planner._accPeakTimes.initialised;
+		_accPeakTimes.t[0] = planner._accPeakTimes.t[0];
+		_accPeakTimes.t[1] = planner._accPeakTimes.t[1];
+
+
+		_posGoalDefined = planner._posGoalDefined;
+		_velGoalDefined = planner._velGoalDefined;
+		_accGoalDefined = planner._accGoalDefined;
+
+	}
 
 
 }

@@ -104,7 +104,6 @@ public class SimplePlannerPilot extends AutoPilotBase {
 		// Subscribe to detected objects 
 		bus.subscribe(new ModelSubscriber<msp_msg_nn_object>(msp_msg_nn_object.class, (n) -> {
 			
-		
 
 			if(n.tms == 0) {
 				model.slam.dm = Float.NaN;
@@ -140,10 +139,6 @@ public class SimplePlannerPilot extends AutoPilotBase {
 			model.slam.ox = (float)n.position.x;
 			model.slam.oy = (float)n.position.y;
 			model.slam.oz = (float)n.position.z;
-
-			// Test only 
-			model.slam.pd = angle_filtered;
-			model.slam.pv = 0.5f;
 
 
 		}));
