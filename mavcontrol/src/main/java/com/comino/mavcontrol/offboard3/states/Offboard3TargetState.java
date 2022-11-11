@@ -12,14 +12,11 @@ public class Offboard3TargetState extends Offboard3State {
 	
 	public static final GeoTuple4D_F32<Point4D_F32> null_v = new Point4D_F32(0, 0, 0, 0);
 
-	private float t_vel  =  0;
-	private float d_sec  = -1;
-
-	private long  t_started_ms = 0;
-	
+	private float t_vel              =  0;
+	private float d_sec              = -1;
+	private long  t_started_ms       = 0;
 	private boolean targetIsSetpoint = false;
 
-	
 
 	public Offboard3TargetState(GeoTuple4D_F32<?> p) {
 		this(p,-1);

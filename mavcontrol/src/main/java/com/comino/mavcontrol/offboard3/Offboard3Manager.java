@@ -497,11 +497,11 @@ public class Offboard3Manager {
 			float estimated_xyz_duration = 0; float estimated_yaw_duration = 0;
 
 			if(MSP3DUtils.isFinite(current.sep())) {
-				MSP3DUtils.replaceNaN3D(target.getTargetPosition(), current.sep());
+				target.replaceNaNPositionBy(current_state.sep());
 				target.setTargetIsSetpoint(true);
 			}
 			else
-				MSP3DUtils.replaceNaN3D(target.getTargetPosition(), current_state.pos());
+				target.replaceNaNPositionBy(current_state.pos());
 
 			// Yaw Planning 
 
