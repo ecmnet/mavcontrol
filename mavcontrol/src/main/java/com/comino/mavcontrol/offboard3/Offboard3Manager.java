@@ -24,6 +24,8 @@ import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavcontrol.offboard2.ITargetReached;
+import com.comino.mavcontrol.offboard3.states.Offboard3CurrentState;
+import com.comino.mavcontrol.offboard3.states.Offboard3TargetState;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
 import com.comino.mavutils.MSPMathUtils;
@@ -148,14 +150,8 @@ public class Offboard3Manager {
 		private final DataModel      model;
 
 		private final WorkQueue wq = WorkQueue.getInstance();
-		private final LinkedList<Offboard3Target> targets = new LinkedList<Offboard3Target>();
+		private final LinkedList<Offboard3TargetState> targets = new LinkedList<Offboard3TargetState>();
 
-		// current state
-		private final GeoTuple4D_F32<Vector4D_F32> pos_current  = new Vector4D_F32();
-		private final GeoTuple4D_F32<Vector4D_F32> vel_current  = new Vector4D_F32();
-		private final GeoTuple4D_F32<Vector4D_F32> acc_current  = new Vector4D_F32();
-		private final GeoTuple4D_F32<Vector4D_F32> pos_setpoint = new Vector4D_F32();
-		
 		// obstacle
 		final Point3D_F64 obstacle = new Point3D_F64();
 
@@ -172,7 +168,9 @@ public class Offboard3Manager {
 		private ITimeout         timeout = null;
 
 		// Current target
-		private Offboard3Target current_target;
+		private Offboard3TargetState current_target;
+		// current state
+		private final Offboard3CurrentState current;
 
 		// Executors
 		private final SingleAxisTrajectory      yawExecutor = new SingleAxisTrajectory();
@@ -194,6 +192,7 @@ public class Offboard3Manager {
 		public Offboard3Worker(IMAVController control) {
 			this.control = control;
 			this.model   = control.getCurrentModel();
+			this.current = new Offboard3CurrentState(model);
 
 			MSPConfig config	= MSPConfig.getInstance();
 
@@ -230,13 +229,13 @@ public class Offboard3Manager {
 			if(targets.isEmpty())
 				return;
 
-			updateCurrentState();
+			current.update();
 			
-			current_target = planNextTarget(pos_current, vel_current, acc_current);
+			current_target = planNextTarget(current);
 			
 			if(checkCollisionForPlannedTarget(current_target,0)) {
 				control.writeLogMessage(new LogMessage("[msp] Collision in planned path.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-				current_target = planNextTarget(pos_current, vel_current, acc_current);	
+				current_target = planNextTarget(current);	
 			//	stopAndLoiter(); reset();
 			//	return;
 			}
@@ -245,7 +244,7 @@ public class Offboard3Manager {
 			
 			//System.err.println(xyzPlanner.isPlanned()+"/"+yawPlanner.isPlanned());
 
-			if(xyzExecutor.isPlanned() && current_target.isPosReached(pos_current, acceptance_radius, acceptance_yaw)) {
+			if(xyzExecutor.isPlanned() && current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {
 				control.writeLogMessage(new LogMessage("[msp] Target already reached.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				if(reached!=null) 
 					reached.action();
@@ -289,26 +288,26 @@ public class Offboard3Manager {
 
 			reset();
 			Point4D_F32 pos_target = new Point4D_F32(Float.NaN,Float.NaN,Float.NaN, yaw);
-			targets.add(new Offboard3Target(pos_target));
+			targets.add(new Offboard3TargetState(pos_target));
 
 		}
 
 		public void setTarget(GeoTuple4D_F32<?> pos_target) {
 
 			reset();
-			updateCurrentState();
+			current.update();
 
-			float estimated_xyz_duration = MSP3DUtils.distance3D(pos_target, pos_current) / max_xyz_vel;
+			float estimated_xyz_duration = MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_vel;
 
 			if(estimated_xyz_duration < (5/max_xyz_vel+2.0f)) {
-				targets.add(new Offboard3Target(pos_target));
+				targets.add(new Offboard3TargetState(pos_target));
 			}
 
 			else {
 				System.out.println("Estimated duration: "+estimated_xyz_duration);
-				targets.add(new Offboard3Target(pos_target,pos_current,max_xyz_vel,2.0f));
-				targets.add(new Offboard3Target(pos_target,pos_current,max_xyz_vel,estimated_xyz_duration*5f/8f));
-				targets.add(new Offboard3Target(pos_target));
+				targets.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_vel,2.0f));
+				targets.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_vel,estimated_xyz_duration*5f/8f));
+				targets.add(new Offboard3TargetState(pos_target));
 
 			}
 		}
@@ -325,7 +324,7 @@ public class Offboard3Manager {
 				return;
 
 			// Convert current state
-			updateCurrentState();
+			 current.update();
 
 			t_elapsed_last = t_elapsed;
 			t_elapsed = (System.currentTimeMillis() - current_target.getStartedTimestamp()) / 1000f;
@@ -338,7 +337,7 @@ public class Offboard3Manager {
 			if((yawExecutor.isPlanned() || xyzExecutor.isPlanned()) &&
 					t_elapsed > yawExecutor.getTotalTime() && t_elapsed > xyzExecutor.getTotalTime()) {
 
-				if(current_target.isPosReached(pos_current, acceptance_radius, acceptance_yaw)) {
+				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
 					if(reached!=null) {
 						reached.action();
@@ -354,7 +353,7 @@ public class Offboard3Manager {
 			
 			// Plan next target if required
 			if(!targets.isEmpty() && xyzExecutor.isPlanned() && t_elapsed >= xyzExecutor.getTotalTime()) {
-				current_target = planNextTarget(pos_current, vel_current, acc_current);	
+				current_target = planNextTarget(current);	
 				t_timeout = DEFAULT_TIMEOUT + (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw) ;
 				return;
 			}
@@ -362,7 +361,7 @@ public class Offboard3Manager {
 			// Collision check
 			if(checkCollisionForPlannedTarget(current_target,t_elapsed)) {
 				control.writeLogMessage(new LogMessage("[msp] Collison in planned path. Stopped.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
-				current_target = planNextTarget(pos_current, vel_current, acc_current);	
+				current_target = planNextTarget(current);	
 				return;
 			}
 			
@@ -441,15 +440,15 @@ public class Offboard3Manager {
 						if(Math.sqrt(cmd.vx*cmd.vx + cmd.vy*cmd.vy) > 0.001) {
 							current_target.getTargetPosition().w = MSP3DUtils.angleXY(cmd.vx,cmd.vy);
 							cmd.yaw      = current_target.getTargetPosition().w;
-							cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - pos_current.w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);
+							cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - current.pos().w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);
 						} 
 					} else {
 						// XYZ Target reached but not yaw: Further yaw turning via YAWControl
-						if(!yawExecutor.isPlanned() && !current_target.isYawReached(pos_current, acceptance_yaw)) {
+						if(!yawExecutor.isPlanned() && !current_target.isYawReached(current.pos(), acceptance_yaw)) {
 							model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
 							cmd.yaw       = current_target.getTargetPosition().w;
-							cmd.yaw_rate  = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - pos_current.w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);		
+							cmd.yaw_rate  = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - current.pos().w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);		
 						} else {
 							model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
@@ -480,29 +479,29 @@ public class Offboard3Manager {
 				updateTrajectoryModel(t_elapsed);
 		}
 
-		private Offboard3Target planNextTarget(GeoTuple4D_F32<?> pc, GeoTuple4D_F32<?> vc, GeoTuple4D_F32<?>ac) {
+		private Offboard3TargetState planNextTarget(Offboard3CurrentState current_state) {
 
 			if(targets.isEmpty())
 				return current_target;
 			
-			Offboard3Target new_target = targets.poll();
+			Offboard3TargetState new_target = targets.poll();
 
 			if(MSP3DUtils.isFinite(new_target.getTargetPosition()))
 			  control.writeLogMessage(new LogMessage("[msp] Offboard next target.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
-			return planTarget(new_target,pc,vc,ac);
+			return planTarget(new_target,current_state);
 		}
 
-		private Offboard3Target planTarget(Offboard3Target target, GeoTuple4D_F32<?> pc, GeoTuple4D_F32<?> vc, GeoTuple4D_F32<?>ac) {
+		private Offboard3TargetState planTarget(Offboard3TargetState target, Offboard3CurrentState current_state) {
 
 			float estimated_xyz_duration = 0; float estimated_yaw_duration = 0;
 
-			if(MSP3DUtils.isFinite(pos_setpoint)) {
-				MSP3DUtils.replaceNaN3D(target.getTargetPosition(), pos_setpoint);
+			if(MSP3DUtils.isFinite(current.sep())) {
+				MSP3DUtils.replaceNaN3D(target.getTargetPosition(), current.sep());
 				target.setTargetIsSetpoint(true);
 			}
 			else
-				MSP3DUtils.replaceNaN3D(target.getTargetPosition(), pc);
+				MSP3DUtils.replaceNaN3D(target.getTargetPosition(), current_state.pos());
 
 			// Yaw Planning 
 
@@ -510,25 +509,25 @@ public class Offboard3Manager {
 			if(Float.isFinite(target.getTargetPosition().w)) {
 
 				target.getTargetPosition().w = normAngle(target.getTargetPosition().w );  
-				pc.w = normAngle(pc.w);
+				current_state.pos().w = normAngle(current_state.pos().w);
 				
 //	        	System.err.println("1. from " + pc.w +" to " + target.getTargetPosition().w + " delta " +(target.getTargetPosition().w - pc.w));
 				
-				if((target.getTargetPosition().w - pc.w) > (float)Math.PI) {
+				if((target.getTargetPosition().w - current_state.pos().w) > (float)Math.PI) {
 					target.getTargetPosition().w  = (target.getTargetPosition().w -(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
 				}
 				
-				if((target.getTargetPosition().w - pc.w) < -(float)Math.PI) {
+				if((target.getTargetPosition().w - current_state.pos().w) < -(float)Math.PI) {
 					target.getTargetPosition().w  = (target.getTargetPosition().w +(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
 				}
 				
 //				System.err.println("2. from " + pc.w +" to " + target.getTargetPosition().w + " delta " +(target.getTargetPosition().w - pc.w));
 
-				yawExecutor.setInitialState(pc.w, vc.w, 0);
+				yawExecutor.setInitialState(current_state.pos().w, current_state.vel().w, 0);
 				yawExecutor.setTargetState(target.getTargetPosition().w , 0, 0);
 
 				if(target.getDuration() < 0)
-					estimated_yaw_duration = Math.abs(target.getTargetPosition().w  - pc.w)/MAX_YAW_VEL;
+					estimated_yaw_duration = Math.abs(target.getTargetPosition().w  - current_state.pos().w)/MAX_YAW_VEL;
 				else
 					estimated_yaw_duration = target.getDuration();
 
@@ -546,9 +545,9 @@ public class Offboard3Manager {
 
 			xyzExecutor.reset(); t_planned_xyz = 0;
 			if((isFinite(target.getTargetPosition()) || isValid(target.getTargetVelocity())) && 
-					!target.isPosReached(pc,acceptance_radius,Float.NaN)) {
+					!target.isPosReached(current_state.pos(),acceptance_radius,Float.NaN)) {
 
-				xyzExecutor.setInitialState(pc, vc, ac);
+				xyzExecutor.setInitialState(current_state.pos(),current_state.vel(),current_state.acc());
 
 				if(isValid(target.getTargetVelocity()))
 					xyzExecutor.setGoal(null, target.getTargetVelocity(), target.getTargetAcceleration());
@@ -556,7 +555,7 @@ public class Offboard3Manager {
 					xyzExecutor.setGoal(target.getTargetPosition(), target.getTargetVelocity(), target.getTargetAcceleration());
 
 				if(target.getDuration() < 0) {
-					estimated_xyz_duration = MSP3DUtils.distance3D(target.getTargetPosition(), pc) * 2.0f / max_xyz_vel;
+					estimated_xyz_duration = MSP3DUtils.distance3D(target.getTargetPosition(), current_state.pos()) * 2.0f / max_xyz_vel;
 
 					if(estimated_xyz_duration < estimated_yaw_duration)
 						estimated_xyz_duration = estimated_yaw_duration;
@@ -567,14 +566,14 @@ public class Offboard3Manager {
 
 				if(isValid(target.getTargetVelocity())) {
 					t_planned_xyz = xyzExecutor.generate(estimated_xyz_duration);
-					System.out.println("\tXYZ Velocity: "+target+" (" +MSP3DUtils.distance3D(target.getTargetPosition(), pc) +") in "+estimated_xyz_duration+" secs");
+					System.out.println("\tXYZ Velocity: "+target+" (" +MSP3DUtils.distance3D(target.getTargetPosition(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
 
 				}
 				else {
 					if(estimated_xyz_duration < 2)
 						estimated_xyz_duration = 2f;
 					t_planned_xyz = xyzExecutor.generate(estimated_xyz_duration);
-					System.out.println("\tXYZ Position: "+target+" ("+MSP3DUtils.distance3D(target.getTargetPosition(), pc)+") in "+estimated_xyz_duration+" secs");
+					System.out.println("\tXYZ Position: "+target+" ("+MSP3DUtils.distance3D(target.getTargetPosition(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
 				}
 			}
 
@@ -582,10 +581,12 @@ public class Offboard3Manager {
 
 		}
 
-		private boolean checkCollisionForPlannedTarget(Offboard3Target target, float time_start) {
+		private boolean checkCollisionForPlannedTarget(Offboard3TargetState target, float time_start) {
 
 			if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP))
 				return false;
+			
+			obstacle.setTo(model.slam.ox,model.slam.oy,model.slam.oz);
 
 			float time_elapsed = 0; float time_step = 0.2f; 
 			final Point3D_F64 position = new Point3D_F64();
@@ -610,7 +611,7 @@ public class Offboard3Manager {
 						targets.clear();
 						xyzExecutor.getPosition(stop_time, position);
 						System.out.println("Replanning to stop in front of obstacle:");
-						target = new Offboard3Target(position); 
+						target = new Offboard3TargetState(position); 
 						targets.add(target);
 					} else
 						stopAndLoiter();
@@ -643,17 +644,6 @@ public class Offboard3Manager {
 			t_elapsed_last    = 0;
 			t_planned_yaw     = 0;
 			t_planned_xyz     = 0;
-
-		}
-
-		private void updateCurrentState() {
-
-			MSP3DUtils.convertCurrentPosition(model, pos_current);
-			MSP3DUtils.convertCurrentSpeed(model, vel_current);
-			MSP3DUtils.convertCurrentAcceleration(model, acc_current);
-			MSP3DUtils.convertTargetState(model, pos_setpoint);
-			
-			obstacle.setTo(model.slam.ox,model.slam.oy,model.slam.oz);
 
 		}
 
