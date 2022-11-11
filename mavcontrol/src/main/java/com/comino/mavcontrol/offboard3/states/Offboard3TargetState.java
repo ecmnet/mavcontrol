@@ -1,5 +1,6 @@
 package com.comino.mavcontrol.offboard3.states;
 
+import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.utils.MSP3DUtils;
 
 import georegression.struct.GeoTuple3D_F32;
@@ -20,6 +21,7 @@ public class Offboard3TargetState extends Offboard3State {
 
 	public Offboard3TargetState(GeoTuple4D_F32<?> p) {
 		this(p,-1);
+		this.tms_us = DataModel.getSynchronizedPX4Time_us();
 	}
 
 	public Offboard3TargetState(GeoTuple4D_F32<?> p, float d) {
@@ -27,6 +29,7 @@ public class Offboard3TargetState extends Offboard3State {
 		this.vel.setTo(0,0,0,Float.NaN);
 		this.t_vel = 0;
 		this.d_sec = d;
+		this.tms_us = DataModel.getSynchronizedPX4Time_us();
 		
 	}
 
@@ -35,6 +38,7 @@ public class Offboard3TargetState extends Offboard3State {
 		this.pos.setTo(p.x,p.y,p.z,p.w);
 		this.t_vel = v;
 		this.d_sec = d_sec;
+		this.tms_us = DataModel.getSynchronizedPX4Time_us();
 
 		determineTargetVelocity(c);
 	}
@@ -44,6 +48,7 @@ public class Offboard3TargetState extends Offboard3State {
 		this.vel.setTo(0,0,0,Float.NaN);
 		this.t_vel =  0;
 		this.d_sec = -1;
+		this.tms_us = DataModel.getSynchronizedPX4Time_us();
 	}
 
 	public float getDuration() {

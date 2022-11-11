@@ -651,16 +651,14 @@ public class Offboard3Manager {
 			return a - (2*(float)Math.PI) * (float)Math.floor((a + (float)Math.PI - 0.5f) / (2*(float)Math.PI));
 		}
 
-		private float normAngle(float a, float b) {
-			return normAngle(b-a);
-		}
+		
 
 		private boolean isFinite(GeoTuple4D_F32<?> p) {
 			return Float.isFinite(p.x) && Float.isFinite(p.y) && Float.isFinite(p.z);
 		}
 
 		private boolean isValid(GeoTuple4D_F32<?> p) {
-			return p.x != 0 || p.y != 0 && p.z != 0;
+			return (p.x != 0 || p.y != 0 )&& p.z != 0;
 		}
 
 		private void enableOffboard() {

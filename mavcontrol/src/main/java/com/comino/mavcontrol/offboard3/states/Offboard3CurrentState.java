@@ -40,6 +40,7 @@ public class Offboard3CurrentState extends Offboard3State {
 		MSP3DUtils.convertCurrentSpeed(model, vel);
 		MSP3DUtils.convertCurrentAcceleration(model,acc);
 		MSP3DUtils.convertTargetState(model, current_pos_setpoint);
+		tms_us = model.state.tms;
 
 	}
 }
