@@ -106,6 +106,7 @@ public class Offboard3Planner {
 		Offboard3State nextPlannedCurrentState = initial_state; double total_costs = 0; float total_time = 0;
 		Point3D_F64 obstacle = new Point3D_F64(model.slam.ox,model.slam.oy,model.slam.oz);
 		
+		
 		for(Offboard3TargetState section : plan) {
 			
 			nextPlannedCurrentState = planSection(section, nextPlannedCurrentState);
