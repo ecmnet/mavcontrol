@@ -2,8 +2,8 @@ package com.comino.mavcontrol.offboard3;
 
 import java.util.LinkedList;
 
-import com.comino.mavcom.config.MSPConfig;
-import com.comino.mavcom.config.MSPParams;
+import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard3.exceptions.Offboard3CollisionException;
 import com.comino.mavcontrol.offboard3.states.Offboard3CurrentState;
@@ -15,6 +15,7 @@ import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F64;
+import georegression.struct.point.Point4D_F32;
 
 public class Offboard3Planner {
 	
@@ -31,54 +32,84 @@ public class Offboard3Planner {
 	private final LinkedList<Offboard3TargetState> final_plan = new LinkedList<Offboard3TargetState>();
 
 	// Current state
-	private final Offboard3CurrentState current;
+	private final Offboard3CurrentState            current;
+	
+	// collsion check
+	private final Offboard3CollisionCheck          collisionCheck;
+	
+	// DataModel
+	private final DataModel                        model;
 
 	// 
 	private float acceptance_radius;
 	private float max_xyz_velocity;
 
 
-	public Offboard3Planner(Offboard3CurrentState current) {
-		this.current = current;   
+	public Offboard3Planner(IMAVController control, Offboard3CurrentState current, float acceptance_radius, float max_xyz_velocity) {
 		
-		MSPConfig config	= MSPConfig.getInstance();
-
-		max_xyz_velocity = config.getFloatProperty(MSPParams.AUTOPILOT_MAX_XYZ_VEL, String.valueOf(DEFAULT_MAX_XYZ_VEL));
-		System.out.println("Maximum planning velocity: "+max_xyz_velocity+" m/s");
-		acceptance_radius = config.getFloatProperty(MSPParams.AUTOPILOT_RADIUS_ACCEPT, String.valueOf(DEFAULT_RADIUS_ACCEPT));
-		System.out.println("Acceptance radius: "+acceptance_radius+" m");
+		this.current = current;  
+		this.model   = control.getCurrentModel();
+		this.max_xyz_velocity = max_xyz_velocity;
+		this.acceptance_radius = acceptance_radius;
+		
+		this.collisionCheck = new Offboard3CollisionCheck(xyzPlanner);
+		
 	}
 
-	public LinkedList<?> getFinalPlan() {
+	public LinkedList<Offboard3TargetState> getFinalPlan() {
 		return final_plan;
 	}
 	
-	public void setTarget(GeoTuple4D_F32<?> pos_target) {
+	public void clear() {
+		final_plan.clear();
+	}
+	
+	public void planDirectYaw(float yaw) {
+		final_plan.add(new Offboard3TargetState(new Point4D_F32(0,0,0,yaw)));
+	}
+	
+	public void planDirectPath(GeoTuple4D_F32<?> pos_target) {
+		
+		LinkedList<Offboard3TargetState> new_plan = new LinkedList<Offboard3TargetState>();
 
 		current.update();
 
 		float estimated_xyz_duration = MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_velocity;
 
 		if(estimated_xyz_duration < (5/max_xyz_velocity+2.0f)) {
-			final_plan.add(new Offboard3TargetState(pos_target));
+			new_plan.add(new Offboard3TargetState(pos_target));
 		}
 
 		else {
 			System.out.println("Estimated duration: "+estimated_xyz_duration);
-			final_plan.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,2.0f));
-			final_plan.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,estimated_xyz_duration*5f/8f));
-			final_plan.add(new Offboard3TargetState(pos_target));
+			new_plan.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,2.0f));
+			new_plan.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,estimated_xyz_duration*5f/8f));
+			new_plan.add(new Offboard3TargetState(pos_target));
 		}
+		
+		try {
+			
+			double costs = planPath(new_plan, current);
+			System.out.println("Total costs of planned path: "+costs);
+			
+		} catch (Offboard3CollisionException e) {
+			System.out.println("Plan not valid: "+estimated_xyz_duration);
+			// TODO: Adjust plan and do replanning
+		}
+		
+		final_plan.addAll(new_plan);
 	}
+	
 	
 	private double planPath(LinkedList<Offboard3TargetState> plan, Offboard3CurrentState initial_state) throws Offboard3CollisionException {
 		
 		Offboard3State nextCurrentState = initial_state; double total_costs = 0;
+		Point3D_F64 obstacle = new Point3D_F64(model.slam.ox,model.slam.oy,model.slam.oz);
 		
 		for(Offboard3TargetState section : plan) {
 			
 			nextCurrentState = planSection(section, nextCurrentState);
-			// TODO check plan validity and throw exception
+			collisionCheck.check(obstacle, 0);
 			total_costs += xyzPlanner.getCost();
 			
 		}
@@ -178,7 +209,7 @@ public class Offboard3Planner {
 	}
 	
 	private boolean isValid(GeoTuple4D_F32<?> p) {
-		return (p.x != 0 || p.y != 0 ) && p.z != 0;
+		return p.x != 0 || p.y != 0 || p.z != 0;
 	}
 
 

@@ -11,6 +11,16 @@ public class Offboard3State {
 	
 	protected long tms_us;
 	
+	public Offboard3State() {
+		
+	}
+	
+   public Offboard3State(GeoTuple4D_F32<?> pos, GeoTuple4D_F32<?> vel, GeoTuple4D_F32<?> acc) {
+		this.pos.setTo(pos.x,pos.y,pos.z,pos.w);
+		this.vel.setTo(vel.x,vel.y,vel.z,vel.w);
+		this.acc.setTo(acc.x,acc.y,acc.z,acc.w);
+	}
+	
 	public GeoTuple4D_F32<?> pos() {
 		return pos;
 	}
