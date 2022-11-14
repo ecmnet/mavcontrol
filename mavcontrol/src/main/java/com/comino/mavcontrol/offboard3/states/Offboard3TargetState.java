@@ -61,18 +61,6 @@ public class Offboard3TargetState extends Offboard3State {
 		return t_started_ms;
 	}
 
-	public GeoTuple4D_F32<?> getTargetPosition() {
-		return pos;
-	}
-
-	public GeoTuple4D_F32<?> getTargetVelocity() {
-		return vel;
-	}
-
-	public GeoTuple4D_F32<?> getTargetAcceleration() {
-		return acc;
-	}
-
 	public void determineTargetVelocity(GeoTuple4D_F32<?> p_current) {
 
 		vel.setTo(pos.x-p_current.x, pos.y-p_current.y, pos.z-p_current.z, 0);

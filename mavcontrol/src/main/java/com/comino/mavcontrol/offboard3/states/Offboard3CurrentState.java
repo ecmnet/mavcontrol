@@ -18,21 +18,10 @@ public class Offboard3CurrentState extends Offboard3State {
 		this.model = model;
 	}
 	
-	public GeoTuple4D_F32<?> pos() {
-		return pos;
-	}
-	
-	public GeoTuple4D_F32<?> vel() {
-		return vel;
-	}
-	
-	public GeoTuple4D_F32<?> acc() {
-		return acc;
-	}
-	
 	public GeoTuple4D_F32<?> sep() {
 		return current_pos_setpoint;
 	}
+
 	
 	public void update() {
 

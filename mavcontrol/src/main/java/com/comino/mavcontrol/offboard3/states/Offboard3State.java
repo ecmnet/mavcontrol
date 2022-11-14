@@ -10,7 +10,19 @@ public class Offboard3State {
 	protected final GeoTuple4D_F32<?> acc  = new Point4D_F32(0,0,0,0);
 	
 	protected long tms_us;
-
+	
+	public GeoTuple4D_F32<?> pos() {
+		return pos;
+	}
+	
+	public GeoTuple4D_F32<?> vel() {
+		return vel;
+	}
+	
+	public GeoTuple4D_F32<?> acc() {
+		return acc;
+	}
+	
 
 	public boolean isPositionFinite() {
 		return Float.isFinite(pos.x) && Float.isFinite(pos.y) && Float.isFinite(pos.z);

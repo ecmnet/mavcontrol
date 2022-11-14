@@ -5,7 +5,9 @@ import java.util.LinkedList;
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.config.MSPParams;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.offboard3.exceptions.Offboard3CollisionException;
 import com.comino.mavcontrol.offboard3.states.Offboard3CurrentState;
+import com.comino.mavcontrol.offboard3.states.Offboard3State;
 import com.comino.mavcontrol.offboard3.states.Offboard3TargetState;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
@@ -51,44 +53,73 @@ public class Offboard3Planner {
 		return final_plan;
 	}
 	
+	public void setTarget(GeoTuple4D_F32<?> pos_target) {
+
+		current.update();
+
+		float estimated_xyz_duration = MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_velocity;
+
+		if(estimated_xyz_duration < (5/max_xyz_velocity+2.0f)) {
+			final_plan.add(new Offboard3TargetState(pos_target));
+		}
+
+		else {
+			System.out.println("Estimated duration: "+estimated_xyz_duration);
+			final_plan.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,2.0f));
+			final_plan.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,estimated_xyz_duration*5f/8f));
+			final_plan.add(new Offboard3TargetState(pos_target));
+		}
+	}
+	
+	private double planPath(LinkedList<Offboard3TargetState> plan, Offboard3CurrentState initial_state) throws Offboard3CollisionException {
+		
+		Offboard3State nextCurrentState = initial_state; double total_costs = 0;
+		
+		for(Offboard3TargetState section : plan) {
+			
+			nextCurrentState = planSection(section, nextCurrentState);
+			// TODO check plan validity and throw exception
+			total_costs += xyzPlanner.getCost();
+			
+		}
+		
+		// Plan is ok, return total costs of the plan
+		return total_costs;
+	}
+	
 	
 
-	private Offboard3TargetState planTarget(Offboard3TargetState target, Offboard3CurrentState current_state) {
+	private Offboard3TargetState planSection(Offboard3TargetState target, Offboard3State current_state)  {
 
 		float estimated_xyz_duration = 0; float estimated_yaw_duration = 0;
 
-		if(MSP3DUtils.isFinite(current.sep())) {
-			target.replaceNaNPositionBy(current_state.sep());
-			target.setTargetIsSetpoint(true);
-		}
-		else
 			target.replaceNaNPositionBy(current_state.pos());
 
 		// Yaw Planning 
 
 		yawPlanner.reset();
-		if(Float.isFinite(target.getTargetPosition().w)) {
+		if(Float.isFinite(target.pos().w)) {
 
-			target.getTargetPosition().w = normAngle(target.getTargetPosition().w );  
+			target.pos().w = normAngle(target.pos().w );  
 			current_state.pos().w = normAngle(current_state.pos().w);
 
 			//        	System.err.println("1. from " + pc.w +" to " + target.getTargetPosition().w + " delta " +(target.getTargetPosition().w - pc.w));
 
-			if((target.getTargetPosition().w - current_state.pos().w) > (float)Math.PI) {
-				target.getTargetPosition().w  = (target.getTargetPosition().w -(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
+			if((target.pos().w - current_state.pos().w) > (float)Math.PI) {
+				target.pos().w  = (target.pos().w -(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
 			}
 
-			if((target.getTargetPosition().w - current_state.pos().w) < -(float)Math.PI) {
-				target.getTargetPosition().w  = (target.getTargetPosition().w +(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
+			if((target.pos().w - current_state.pos().w) < -(float)Math.PI) {
+				target.pos().w  = (target.pos().w +(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
 			}
 
 			//			System.err.println("2. from " + pc.w +" to " + target.getTargetPosition().w + " delta " +(target.getTargetPosition().w - pc.w));
 
 			yawPlanner.setInitialState(current_state.pos().w, current_state.vel().w, 0);
-			yawPlanner.setTargetState(target.getTargetPosition().w , 0, 0);
+			yawPlanner.setTargetState(target.pos().w , 0, 0);
 
 			if(target.getDuration() < 0)
-				estimated_yaw_duration = Math.abs(target.getTargetPosition().w  - current_state.pos().w)/MAX_YAW_VEL;
+				estimated_yaw_duration = Math.abs(target.pos().w  - current_state.pos().w)/MAX_YAW_VEL;
 			else
 				estimated_yaw_duration = target.getDuration();
 
@@ -96,7 +127,7 @@ public class Offboard3Planner {
 				if(estimated_yaw_duration < 3)
 					estimated_yaw_duration = 3;
 				yawPlanner.generateTrajectory(estimated_yaw_duration);
-				System.out.println("\tYaw: "+MSPMathUtils.fromRad(target.getTargetPosition().w )+" in "+estimated_yaw_duration+" secs");
+				System.out.println("\tYaw: "+MSPMathUtils.fromRad(target.pos().w )+" in "+estimated_yaw_duration+" secs");
 			} 
 
 		} 
@@ -105,18 +136,18 @@ public class Offboard3Planner {
 		// XYZ planning
 
 		xyzPlanner.reset();
-		if(target.isPositionFinite() || isValid(target.getTargetVelocity()) && 
+		if(target.isPositionFinite() || isValid(target.vel()) && 
 				!target.isPosReached(current_state.pos(),acceptance_radius,Float.NaN)) {
 
 			xyzPlanner.setInitialState(current_state.pos(),current_state.vel(),current_state.acc());
 
-			if(isValid(target.getTargetVelocity()))
-				xyzPlanner.setGoal(null, target.getTargetVelocity(), target.getTargetAcceleration());
+			if(isValid(target.vel()))
+				xyzPlanner.setGoal(null, target.vel(), target.acc());
 			else
-				xyzPlanner.setGoal(target.getTargetPosition(), target.getTargetVelocity(), target.getTargetAcceleration());
+				xyzPlanner.setGoal(target.pos(), target.vel(), target.acc());
 
 			if(target.getDuration() < 0) {
-				estimated_xyz_duration = MSP3DUtils.distance3D(target.getTargetPosition(), current_state.pos()) * 2.0f / max_xyz_velocity;
+				estimated_xyz_duration = MSP3DUtils.distance3D(target.pos(), current_state.pos()) * 2.0f / max_xyz_velocity;
 
 				if(estimated_xyz_duration < estimated_yaw_duration)
 					estimated_xyz_duration = estimated_yaw_duration;
@@ -125,16 +156,16 @@ public class Offboard3Planner {
 			else
 				estimated_xyz_duration = target.getDuration();
 
-			if(isValid(target.getTargetVelocity())) {
+			if(isValid(target.vel())) {
 				xyzPlanner.generate(estimated_xyz_duration);
-				System.out.println("\tXYZ Velocity: "+target+" (" +MSP3DUtils.distance3D(target.getTargetPosition(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
+				System.out.println("\tXYZ Velocity: "+target+" (" +MSP3DUtils.distance3D(target.pos(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
 
 			}
 			else {
 				if(estimated_xyz_duration < 2)
 					estimated_xyz_duration = 2f;
 				xyzPlanner.generate(estimated_xyz_duration);
-				System.out.println("\tXYZ Position: "+target+" ("+MSP3DUtils.distance3D(target.getTargetPosition(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
+				System.out.println("\tXYZ Position: "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
 			}
 		}
 
