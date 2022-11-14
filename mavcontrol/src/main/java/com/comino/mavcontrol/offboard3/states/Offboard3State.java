@@ -81,5 +81,13 @@ public class Offboard3State {
 		vel.setTo(0, 0, 0, Float.NaN);
 		acc.setTo(0,0,0,0);
 	}
+	
+	public String toString() {
+		StringBuilder b = new StringBuilder();
+		b.append(" Pos: "+pos);
+		b.append(" Vel: "+vel);
+		b.append(" Acc: "+acc);
+		return b.toString();
+	}
 
 }

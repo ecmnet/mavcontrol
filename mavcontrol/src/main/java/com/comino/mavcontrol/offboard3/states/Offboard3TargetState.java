@@ -110,9 +110,7 @@ public class Offboard3TargetState extends Offboard3State {
 	
 	public String toString() {
 		StringBuilder b = new StringBuilder();
-		b.append(" Pos: "+pos);
-		b.append(" Vel: "+vel);
-		b.append(" Acc: "+acc);
+		b.append(super.toString());
 		b.append(" D: "+d_sec);
 		return b.toString();
 	}

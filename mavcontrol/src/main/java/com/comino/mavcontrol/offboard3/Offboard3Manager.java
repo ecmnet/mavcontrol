@@ -298,9 +298,8 @@ public class Offboard3Manager {
 		public void setTarget(float yaw) {
 
 			reset();
-			planner.planDirectPath(new Point4D_F32(Float.NaN,Float.NaN,Float.NaN, yaw));
+			planner.planDirectYaw(yaw);
 			
-
 		}
 
 		public void setTarget(GeoTuple4D_F32<?> pos_target) {
@@ -532,7 +531,7 @@ public class Offboard3Manager {
 					if(estimated_yaw_duration < 3)
 						estimated_yaw_duration = 3;
 					t_planned_yaw = yawExecutor.generateTrajectory(estimated_yaw_duration);
-					System.out.println("\tYaw: "+MSPMathUtils.fromRad(target.pos().w )+" in "+estimated_yaw_duration+" secs");
+					System.out.println("\tYaw (Execution): "+MSPMathUtils.fromRad(target.pos().w )+" in "+estimated_yaw_duration+" secs");
 				} 
 				
 			} 
@@ -565,14 +564,14 @@ public class Offboard3Manager {
 
 				if(isValid(target.vel())) {
 					t_planned_xyz = xyzExecutor.generate(estimated_xyz_duration);
-					System.out.println("\tXYZ Velocity: "+target+" (" +MSP3DUtils.distance3D(target.pos(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
+					System.out.println("\tXYZ Velocity (Execution): "+target+" (" +MSP3DUtils.distance3D(target.pos(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
 
 				}
 				else {
 					if(estimated_xyz_duration < 2)
 						estimated_xyz_duration = 2f;
 					t_planned_xyz = xyzExecutor.generate(estimated_xyz_duration);
-					System.out.println("\tXYZ Position: "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
+					System.out.println("\tXYZ Position (Execution): "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
 				}
 			}
 

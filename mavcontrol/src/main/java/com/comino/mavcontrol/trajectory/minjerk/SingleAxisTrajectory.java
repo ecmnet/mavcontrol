@@ -98,6 +98,18 @@ public class SingleAxisTrajectory {
 		if(Double.isFinite(accf)) setGoalAcceleration(accf);
 
 	}
+	
+	public double getGoalPosition() {
+		return getPosition(_totalTime);
+	}
+	
+	public double getGoalVelocity() {
+		return getVelocity(_totalTime);
+	}
+	
+	public double getGoalAcceleration() {
+		return getAcceleration(_totalTime);
+	}
 
 	public void setGoalPosition(double posf)    
 	{_posGoalDefined = true; _pf = posf; }

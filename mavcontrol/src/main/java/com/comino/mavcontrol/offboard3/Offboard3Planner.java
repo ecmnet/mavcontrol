@@ -65,7 +65,7 @@ public class Offboard3Planner {
 	}
 	
 	public void planDirectYaw(float yaw) {
-		final_plan.add(new Offboard3TargetState(new Point4D_F32(0,0,0,yaw)));
+		final_plan.add(new Offboard3TargetState(new Point4D_F32(Float.NaN,Float.NaN,Float.NaN,yaw)));
 	}
 	
 	public void planDirectPath(GeoTuple4D_F32<?> pos_target) {
@@ -81,7 +81,7 @@ public class Offboard3Planner {
 		}
 
 		else {
-			System.out.println("Estimated duration: "+estimated_xyz_duration);
+			System.out.println("Planner: Estimated duration: "+estimated_xyz_duration);
 			new_plan.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,2.0f));
 			new_plan.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,estimated_xyz_duration*5f/8f));
 			new_plan.add(new Offboard3TargetState(pos_target));
@@ -90,7 +90,7 @@ public class Offboard3Planner {
 		try {
 			
 			double costs = planPath(new_plan, current);
-			System.out.println("Total costs of planned path: "+costs);
+			
 			
 		} catch (Offboard3CollisionException e) {
 			System.out.println("Plan not valid: "+estimated_xyz_duration);
@@ -103,16 +103,20 @@ public class Offboard3Planner {
 	
 	private double planPath(LinkedList<Offboard3TargetState> plan, Offboard3CurrentState initial_state) throws Offboard3CollisionException {
 		
-		Offboard3State nextCurrentState = initial_state; double total_costs = 0;
+		Offboard3State nextPlannedCurrentState = initial_state; double total_costs = 0; float total_time = 0;
 		Point3D_F64 obstacle = new Point3D_F64(model.slam.ox,model.slam.oy,model.slam.oz);
 		
 		for(Offboard3TargetState section : plan) {
 			
-			nextCurrentState = planSection(section, nextCurrentState);
+			nextPlannedCurrentState = planSection(section, nextPlannedCurrentState);
 			collisionCheck.check(obstacle, 0);
+			
 			total_costs += xyzPlanner.getCost();
+			total_time  += xyzPlanner.getTotalTime();
 			
 		}
+		
+		System.out.println("Planner: Total costs of planned path: "+total_costs +" in "+total_time+" secs");
 		
 		// Plan is ok, return total costs of the plan
 		return total_costs;
@@ -120,9 +124,9 @@ public class Offboard3Planner {
 	
 	
 
-	private Offboard3TargetState planSection(Offboard3TargetState target, Offboard3State current_state)  {
+	private Offboard3State planSection(Offboard3TargetState target, Offboard3State current_state)  {
 
-		float estimated_xyz_duration = 0; float estimated_yaw_duration = 0;
+		float estimated_xyz_duration = 0; float estimated_yaw_duration = 0; 
 
 			target.replaceNaNPositionBy(current_state.pos());
 
@@ -158,8 +162,12 @@ public class Offboard3Planner {
 				if(estimated_yaw_duration < 3)
 					estimated_yaw_duration = 3;
 				yawPlanner.generateTrajectory(estimated_yaw_duration);
-				System.out.println("\tYaw: "+MSPMathUtils.fromRad(target.pos().w )+" in "+estimated_yaw_duration+" secs");
+				System.out.println("\tYaw (Planner): "+MSPMathUtils.fromRad(target.pos().w )+" in "+estimated_yaw_duration+" secs");
 			} 
+			
+			current_state.pos().w = (float)yawPlanner.getGoalPosition();
+			current_state.vel().w = (float)yawPlanner.getGoalVelocity();
+			current_state.acc().w = 0;
 
 		} 
 
@@ -189,18 +197,24 @@ public class Offboard3Planner {
 
 			if(isValid(target.vel())) {
 				xyzPlanner.generate(estimated_xyz_duration);
-				System.out.println("\tXYZ Velocity: "+target+" (" +MSP3DUtils.distance3D(target.pos(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
+				System.out.println("\tXYZ Velocity  (Planner): "+target+" (" +MSP3DUtils.distance3D(target.pos(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
 
 			}
 			else {
 				if(estimated_xyz_duration < 2)
 					estimated_xyz_duration = 2f;
 				xyzPlanner.generate(estimated_xyz_duration);
-				System.out.println("\tXYZ Position: "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
+				System.out.println("\tXYZ Position  (Planner): "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
 			}
+			
+			xyzPlanner.getGoalPosition(current_state.pos());
+			xyzPlanner.getGoalVelocity(current_state.vel());
+			xyzPlanner.getGoalAcceleration(current_state.acc());
 		}
+		
+		
 
-		return target;
+		return current_state;
 
 	}
 
