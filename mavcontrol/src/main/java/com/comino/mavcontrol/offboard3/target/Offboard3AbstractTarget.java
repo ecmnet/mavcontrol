@@ -1,7 +1,8 @@
-package com.comino.mavcontrol.offboard3.states;
+package com.comino.mavcontrol.offboard3.target;
 
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.offboard3.states.Offboard3State;
 
 import georegression.struct.GeoTuple3D_F32;
 import georegression.struct.GeoTuple4D_F32;
@@ -9,51 +10,49 @@ import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Point4D_F32;
 
-public class Offboard3TargetState extends Offboard3State {
+public abstract class Offboard3AbstractTarget extends Offboard3State {
+	
+	public final static int TYPE_POS       = 1;
+	public final static int TYPE_POS_VEL   = 2;
+	public final static int TYPE_VEL       = 3;
+	
 	
 	public static final GeoTuple4D_F32<Point4D_F32> null_v = new Point4D_F32(0, 0, 0, 0);
-
-	private float   t_vel              =  0;
-	private float   d_sec              = -1;
-	private long    t_started_ms       = 0;
-	private boolean targetIsSetpoint   = false;
-	private float   section_time       = 0;
-
-
-	public Offboard3TargetState(GeoTuple4D_F32<?> p) {
-		this(p,-1);
-		this.tms_us = DataModel.getSynchronizedPX4Time_us();
-	}
-
-	public Offboard3TargetState(GeoTuple4D_F32<?> p, float d) {
-		this.pos.setTo(p.x,p.y,p.z,p.w);
+	
+	
+    private int     type               =  0;
+	private float   max_velocity       =  Float.NaN;
+	private float   duration           = -1;
+	private float   section_time       =  0;
+	
+	private long    t_started_ms       =  0;
+	private boolean targetIsSetpoint   =  false;
+	
+	
+	public Offboard3AbstractTarget(int type, float x, float y, float z, float w, float d_sec) {
+		this.pos.setTo(x,y,z,w);
 		this.vel.setTo(0,0,0,Float.NaN);
-		this.t_vel = 0;
-		this.d_sec = d;
-		this.tms_us = DataModel.getSynchronizedPX4Time_us();
+		
+		this.duration = d_sec;
+		this.type     = type;
 		
 	}
 
-	public Offboard3TargetState(GeoTuple4D_F32<?> p, GeoTuple4D_F32<?> c, float v, float d_sec) {
-
+	public Offboard3AbstractTarget(int type, GeoTuple4D_F32<?> p, float v, float d_sec) {
+		
 		this.pos.setTo(p.x,p.y,p.z,p.w);
-		this.t_vel = v;
-		this.d_sec = d_sec;
-		this.tms_us = DataModel.getSynchronizedPX4Time_us();
-
-		determineTargetVelocity(c);
-	}
-
-	public Offboard3TargetState(Point3D_F64 position) {
-		this.pos.setTo((float)position.x,(float)position.y, (float)position.z, Float.NaN);
-		this.vel.setTo(0,0,0,Float.NaN);
-		this.t_vel =  0;
-		this.d_sec = -1;
-		this.tms_us = DataModel.getSynchronizedPX4Time_us();
+		this.max_velocity = v;
+		
+		this.type  = type;
+		this.duration = d_sec;
 	}
 
 	public float getDuration() {
-		return d_sec;
+		return duration;
+	}
+	
+	public int getType() {
+		return type;
 	}
 
 	public long getStartedTimestamp() {
@@ -69,9 +68,9 @@ public class Offboard3TargetState extends Offboard3State {
 
 		float n = vel.norm();
 
-		vel.x = vel.x * t_vel / n;
-		vel.y = vel.y * t_vel / n;
-		vel.z = vel.z * t_vel / n;
+		vel.x = vel.x * max_velocity / n;
+		vel.y = vel.y * max_velocity / n;
+		vel.z = vel.z * max_velocity / n;
 		
 	}
 
@@ -120,7 +119,7 @@ public class Offboard3TargetState extends Offboard3State {
 	public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append(super.toString());
-		b.append("\tDuration set: "+d_sec);
+		b.append("\tDuration set: "+duration);
 		b.append("\tPlanned time: "+section_time);
 		return b.toString();
 	}

@@ -11,7 +11,6 @@ public class Offboard3State {
 	protected final GeoTuple4D_F32<?> vel  = new Point4D_F32(0, 0, 0, Float.NaN);
 	protected final GeoTuple4D_F32<?> acc  = new Point4D_F32(0,0,0,0);
 	
-	protected long tms_us;
 	
 	private final DecimalFormat f = new DecimalFormat("##0.00");
 	
@@ -60,10 +59,6 @@ public class Offboard3State {
 
 	public boolean isStateFinite() {
 		return isPositionFinite() && isVelocityFinite() && isAccelerationFinite();
-	}
-	
-	public long getTimestamp() {
-		return tms_us;
 	}
 
 	public boolean replaceNaNPositionBy(GeoTuple4D_F32<?> source) {

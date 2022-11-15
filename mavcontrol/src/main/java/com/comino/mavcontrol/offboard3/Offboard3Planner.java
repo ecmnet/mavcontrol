@@ -7,9 +7,13 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard3.exceptions.Offboard3CollisionException;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
-import com.comino.mavcontrol.offboard3.states.Offboard3CurrentState;
+import com.comino.mavcontrol.offboard3.states.Offboard3Current;
 import com.comino.mavcontrol.offboard3.states.Offboard3State;
-import com.comino.mavcontrol.offboard3.states.Offboard3TargetState;
+import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
+import com.comino.mavcontrol.offboard3.target.Offboard3PosTarget;
+import com.comino.mavcontrol.offboard3.target.Offboard3PosVelTarget;
+import com.comino.mavcontrol.offboard3.target.Offboard3VelTarget;
+import com.comino.mavcontrol.offboard3.target.Offboard3YawTarget;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
 import com.comino.mavutils.MSPMathUtils;
@@ -29,25 +33,26 @@ public class Offboard3Planner {
 	private final RapidTrajectoryGenerator  xyzPlanner = new RapidTrajectoryGenerator(new Point3D_F64(0,0,0));
 
 	// List of final targets
-	private final Offboard3Plan<Offboard3TargetState> final_plan = new Offboard3Plan<Offboard3TargetState>();
+	private final Offboard3Plan<Offboard3AbstractTarget> final_plan = new Offboard3Plan<Offboard3AbstractTarget>();
 
 	// Current state
-	private final Offboard3CurrentState            current;
+	private final Offboard3Current            current;
 
 	// collsion check
 	private final Offboard3CollisionCheck          collisionCheck;
 
-	// DataModel
+	// DataModel && Controller
 	private final DataModel                        model;
-
+    private final IMAVController                   control;
 	// 
 	private float acceptance_radius;
 	private float max_xyz_velocity;
 
 
-	public Offboard3Planner(IMAVController control, Offboard3CurrentState current, float acceptance_radius, float max_xyz_velocity) {
+	public Offboard3Planner(IMAVController control, Offboard3Current current, float acceptance_radius, float max_xyz_velocity) {
 
 		this.current = current;  
+		this.control = control;
 		this.model   = control.getCurrentModel();
 		this.max_xyz_velocity = max_xyz_velocity;
 		this.acceptance_radius = acceptance_radius;
@@ -56,7 +61,7 @@ public class Offboard3Planner {
 
 	}
 
-	public LinkedList<Offboard3TargetState> getFinalPlan() {
+	public LinkedList<Offboard3AbstractTarget> getFinalPlan() {
 		return final_plan;
 	}
 
@@ -66,32 +71,43 @@ public class Offboard3Planner {
 
 	public void planDirectYaw(float yaw) {
 		reset();
-		final_plan.add(new Offboard3TargetState(new Point4D_F32(Float.NaN,Float.NaN,Float.NaN,yaw)));
+		final_plan.add(new Offboard3YawTarget(yaw));
 	}
 
 	public void planDirectPath(GeoTuple4D_F32<?> pos_target) {
-		reset();
-		Offboard3Plan<Offboard3TargetState> new_plan = new Offboard3Plan<Offboard3TargetState>();
-
-		current.update();
-
+		
+		Offboard3Plan<Offboard3AbstractTarget> new_plan = new Offboard3Plan<Offboard3AbstractTarget>();
+		
+		reset(); current.update();
+		
 		new_plan.setEstimatedTime(MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_velocity);
 
 		if(new_plan.getEstimatedTime() < (5/max_xyz_velocity+2.0f)) {
-			new_plan.add(new Offboard3TargetState(pos_target));
+			new_plan.add(new Offboard3PosTarget(pos_target));
 		}
 
 		else {
-			new_plan.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,2.0f));
-			new_plan.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,new_plan.getEstimatedTime()*5f/8f));
-			new_plan.add(new Offboard3TargetState(pos_target));
+			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,2.0f));
+			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,new_plan.getEstimatedTime()*5f/8f));
+			new_plan.add(new Offboard3PosTarget(pos_target));
 		}
 		
+		if(new_plan.size() > 1 && control.isSimulation()) {
+			
+	    // Test split middle segment into 3 parts
 		float split = new_plan.get(1).getDuration();
+		
+		GeoTuple4D_F32<?> test = pos_target.copy();
+		
+//		test.x = 1f * Math.signum(test.x);
+//		test.y = 1f * Math.signum(test.y);
+		
 		new_plan.replaceWith(1, 
-        		new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,split/2f),
-        		new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,split/2f)
+        		new Offboard3VelTarget(pos_target,max_xyz_velocity,split/3f),
+        		new Offboard3VelTarget(test,max_xyz_velocity,split/2.5f),
+        		new Offboard3VelTarget(pos_target,max_xyz_velocity,split/3f)
         		);
+		}
 
 		try {
 
@@ -130,13 +146,13 @@ public class Offboard3Planner {
 	}
 
 
-	private void planPath(Offboard3Plan<Offboard3TargetState> plan, Offboard3CurrentState initial_state) throws Offboard3CollisionException {
+	private void planPath(Offboard3Plan<Offboard3AbstractTarget> plan, Offboard3Current initial_state) throws Offboard3CollisionException {
 
 		Offboard3State nextPlannedCurrentState = initial_state; 
 		Point3D_F64 obstacle = new Point3D_F64(model.slam.ox,model.slam.oy,model.slam.oz);
 
 			int index = 0;
-			for(Offboard3TargetState section : plan) {
+			for(Offboard3AbstractTarget section : plan) {
 
 				nextPlannedCurrentState = planSection(section, nextPlannedCurrentState);
 				collisionCheck.check(obstacle, 0, index);
@@ -150,7 +166,7 @@ public class Offboard3Planner {
 
 
 
-	private Offboard3State planSection(Offboard3TargetState target, Offboard3State current_state)  {
+	private Offboard3State planSection(Offboard3AbstractTarget target, Offboard3State current_state)  {
 
 		float estimated_xyz_duration = 0; float estimated_yaw_duration = 0; 
 		float planned_xyz_duration = 0; float planned_yaw_duration = 0; 
@@ -207,10 +223,19 @@ public class Offboard3Planner {
 
 			xyzPlanner.setInitialState(current_state.pos(),current_state.vel(),current_state.acc());
 
-			if(isValid(target.vel()))
-				xyzPlanner.setGoal(null, target.vel(), target.acc());
-			else
+			switch(target.getType()) {
+			case Offboard3AbstractTarget.TYPE_POS:
 				xyzPlanner.setGoal(target.pos(), target.vel(), target.acc());
+				break;
+			case Offboard3AbstractTarget.TYPE_POS_VEL:
+				target.determineTargetVelocity(current_state.pos());
+				xyzPlanner.setGoal(target.pos(), target.vel(), target.acc());
+				break;
+			case Offboard3AbstractTarget.TYPE_VEL:
+				target.determineTargetVelocity(current_state.pos());
+				xyzPlanner.setGoal(null, target.vel(), target.acc());
+				break;
+			}
 
 			if(target.getDuration() < 0) {
 				estimated_xyz_duration = MSP3DUtils.distance3D(target.pos(), current_state.pos()) * 2.0f / max_xyz_velocity;

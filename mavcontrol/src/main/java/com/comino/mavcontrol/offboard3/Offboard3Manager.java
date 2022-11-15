@@ -25,8 +25,8 @@ import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavcontrol.offboard2.ITargetReached;
 import com.comino.mavcontrol.offboard3.exceptions.Offboard3CollisionException;
-import com.comino.mavcontrol.offboard3.states.Offboard3CurrentState;
-import com.comino.mavcontrol.offboard3.states.Offboard3TargetState;
+import com.comino.mavcontrol.offboard3.states.Offboard3Current;
+import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
 import com.comino.mavutils.MSPMathUtils;
@@ -170,9 +170,9 @@ public class Offboard3Manager {
 		private ITimeout         timeout = null;
 
 		// Current target
-		private Offboard3TargetState current_target;
+		private Offboard3AbstractTarget current_target;
 		// current state
-		private final Offboard3CurrentState current;
+		private final Offboard3Current current;
 		
 		// Planner
 		private final Offboard3Planner          planner;
@@ -201,7 +201,7 @@ public class Offboard3Manager {
 		public Offboard3Worker(IMAVController control) {
 			this.control = control;
 			this.model   = control.getCurrentModel();
-			this.current = new Offboard3CurrentState(model);
+			this.current = new Offboard3Current(model);
 
 			MSPConfig config	= MSPConfig.getInstance();
 
@@ -476,20 +476,20 @@ public class Offboard3Manager {
 				updateTrajectoryModel(t_elapsed);
 		}
 
-		private Offboard3TargetState planNextTarget(Offboard3CurrentState current_state) {
+		private Offboard3AbstractTarget planNextTarget(Offboard3Current current_state) {
 
 			if(planner.getFinalPlan().isEmpty())
 				return current_target;
 			
-			Offboard3TargetState new_target = planner.getFinalPlan().poll();
+			Offboard3AbstractTarget new_target = planner.getFinalPlan().poll();
 
 			if(MSP3DUtils.isFinite(new_target.pos()))
-			  control.writeLogMessage(new LogMessage("[msp] Offboard next target.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+			  control.writeLogMessage(new LogMessage("[msp] Offboard execute next section.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
-			return planTarget(new_target,current_state);
+			return planTarget(new_target, current_state);
 		}
 
-		private Offboard3TargetState planTarget(Offboard3TargetState target, Offboard3CurrentState current_state) {
+		private Offboard3AbstractTarget planTarget(Offboard3AbstractTarget target, Offboard3Current current_state) {
 
 			float estimated_xyz_duration = 0; float estimated_yaw_duration = 0;
 
@@ -499,6 +499,13 @@ public class Offboard3Manager {
 			}
 			else
 				target.replaceNaNPositionBy(current_state.pos());
+			
+//			if(MSP3DUtils.isFinite(current.sev())) {
+//				target.replaceNaNVelocityBy(current_state.sev());
+//				target.setTargetIsSetpoint(true);
+//			}
+//			else
+//				target.replaceNaNVelocityBy(current_state.vel());
 
 			// Yaw Planning 
 
@@ -545,12 +552,19 @@ public class Offboard3Manager {
 					!target.isPosReached(current_state.pos(),acceptance_radius,Float.NaN)) {
 
 				xyzExecutor.setInitialState(current_state.pos(),current_state.vel(),current_state.acc());
-
-				if(isValid(target.vel())) {
-					xyzExecutor.setGoal(null, target.vel(), target.acc());
-				}
-				else {
+				
+				switch(target.getType()) {
+				case Offboard3AbstractTarget.TYPE_POS:
 					xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
+					break;
+				case Offboard3AbstractTarget.TYPE_POS_VEL:
+					target.determineTargetVelocity(current_state.pos());
+					xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
+					break;
+				case Offboard3AbstractTarget.TYPE_VEL:
+					target.determineTargetVelocity(current_state.pos());
+					xyzExecutor.setGoal(null, target.vel(), target.acc());
+					break;
 				}
 
 				if(target.getDuration() < 0) {
@@ -580,7 +594,7 @@ public class Offboard3Manager {
 
 		}
 
-		private void checkCollisionForPlannedTarget(Offboard3TargetState target, float time_start) throws Offboard3CollisionException {
+		private void checkCollisionForPlannedTarget(Offboard3AbstractTarget target, float time_start) throws Offboard3CollisionException {
 
 			if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP))
 				return; 
