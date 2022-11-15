@@ -20,15 +20,20 @@ public class Offboard3CollisionCheck {
 	}
 
 
-	public void check(LinkedList<Point3D_F64> obstacles, float time_start) 
+	public void check(LinkedList<Point3D_F64> obstacles, float time_section_start,int planningSectionsIndex) 
 			throws Offboard3CollisionException {
 
 		for(Point3D_F64 obstacle : obstacles) {
-			check(obstacle,time_start);
+			check(obstacle,time_section_start,planningSectionsIndex);
 		}
 	}
+	
+	public void check(Point3D_F64 obstacle, float time_section_start) 
+			throws Offboard3CollisionException {
+         check(obstacle,time_section_start,0);
+	}
 
-	public void check(Point3D_F64 obstacle, float time_start) 
+	public void check(Point3D_F64 obstacle, float time_section_start, int planningSectionsIndex) 
 			throws Offboard3CollisionException {
 
 
@@ -46,12 +51,12 @@ public class Offboard3CollisionCheck {
 		// TODO get nearest obstacle position into obstacle
 
 		// Brute force method
-		for(time_elapsed = time_start; time_elapsed < trajectory_generator.getTotalTime(); time_elapsed += time_step) {
+		for(time_elapsed = time_section_start; time_elapsed < trajectory_generator.getTotalTime(); time_elapsed += time_step) {
 			trajectory_generator.getPosition(time_elapsed, position);
 
 			// Check only YX distance
 			if(MSP3DUtils.distance2D(position, obstacle) < MIN_DISTANCE_OBSTACLE) { 
-				throw new Offboard3CollisionException(time_elapsed, trajectory_generator);
+				throw new Offboard3CollisionException(time_elapsed, trajectory_generator,planningSectionsIndex);
 			}
 
 			// TODO Check with current map

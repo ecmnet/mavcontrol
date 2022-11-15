@@ -85,7 +85,7 @@ public class TestActionFactory {
 					sign = -1.0f;
 				if(person.position.y < -4) 
 					sign = 1.0f;
-				person.position.y += ( 0.01 * sign);
+				person.position.y += ( 0.002 * sign);
 				
 				bus.publish(person);
 				

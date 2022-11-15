@@ -531,7 +531,7 @@ public class Offboard3Manager {
 					if(estimated_yaw_duration < 3)
 						estimated_yaw_duration = 3;
 					t_planned_yaw = yawExecutor.generateTrajectory(estimated_yaw_duration);
-					System.out.println("\tYaw (Execution): "+MSPMathUtils.fromRad(target.pos().w )+" in "+estimated_yaw_duration+" secs");
+					System.out.println("Yaw (Execution): "+MSPMathUtils.fromRad(target.pos().w )+" in "+estimated_yaw_duration+" secs");
 				} 
 				
 			} 
@@ -564,14 +564,14 @@ public class Offboard3Manager {
 
 				if(isValid(target.vel())) {
 					t_planned_xyz = xyzExecutor.generate(estimated_xyz_duration);
-					System.out.println("\tXYZ Velocity (Execution): "+target+" (" +MSP3DUtils.distance3D(target.pos(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
+					System.out.println("XYZ Velocity (Execution): "+target+" (" +MSP3DUtils.distance3D(target.pos(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
 
 				}
 				else {
 					if(estimated_xyz_duration < 2)
 						estimated_xyz_duration = 2f;
 					t_planned_xyz = xyzExecutor.generate(estimated_xyz_duration);
-					System.out.println("\tXYZ Position (Execution): "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
+					System.out.println("XYZ Position (Execution): "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
 				}
 			}
 
@@ -595,7 +595,7 @@ public class Offboard3Manager {
 		    	collisionCheck.check(obstacle, time_start);
 		    	
 		    } catch( Offboard3CollisionException col) {
-		    	planner.clear();
+		    	planner.reset();
 		    	float stop_time = col.getExpectedTimeOfCollision()-0.5f;
 		    	xyzExecutor.getPosition(stop_time, position);
 				System.out.println("Replanning to stop in front of obstacle:");
@@ -615,7 +615,7 @@ public class Offboard3Manager {
 			xyzExecutor.reset();
 			yawControl.reset();
 
-			planner.clear();
+			planner.reset();
 
 			acceptance_radius = RADIUS_ACCEPT;
 			acceptance_yaw    = YAW_ACCEPT;

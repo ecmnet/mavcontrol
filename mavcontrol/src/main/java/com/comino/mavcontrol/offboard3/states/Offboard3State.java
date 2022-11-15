@@ -1,5 +1,7 @@
 package com.comino.mavcontrol.offboard3.states;
 
+import java.text.DecimalFormat;
+
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point4D_F32;
 
@@ -10,6 +12,8 @@ public class Offboard3State {
 	protected final GeoTuple4D_F32<?> acc  = new Point4D_F32(0,0,0,0);
 	
 	protected long tms_us;
+	
+	private final DecimalFormat f = new DecimalFormat("##0.00");
 	
 	public Offboard3State() {
 		
@@ -84,9 +88,9 @@ public class Offboard3State {
 	
 	public String toString() {
 		StringBuilder b = new StringBuilder();
-		b.append(" Pos: "+pos);
-		b.append(" Vel: "+vel);
-		b.append(" Acc: "+acc);
+		b.append(" Pos: ("+f.format(pos.x)+","+f.format(pos.y)+","+f.format(pos.z)+")"); b.append("\t");
+		b.append(" Vel: ("+f.format(vel.x)+","+f.format(vel.y)+","+f.format(vel.z)+")"); b.append("\t");
+		b.append(" Acc: ("+f.format(acc.x)+","+f.format(acc.y)+","+f.format(acc.z)+")"); b.append("\t");
 		return b.toString();
 	}
 
