@@ -13,6 +13,7 @@ import com.comino.mavcontrol.offboard3.states.Offboard3TargetState;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
 import com.comino.mavutils.MSPMathUtils;
+import com.comino.mavutils.MSPUtils;
 
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F64;
@@ -85,6 +86,12 @@ public class Offboard3Planner {
 			new_plan.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,new_plan.getEstimatedTime()*5f/8f));
 			new_plan.add(new Offboard3TargetState(pos_target));
 		}
+		
+		float split = new_plan.get(1).getDuration();
+		new_plan.replaceWith(1, 
+        		new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,split/2f),
+        		new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,split/2f)
+        		);
 
 		try {
 
@@ -92,21 +99,33 @@ public class Offboard3Planner {
 
 
 		} catch (Offboard3CollisionException col) {
-			System.out.println("Collsion expected. Re-planning.");
-			new_plan.clear();
 			
-     
-            
- 
-            new_plan.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,2.0f));
-            new_plan.add(new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,col.getExpectedTimeOfCollision()-2));
-
-
+			System.err.println("Collsion expected. Plan rejected");
 			return;
-
-
+					
+			
+//			 System.err.println("Collsion expected. Re-planning....");
+//			
+//			
+//			Offboard3TargetState critical_target = new_plan.get(col.getPlanningSectionIndex());
+//			
+//			pos_target.x = pos_target.x + 5;
+//    
+//            new_plan.replaceWith(col.getPlanningSectionIndex(), 
+//            		new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,critical_target.getPlannedSectionTime()/2f),
+//            		new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,critical_target.getPlannedSectionTime()/2f)
+//            		);
+//            
+//            try {
+//				planPath(new_plan, current);
+//			} catch (Offboard3CollisionException e) {
+//				 System.out.println("Collsion expected. Re-planning failed.");
+//				 System.err.println(new_plan);
+//				 return;
+//			}
 		}
 
+		MSPUtils.getInstance().out(new_plan);
 		final_plan.addAll(new_plan);
 	}
 
@@ -127,7 +146,6 @@ public class Offboard3Planner {
 				index++;
 
 			}
-			System.out.println(plan);
 	}
 
 
@@ -135,6 +153,7 @@ public class Offboard3Planner {
 	private Offboard3State planSection(Offboard3TargetState target, Offboard3State current_state)  {
 
 		float estimated_xyz_duration = 0; float estimated_yaw_duration = 0; 
+		float planned_xyz_duration = 0; float planned_yaw_duration = 0; 
 
 		target.replaceNaNPositionBy(current_state.pos());
 
@@ -169,7 +188,7 @@ public class Offboard3Planner {
 			if(estimated_yaw_duration > MIN_YAW_PLANNING_DURATION) {
 				if(estimated_yaw_duration < 3)
 					estimated_yaw_duration = 3;
-				yawPlanner.generateTrajectory(estimated_yaw_duration);
+				planned_yaw_duration = yawPlanner.generateTrajectory(estimated_yaw_duration);
 				//System.out.println("\tYaw (Planner): "+MSPMathUtils.fromRad(target.pos().w )+" in "+estimated_yaw_duration+" secs");
 			} 
 
@@ -204,16 +223,18 @@ public class Offboard3Planner {
 				estimated_xyz_duration = target.getDuration();
 
 			if(isValid(target.vel())) {
-				xyzPlanner.generate(estimated_xyz_duration);
+				planned_xyz_duration = xyzPlanner.generate(estimated_xyz_duration);
 				//System.out.println("\tXYZ Velocity  (Planner): "+target+" (" +MSP3DUtils.distance3D(target.pos(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
 
 			}
 			else {
 				if(estimated_xyz_duration < 2)
 					estimated_xyz_duration = 2f;
-				xyzPlanner.generate(estimated_xyz_duration);
+				planned_xyz_duration = xyzPlanner.generate(estimated_xyz_duration);
 				//System.out.println("\tXYZ Position  (Planner): "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
 			}
+			
+			target.setPlannedSectionTime(planned_xyz_duration > planned_yaw_duration ? planned_xyz_duration : planned_yaw_duration);
 
 			// Update current_state with estimated data
 			xyzPlanner.getGoalPosition(current_state.pos());

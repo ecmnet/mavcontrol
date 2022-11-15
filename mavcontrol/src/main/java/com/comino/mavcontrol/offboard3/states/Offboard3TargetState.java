@@ -13,10 +13,11 @@ public class Offboard3TargetState extends Offboard3State {
 	
 	public static final GeoTuple4D_F32<Point4D_F32> null_v = new Point4D_F32(0, 0, 0, 0);
 
-	private float t_vel              =  0;
-	private float d_sec              = -1;
-	private long  t_started_ms       = 0;
-	private boolean targetIsSetpoint = false;
+	private float   t_vel              =  0;
+	private float   d_sec              = -1;
+	private long    t_started_ms       = 0;
+	private boolean targetIsSetpoint   = false;
+	private float   section_time       = 0;
 
 
 	public Offboard3TargetState(GeoTuple4D_F32<?> p) {
@@ -104,6 +105,14 @@ public class Offboard3TargetState extends Offboard3State {
 		targetIsSetpoint = flag;
 	}
 	
+	public void setPlannedSectionTime(float t) {
+		section_time = t;
+	}
+	
+	public float getPlannedSectionTime() {
+		return section_time;
+	}
+	
 	public boolean isTargetSetpoint() {
 		return targetIsSetpoint;
 	}
@@ -111,7 +120,8 @@ public class Offboard3TargetState extends Offboard3State {
 	public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append(super.toString());
-		b.append(" D: "+d_sec);
+		b.append("\tDuration set: "+d_sec);
+		b.append("\tPlanned time: "+section_time);
 		return b.toString();
 	}
 

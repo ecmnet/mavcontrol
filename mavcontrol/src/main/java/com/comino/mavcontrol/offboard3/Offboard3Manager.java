@@ -30,6 +30,7 @@ import com.comino.mavcontrol.offboard3.states.Offboard3TargetState;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
 import com.comino.mavutils.MSPMathUtils;
+import com.comino.mavutils.MSPUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 import georegression.struct.GeoTuple3D_F32;
@@ -531,7 +532,7 @@ public class Offboard3Manager {
 					if(estimated_yaw_duration < 3)
 						estimated_yaw_duration = 3;
 					t_planned_yaw = yawExecutor.generateTrajectory(estimated_yaw_duration);
-					System.out.println("Yaw (Execution): "+MSPMathUtils.fromRad(target.pos().w )+" in "+estimated_yaw_duration+" secs");
+					MSPUtils.getInstance().out("Yaw (Execution): "+MSPMathUtils.fromRad(target.pos().w )+" in "+estimated_yaw_duration+" secs");
 				} 
 				
 			} 
@@ -564,14 +565,14 @@ public class Offboard3Manager {
 
 				if(isValid(target.vel())) {
 					t_planned_xyz = xyzExecutor.generate(estimated_xyz_duration);
-					System.out.println("XYZ Velocity (Execution): "+target+" (" +MSP3DUtils.distance3D(target.pos(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
+					MSPUtils.getInstance().out("XYZ Velocity (Execution): "+target+" (" +MSP3DUtils.distance3D(target.pos(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
 
 				}
 				else {
 					if(estimated_xyz_duration < 2)
 						estimated_xyz_duration = 2f;
 					t_planned_xyz = xyzExecutor.generate(estimated_xyz_duration);
-					System.out.println("XYZ Position (Execution): "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
+					MSPUtils.getInstance().out("XYZ Position (Execution): "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
 				}
 			}
 

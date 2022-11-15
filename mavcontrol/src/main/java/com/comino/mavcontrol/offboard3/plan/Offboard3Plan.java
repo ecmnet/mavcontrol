@@ -1,5 +1,7 @@
 package com.comino.mavcontrol.offboard3.plan;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedList;
 
 public class Offboard3Plan<T> extends LinkedList<T> {
@@ -23,11 +25,18 @@ public class Offboard3Plan<T> extends LinkedList<T> {
 		total_costs    = 0;
 		estimated_time = 0;
 	}
-
-
-	public void replaceWithPlan(int index, LinkedList<T> plan_to_insert ) {
-
+	
+	public void replaceWith(int index, @SuppressWarnings("unchecked") T... sections) {
+		replaceWith(index,Arrays.asList(sections));
 	}
+
+	public void replaceWith(int index, Collection<? extends T> sections) {
+		if(index >= this.size())
+			return;
+		super.remove(index);
+		super.addAll(index,sections);
+	}
+	
 
 	public void setEstimatedTime(float t) {
 		estimated_time = t;
@@ -55,15 +64,15 @@ public class Offboard3Plan<T> extends LinkedList<T> {
 		final StringBuilder b = new StringBuilder();
 		int index = 0;
 		b.append("\n");
-		b.append("Plan =========================================================================================\n");
+		b.append("Plan ===================================================================================================================================\n");
 		for(T s : this) {
 			b.append(++index); b.append(".:"); b.append(s); b.append("\n");
 		}
-		b.append("Total costs    : "); b.append(total_costs); b.append("\n");
+		b.append("Total costs    : "); b.append(total_costs);    b.append("\n");
 		b.append("Estimated time : "); b.append(estimated_time); b.append("\n");
-		b.append("Planned   time : "); b.append(total_time); b.append("\n");
+		b.append("Planned   time : "); b.append(total_time);     b.append("\n");
 
-		b.append("==============================================================================================\n");
+		b.append("========================================================================================================================================\n");
 		return b.toString();
 	}
 
