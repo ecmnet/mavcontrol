@@ -2,6 +2,8 @@ package com.comino.mavcontrol.offboard3;
 
 import java.util.LinkedList;
 
+import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
+
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.utils.MSP3DUtils;
@@ -27,7 +29,7 @@ public class Offboard3Planner {
 
 	private static final float MAX_YAW_VEL                      = MSPMathUtils.toRad(45);   // Maxumum speed in [rad/s]
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
-	
+
 	// Planners
 	private final SingleAxisTrajectory      yawPlanner = new SingleAxisTrajectory();
 	private final RapidTrajectoryGenerator  xyzPlanner = new RapidTrajectoryGenerator(new Point3D_F64(0,0,0));
@@ -38,20 +40,22 @@ public class Offboard3Planner {
 	// Current state
 	private final Offboard3Current            current;
 
-	// collsion check
-	private final Offboard3CollisionCheck          collisionCheck;
+	// Collsion check
+	private final Offboard3CollisionCheck     collisionCheck;
 
 	// DataModel && Controller
-	private final DataModel                        model;
-    private final IMAVController                   control;
-	// 
+	private final DataModel                    model;
+	private final IMAVController               control;
+
+
+	// Planning parameters
 	private float acceptance_radius;
 	private float max_xyz_velocity;
 
 
-	public Offboard3Planner(IMAVController control, Offboard3Current current, float acceptance_radius, float max_xyz_velocity) {
+	public Offboard3Planner(IMAVController control, float acceptance_radius, float max_xyz_velocity) {
 
-		this.current = current;  
+		this.current = new Offboard3Current(control.getCurrentModel());  
 		this.control = control;
 		this.model   = control.getCurrentModel();
 		this.max_xyz_velocity = max_xyz_velocity;
@@ -67,6 +71,9 @@ public class Offboard3Planner {
 
 	public void reset() {
 		final_plan.clear();
+		yawPlanner.reset();
+		xyzPlanner.reset();
+		current.update();
 	}
 
 	public void planDirectYaw(float yaw) {
@@ -75,11 +82,11 @@ public class Offboard3Planner {
 	}
 
 	public void planDirectPath(GeoTuple4D_F32<?> pos_target) {
-		
+
 		Offboard3Plan<Offboard3AbstractTarget> new_plan = new Offboard3Plan<Offboard3AbstractTarget>();
-		
+
 		reset(); current.update();
-		
+
 		new_plan.setEstimatedTime(MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_velocity);
 
 		if(new_plan.getEstimatedTime() < (5/max_xyz_velocity+2.0f)) {
@@ -88,26 +95,26 @@ public class Offboard3Planner {
 
 		else {
 			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,2.0f));
-			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,new_plan.getEstimatedTime()*5f/8f));
+			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,new_plan.getEstimatedTime()*5.5f/8f));
 			new_plan.add(new Offboard3PosTarget(pos_target));
 		}
-		
-		if(new_plan.size() > 1 && control.isSimulation()) {
-			
-	    // Test split middle segment into 3 parts
-		float split = new_plan.get(1).getDuration();
-		
-		GeoTuple4D_F32<?> test = pos_target.copy();
-		
-//		test.x = 1f * Math.signum(test.x);
-//		test.y = 1f * Math.signum(test.y);
-		
-		new_plan.replaceWith(1, 
-        		new Offboard3VelTarget(pos_target,max_xyz_velocity,split/3f),
-        		new Offboard3VelTarget(test,max_xyz_velocity,split/2.5f),
-        		new Offboard3VelTarget(pos_target,max_xyz_velocity,split/3f)
-        		);
-		}
+
+		//		if(new_plan.size() > 1 && control.isSimulation()) {
+		//			
+		//	    // Test split middle segment into 3 parts
+		//		float split = new_plan.get(1).getDuration();
+		//		
+		//		GeoTuple4D_F32<?> test = pos_target.copy();
+		//		
+		////		test.x = 1f * Math.signum(test.x);
+		////		test.y = 1f * Math.signum(test.y);
+		//		
+		//		new_plan.replaceWith(1, 
+		//        		new Offboard3VelTarget(pos_target,max_xyz_velocity,split/3f),
+		//        		new Offboard3VelTarget(test,max_xyz_velocity,split/2.5f),
+		//        		new Offboard3VelTarget(pos_target,max_xyz_velocity,split/3f)
+		//        		);
+		//		}
 
 		try {
 
@@ -115,30 +122,30 @@ public class Offboard3Planner {
 
 
 		} catch (Offboard3CollisionException col) {
-			
-			System.err.println("Collsion expected. Plan rejected");
-			return;
-					
-			
-//			 System.err.println("Collsion expected. Re-planning....");
-//			
-//			
-//			Offboard3TargetState critical_target = new_plan.get(col.getPlanningSectionIndex());
-//			
-//			pos_target.x = pos_target.x + 5;
-//    
-//            new_plan.replaceWith(col.getPlanningSectionIndex(), 
-//            		new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,critical_target.getPlannedSectionTime()/2f),
-//            		new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,critical_target.getPlannedSectionTime()/2f)
-//            		);
-//            
-//            try {
-//				planPath(new_plan, current);
-//			} catch (Offboard3CollisionException e) {
-//				 System.out.println("Collsion expected. Re-planning failed.");
-//				 System.err.println(new_plan);
-//				 return;
-//			}
+
+			System.err.println("WARNING: Collsion expected");
+
+
+
+			//			 System.err.println("Collsion expected. Re-planning....");
+			//			
+			//			
+			//			Offboard3TargetState critical_target = new_plan.get(col.getPlanningSectionIndex());
+			//			
+			//			pos_target.x = pos_target.x + 5;
+			//    
+			//            new_plan.replaceWith(col.getPlanningSectionIndex(), 
+			//            		new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,critical_target.getPlannedSectionTime()/2f),
+			//            		new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,critical_target.getPlannedSectionTime()/2f)
+			//            		);
+			//            
+			//            try {
+			//				planPath(new_plan, current);
+			//			} catch (Offboard3CollisionException e) {
+			//				 System.out.println("Collsion expected. Re-planning failed.");
+			//				 System.err.println(new_plan);
+			//				 return;
+			//			}
 		}
 
 		MSPUtils.getInstance().out(new_plan);
@@ -151,17 +158,19 @@ public class Offboard3Planner {
 		Offboard3State nextPlannedCurrentState = initial_state; 
 		Point3D_F64 obstacle = new Point3D_F64(model.slam.ox,model.slam.oy,model.slam.oz);
 
-			int index = 0;
-			for(Offboard3AbstractTarget section : plan) {
+		// Plan sections
+		for(Offboard3AbstractTarget section : plan) {
+			nextPlannedCurrentState = planSection(section, nextPlannedCurrentState);
+			plan.addCostsAndTime((float)xyzPlanner.getCost(), xyzPlanner.getTotalTime());
+		}
+		
+		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP))
+			return;
 
-				nextPlannedCurrentState = planSection(section, nextPlannedCurrentState);
-				collisionCheck.check(obstacle, 0, index);
-				
-				plan.addCostsAndTime((float)xyzPlanner.getCost(), xyzPlanner.getTotalTime());
-
-				index++;
-
-			}
+		// Check collision
+		for(int sections = 0; sections < plan.size();sections++) {
+			collisionCheck.check(obstacle, 0, sections);
+		}	
 	}
 
 
@@ -170,6 +179,8 @@ public class Offboard3Planner {
 
 		float estimated_xyz_duration = 0; float estimated_yaw_duration = 0; 
 		float planned_xyz_duration = 0; float planned_yaw_duration = 0; 
+		
+		final Offboard3Current new_current_state = new Offboard3Current();
 
 		target.replaceNaNPositionBy(current_state.pos());
 
@@ -258,18 +269,19 @@ public class Offboard3Planner {
 				planned_xyz_duration = xyzPlanner.generate(estimated_xyz_duration);
 				//System.out.println("\tXYZ Position  (Planner): "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
 			}
-			
+
 			target.setPlannedSectionTime(planned_xyz_duration > planned_yaw_duration ? planned_xyz_duration : planned_yaw_duration);
 
-			// Update current_state with estimated data
-			xyzPlanner.getGoalPosition(current_state.pos());
-			xyzPlanner.getGoalVelocity(current_state.vel());
-			xyzPlanner.getGoalAcceleration(current_state.acc());
+			
+			// Update next planned current_state with estimated end state of section
+			xyzPlanner.getGoalPosition(new_current_state.pos());
+			xyzPlanner.getGoalVelocity(new_current_state.vel());
+			xyzPlanner.getGoalAcceleration(new_current_state.acc());
 		}
 
 
 
-		return current_state;
+		return new_current_state;
 
 	}
 

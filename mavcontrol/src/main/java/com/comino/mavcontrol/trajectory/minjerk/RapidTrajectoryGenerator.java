@@ -427,11 +427,13 @@ public class RapidTrajectoryGenerator {
 	public void getPosition(double t, GeoTuple4D_F32<?> out) {
 		for(int i=0;i<3;i++)
 			out.setIdx(i, (float)_axis[i].getPosition(t));
+		out.w = Float.NaN;
 	}
 	
 	public void getVelocity(double t, GeoTuple4D_F32<?> out) {
 		for(int i=0;i<3;i++)
 			out.setIdx(i, (float)_axis[i].getVelocity(t));
+		out.w = 0;
 	}
 	
 	public void getAcceleration(double t, GeoTuple4D_F32<?> out) {

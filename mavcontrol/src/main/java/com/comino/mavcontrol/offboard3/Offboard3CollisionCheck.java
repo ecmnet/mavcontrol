@@ -51,7 +51,7 @@ public class Offboard3CollisionCheck {
 		// TODO get nearest obstacle position into obstacle
 
 		// Brute force method
-		for(time_elapsed = time_section_start; time_elapsed < trajectory_generator.getTotalTime(); time_elapsed += time_step) {
+		for(time_elapsed = time_step; time_elapsed < trajectory_generator.getTotalTime(); time_elapsed += time_step) {
 			trajectory_generator.getPosition(time_elapsed, position);
 
 			// Check only YX distance
