@@ -279,7 +279,6 @@ public class Offboard3Manager {
 			wq.removeTask("NP", offboard_worker);
 			offboard_worker = 0;
 
-
 			model.slam.clearFlags();
 
 		}
@@ -432,7 +431,7 @@ public class Offboard3Manager {
 						cmd.yaw_rate = (float)yawExecutor.getVelocity(t_elapsed);
 						cmd.yaw      = (float)yawExecutor.getPosition(t_elapsed);
 					} else {
-						//model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
+						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
 						cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
 						cmd.yaw_rate = 0;
 						cmd.yaw      = current_target.pos().w;
@@ -458,7 +457,7 @@ public class Offboard3Manager {
 							cmd.yaw       = current_target.pos().w;
 							cmd.yaw_rate  = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - current.pos().w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);		
 						} else {
-							//model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
+							model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
 							cmd.yaw_rate = 0;
 							cmd.yaw      = current_target.pos().w;
@@ -519,8 +518,8 @@ public class Offboard3Manager {
 			//			else
 			//				target.replaceNaNVelocityBy(current_state.vel());
 
-			// Yaw Planning 
-
+			
+			// Yaw execturion planning 
 			yawExecutor.reset(); t_planned_yaw = 0;
 			if(Float.isFinite(target.pos().w)) {
 
@@ -557,7 +556,7 @@ public class Offboard3Manager {
 			} 
 
 
-			// XYZ executplanning
+			// XYZ execuion tplanning
 
 			xyzExecutor.reset(); t_planned_xyz = 0;
 			if((isFinite(target.pos()) || isValid(target.vel())) &&	!target.isPosReached(current_state.pos(),acceptance_radius,Float.NaN)) {
