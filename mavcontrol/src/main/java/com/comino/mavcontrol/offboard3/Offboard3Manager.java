@@ -341,19 +341,22 @@ public class Offboard3Manager {
 				t_timeout = DEFAULT_TIMEOUT + (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw) ;
 				return;
 			}
+			
+			// Do a collision check
 
 			try {
 				checkCollisionForPlannedSection(current_target,t_elapsed);
 			} catch(Offboard3CollisionException c) {
 				if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
 					control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPUtils.getInstance().time(c.getExpectedTimeOfCollision())+".", 
-							MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
+							MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				}
 				
 				float stop_time = 0.5f;
 				if(c.getExpectedTimeOfCollision() < stop_time) {
 					control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPUtils.getInstance().time(c.getExpectedTimeOfCollision())+". Stopped.", 
-							MAV_SEVERITY.MAV_SEVERITY_ERROR));
+							MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
+					stopAndLoiter();
 					return;
 				}
 				else {
@@ -591,14 +594,15 @@ public class Offboard3Manager {
 
 				if(isValid(target.vel())) {
 					t_planned_xyz = xyzExecutor.generate(estimated_xyz_duration);
-					MSPUtils.getInstance().out("XYZ Velocity (Execution): "+target+" (" +MSP3DUtils.distance3D(target.pos(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
+					MSPUtils.getInstance().out("XYZ Velocity (Execution): "+target);
 
 				}
 				else {
 					if(estimated_xyz_duration < 2)
 						estimated_xyz_duration = 2f;
 					t_planned_xyz = xyzExecutor.generate(estimated_xyz_duration);
-					MSPUtils.getInstance().out("XYZ Position (Execution): "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
+					MSPUtils.getInstance().out("XYZ Position (Execution): "+target);
+
 				}
 			}
 
