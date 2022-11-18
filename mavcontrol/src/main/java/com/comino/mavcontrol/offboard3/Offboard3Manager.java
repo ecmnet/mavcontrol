@@ -311,7 +311,7 @@ public class Offboard3Manager {
 				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
 					model.slam.wpcount = 0;
-					
+
 					if(reached!=null) {
 						reached.action();
 						stop();
@@ -330,33 +330,34 @@ public class Offboard3Manager {
 				t_timeout = DEFAULT_TIMEOUT + (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw) ;
 				return;
 			}
-			
+
 			// Do a collision check
 
 			try {
 				checkCollisionForPlannedSection(current_target,t_elapsed);
 			} catch(Offboard3CollisionException c) {
-				if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
-					control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(c.getExpectedTimeOfCollision())+".", 
-							MAV_SEVERITY.MAV_SEVERITY_WARNING));
-				}
-				
-				float stop_time = 0.5f;
-				if(c.getExpectedTimeOfCollision() < stop_time) {
-					control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(c.getExpectedTimeOfCollision())+". Stopped.", 
-							MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
-					stopAndLoiter();
-					return;
-				}
-				else {
-					MSPStringUtils.getInstance().out("Do re-planning:");
-					final GeoTuple4D_F32<?> position_tmp = new Point4D_F32();
-					xyzExecutor.getPosition(c.getExpectedTimeOfCollision()-stop_time, position_tmp);
-					control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(c.getExpectedTimeOfCollision())+". Replanning.", 
-							MAV_SEVERITY.MAV_SEVERITY_INFO));
-					planner.reset(); planner.planDirectPath(position_tmp);
-					current_target = planNextSectionExecution(current);	
-					return;
+
+				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
+
+
+					float stop_time = 0.5f;
+					if(c.getExpectedTimeOfCollision() < stop_time) {
+						control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(c.getExpectedTimeOfCollision())+". Stopped.", 
+								MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
+						stopAndLoiter();
+						return;
+					}
+					else {
+						MSPStringUtils.getInstance().out("Do re-planning:");
+						final GeoTuple4D_F32<?> position_tmp = new Point4D_F32();
+						xyzExecutor.getPosition(c.getExpectedTimeOfCollision()-stop_time, position_tmp);
+						control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(c.getExpectedTimeOfCollision())+". Replanning.", 
+								MAV_SEVERITY.MAV_SEVERITY_INFO));
+						planner.reset(); planner.planDirectPath(position_tmp);
+						current_target = planNextSectionExecution(current);	
+						return;
+					}
+
 				}
 
 			}
@@ -469,7 +470,7 @@ public class Offboard3Manager {
 
 					if(!offboardEnabled)
 						enableOffboard();
-					
+
 				}
 			}
 
@@ -503,14 +504,14 @@ public class Offboard3Manager {
 			else
 				target.replaceNaNPositionBy(current_state.pos());
 
-						if(MSP3DUtils.isFinite(current.sev())) {
-							target.replaceNaNVelocityBy(current_state.sev());
-							target.setTargetIsSetpoint(true);
-						}
-						else
-							target.replaceNaNVelocityBy(current_state.vel());
+			if(MSP3DUtils.isFinite(current.sev())) {
+				target.replaceNaNVelocityBy(current_state.sev());
+				target.setTargetIsSetpoint(true);
+			}
+			else
+				target.replaceNaNVelocityBy(current_state.vel());
 
-			
+
 			// Yaw execturion planning 
 			yawExecutor.reset(); t_planned_yaw = 0;
 			if(Float.isFinite(target.pos().w)) {

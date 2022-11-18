@@ -29,6 +29,7 @@ public class Offboard3Planner {
 
 	private static final float MAX_YAW_VEL                      = MSPMathUtils.toRad(45);   // Maxumum speed in [rad/s]
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
+	private static final float MIN_XYZ_ESTIMATED_TIME           = 5f;                       // Minumum duration the planner ist used in [s]
 
 	// Planners
 	private final SingleAxisTrajectory      yawPlanner = new SingleAxisTrajectory();
@@ -210,7 +211,7 @@ public class Offboard3Planner {
 			yawPlanner.setTargetState(target.pos().w , 0, 0);
 
 			if(target.getDuration() < 0)
-				estimated_yaw_duration = Math.abs(target.pos().w  - current_state.pos().w)/MAX_YAW_VEL;
+				estimated_yaw_duration = Math.abs(target.pos().w  - current_state.pos().w) * 2.0f /MAX_YAW_VEL;
 			else
 				estimated_yaw_duration = target.getDuration();
 
@@ -252,7 +253,10 @@ public class Offboard3Planner {
 
 			if(target.getDuration() < 0) {
 				estimated_xyz_duration = MSP3DUtils.distance3D(target.pos(), current_state.pos()) * 2.0f / max_xyz_velocity;
-
+				
+				if(estimated_xyz_duration < MIN_XYZ_ESTIMATED_TIME)
+					estimated_xyz_duration = MIN_XYZ_ESTIMATED_TIME;
+				
 				if(estimated_xyz_duration < estimated_yaw_duration)
 					estimated_xyz_duration = estimated_yaw_duration;
 
