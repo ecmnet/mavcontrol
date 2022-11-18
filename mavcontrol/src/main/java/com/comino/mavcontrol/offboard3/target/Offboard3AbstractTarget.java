@@ -20,6 +20,7 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	private float   max_velocity       =  Float.NaN;
 	private float   duration           = -1;
 	private float   section_time       =  0;
+	private int     index              =  0;
 	
 	private long    t_started_ms       =  0;
 	private boolean targetIsSetpoint   =  false;
@@ -30,8 +31,7 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 		this.vel.setTo(0,0,0,Float.NaN);
 		
 		this.duration = d_sec;
-		this.type     = type;
-		
+		this.type     = type;	
 	}
 
 	public Offboard3AbstractTarget(int type, GeoTuple4D_F32<?> p, float v, float d_sec) {
@@ -49,6 +49,14 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	
 	public int getType() {
 		return type;
+	}
+	
+	public int getIndex() {
+		return index;
+	}
+	
+	public void setIndex(int i) {
+		this.index = i;
 	}
 
 	public long getStartedTimestamp() {

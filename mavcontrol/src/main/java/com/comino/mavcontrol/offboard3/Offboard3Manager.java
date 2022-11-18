@@ -1,7 +1,5 @@
 package com.comino.mavcontrol.offboard3;
 
-import java.util.LinkedList;
-
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_FRAME;
 import org.mavlink.messages.MAV_MODE_FLAG;
@@ -33,26 +31,16 @@ import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.MSPStringUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
-import georegression.struct.GeoTuple3D_F32;
 import georegression.struct.GeoTuple4D_F32;
-import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Point4D_F32;
-import georegression.struct.point.Point4D_F64;
-import georegression.struct.point.Vector4D_F32;
 
-
-/*
- * TODO:
- * - Planning should take place during execution not when setting the target
- * - Multiple Targets
- */
 
 public class Offboard3Manager {
 
 	private static Offboard3Manager instance;
 
-	private static final int   UPDATE_RATE                 	    = 50;					    // Offboard update rate in [ms]
+	private static final int   UPDATE_RATE                 	    = 33;					    // Offboard update rate in [ms]
 	private static final float DEFAULT_TIMEOUT                	= 5.0f;					    // Default timeout 1s
 
 	private static final float RADIUS_ACCEPT                    = 0.3f;                     // Acceptance radius in [m]
@@ -322,6 +310,8 @@ public class Offboard3Manager {
 
 				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
+					model.slam.wpcount = 0;
+					
 					if(reached!=null) {
 						reached.action();
 						stop();
@@ -479,6 +469,7 @@ public class Offboard3Manager {
 
 					if(!offboardEnabled)
 						enableOffboard();
+					
 				}
 			}
 
@@ -493,6 +484,7 @@ public class Offboard3Manager {
 			}
 
 			Offboard3AbstractTarget new_target = planner.getFinalPlan().poll();
+			model.slam.wpcount = new_target.getIndex();
 
 			if(MSP3DUtils.isFinite(new_target.pos()))
 				control.writeLogMessage(new LogMessage("[msp] Offboard execute next section.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -511,12 +503,12 @@ public class Offboard3Manager {
 			else
 				target.replaceNaNPositionBy(current_state.pos());
 
-			//			if(MSP3DUtils.isFinite(current.sev())) {
-			//				target.replaceNaNVelocityBy(current_state.sev());
-			//				target.setTargetIsSetpoint(true);
-			//			}
-			//			else
-			//				target.replaceNaNVelocityBy(current_state.vel());
+						if(MSP3DUtils.isFinite(current.sev())) {
+							target.replaceNaNVelocityBy(current_state.sev());
+							target.setTargetIsSetpoint(true);
+						}
+						else
+							target.replaceNaNVelocityBy(current_state.vel());
 
 			
 			// Yaw execturion planning 
@@ -665,7 +657,6 @@ public class Offboard3Manager {
 				control.sendMAVLinkMessage(new msg_msp_trajectory(2,1));
 				return;
 			}
-
 
 			model.traj.ls = xyzExecutor.getTotalTime();
 			model.traj.fs = elapsed_time;

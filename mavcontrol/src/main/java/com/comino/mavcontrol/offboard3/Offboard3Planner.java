@@ -158,9 +158,11 @@ public class Offboard3Planner {
 		Offboard3State nextPlannedCurrentState = initial_state; 
 		Point3D_F64 obstacle = new Point3D_F64(model.slam.ox,model.slam.oy,model.slam.oz);
 
+		int index = 0;
 		// Plan sections
 		for(Offboard3AbstractTarget section : plan) {
 			nextPlannedCurrentState = planSection(section, nextPlannedCurrentState);
+			section.setIndex(++index);
 			plan.addCostsAndTime((float)xyzPlanner.getCost(), xyzPlanner.getTotalTime());
 		}
 		
@@ -269,6 +271,7 @@ public class Offboard3Planner {
 				planned_xyz_duration = xyzPlanner.generate(estimated_xyz_duration);
 				//System.out.println("\tXYZ Position  (Planner): "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
 			}
+			
 
 			target.setPlannedSectionTime(planned_xyz_duration > planned_yaw_duration ? planned_xyz_duration : planned_yaw_duration);
 
