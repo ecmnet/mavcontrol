@@ -19,7 +19,7 @@ import com.comino.mavcontrol.offboard3.target.Offboard3YawTarget;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
 import com.comino.mavutils.MSPMathUtils;
-import com.comino.mavutils.MSPUtils;
+import com.comino.mavutils.MSPStringUtils;
 
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F64;
@@ -148,7 +148,7 @@ public class Offboard3Planner {
 			//			}
 		}
 
-		MSPUtils.getInstance().out(new_plan);
+		MSPStringUtils.getInstance().out(new_plan);
 		final_plan.addAll(new_plan);
 	}
 
