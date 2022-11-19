@@ -22,13 +22,14 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	private float   section_time       =  0;
 	private int     index              =  0;
 	
-	private long    t_started_ms       =  0;
+	private long    t_started_ns       =  0;
 	private boolean targetIsSetpoint   =  false;
 	
 	
 	public Offboard3AbstractTarget(int type, float x, float y, float z, float w, float d_sec) {
 		this.pos.setTo(x,y,z,w);
 		this.vel.setTo(0,0,0,Float.NaN);
+		this.acc.setTo(0,0,0,Float.NaN);
 		
 		this.duration = d_sec;
 		this.type     = type;	
@@ -37,6 +38,7 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	public Offboard3AbstractTarget(int type, GeoTuple4D_F32<?> p, float v, float d_sec) {
 		
 		this.pos.setTo(p.x,p.y,p.z,p.w);
+		this.acc.setTo(0,0,0,Float.NaN);
 		this.max_velocity = v;
 		
 		this.type  = type;
@@ -60,9 +62,15 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	}
 
 	public long getStartedTimestamp() {
-		if(t_started_ms == 0)
-			t_started_ms = System.currentTimeMillis();
-		return t_started_ms;
+		if(t_started_ns == 0)
+			t_started_ns = System.nanoTime();
+		return t_started_ns;
+	}
+	
+	public float getElapsedTime() {
+		if(t_started_ns == 0)
+			t_started_ns = System.nanoTime();
+		return (System.nanoTime() - t_started_ns ) / 1_000_000_000.0f;
 	}
 
 	public void determineTargetVelocity(GeoTuple4D_F32<?> p_current) {

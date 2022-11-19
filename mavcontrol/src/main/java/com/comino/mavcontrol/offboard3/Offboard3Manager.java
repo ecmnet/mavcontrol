@@ -40,7 +40,7 @@ public class Offboard3Manager {
 
 	private static Offboard3Manager instance;
 
-	private static final int   UPDATE_RATE                 	    = 50;					    // Offboard update rate in [ms]
+	private static final int   UPDATE_RATE                 	    = 20;					    // Offboard update rate in [ms]
 	private static final float DEFAULT_TIMEOUT                	= 5.0f;					    // Default timeout 1s
 
 	private static final float RADIUS_ACCEPT                    = 0.3f;                     // Acceptance radius in [m]
@@ -222,7 +222,7 @@ public class Offboard3Manager {
 			this.timeout     = timeout_action;
 			this.t_elapsed   = 0;
 
-			this.t_elapsed_last = System.currentTimeMillis();
+			this.t_elapsed_last = System.nanoTime();
 
 			if(planner.getFinalPlan().isEmpty())
 				return;
@@ -298,10 +298,11 @@ public class Offboard3Manager {
 
 			// timing
 			t_elapsed_last = t_elapsed;
-			t_elapsed = (System.currentTimeMillis() - current_target.getStartedTimestamp()) / 1000f;
-			if((t_elapsed - t_elapsed_last) < 0) {
-				return;
-			}
+			t_elapsed = current_target.getElapsedTime();
+			
+//			if((t_elapsed - t_elapsed_last) < 0) {
+//				return;
+//			}
 
 
 			// check current state and perform action 
@@ -326,7 +327,7 @@ public class Offboard3Manager {
 			// Plan next target if required
 			if(!planner.getFinalPlan().isEmpty() && xyzExecutor.isPlanned() && t_elapsed >= xyzExecutor.getTotalTime()) {
 				current_target = planNextSectionExecution(current);	
-				return;
+				t_elapsed = 0;
 			}
 
 
@@ -463,7 +464,7 @@ public class Offboard3Manager {
 				enableOffboard();
 
 			model.debug.x = (float)Math.sqrt(cmd.vx * cmd.vx + cmd.vy * cmd.vy +cmd.vz * cmd.vz);
-			model.debug.y = cmd.yaw_rate;
+			model.debug.y = (float)Math.sqrt(cmd.afx * cmd.afx + cmd.afy * cmd.afy +cmd.afz * cmd.afz);
 			model.debug.z = cmd.yaw;
 
 
@@ -476,7 +477,9 @@ public class Offboard3Manager {
 			if(planner.getFinalPlan().isEmpty()) {
 				return current_target;
 			}
-
+			
+			MSPStringUtils.getInstance().out("XYZ CUR (Execution): "+current_state);
+			
 			Offboard3AbstractTarget new_target = planner.getFinalPlan().poll();
 			model.slam.wpcount = new_target.getIndex();
 
