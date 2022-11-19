@@ -40,7 +40,7 @@ public class Offboard3Manager {
 
 	private static Offboard3Manager instance;
 
-	private static final int   UPDATE_RATE                 	    = 33;					    // Offboard update rate in [ms]
+	private static final int   UPDATE_RATE                 	    = 50;					    // Offboard update rate in [ms]
 	private static final float DEFAULT_TIMEOUT                	= 5.0f;					    // Default timeout 1s
 
 	private static final float RADIUS_ACCEPT                    = 0.3f;                     // Acceptance radius in [m]
@@ -52,7 +52,6 @@ public class Offboard3Manager {
 
 	private static final float MAX_XYZ_VEL                      = 1.0f;                     // Maxumum speed in [m/s]
 
-	private static final float MIN_DISTANCE_OBSTACLE            = 0.5F;                     // Minimal distance to obstacle
 
 	private final Offboard3Worker   worker;
 	private final DataModel         model;
@@ -287,22 +286,23 @@ public class Offboard3Manager {
 			return yawExecutor.isPlanned() || xyzExecutor.isPlanned();
 		}
 
-
 		@Override
 		public void run() {
 
 			if(!isRunning)
 				return;
 
+
 			// Convert current state
 			current.update();
 
+			// timing
 			t_elapsed_last = t_elapsed;
 			t_elapsed = (System.currentTimeMillis() - current_target.getStartedTimestamp()) / 1000f;
-
-			if((t_elapsed - t_elapsed_last) <= 0) {
+			if((t_elapsed - t_elapsed_last) < 0) {
 				return;
 			}
+
 
 			// check current state and perform action 
 			if((yawExecutor.isPlanned() || xyzExecutor.isPlanned()) &&
@@ -321,24 +321,21 @@ public class Offboard3Manager {
 					updateTrajectoryModel(t_elapsed);
 					return;
 				} 
-
 			}
 
 			// Plan next target if required
 			if(!planner.getFinalPlan().isEmpty() && xyzExecutor.isPlanned() && t_elapsed >= xyzExecutor.getTotalTime()) {
 				current_target = planNextSectionExecution(current);	
-				t_timeout = DEFAULT_TIMEOUT + (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw) ;
 				return;
 			}
 
-			// Do a collision check
 
 			try {
+			// Do a collision check
 				checkCollisionForPlannedSection(current_target,t_elapsed);
 			} catch(Offboard3CollisionException c) {
 
 				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
-
 
 					float stop_time = 0.5f;
 					if(c.getExpectedTimeOfCollision() < stop_time) {
@@ -357,9 +354,7 @@ public class Offboard3Manager {
 						current_target = planNextSectionExecution(current);	
 						return;
 					}
-
 				}
-
 			}
 
 			// check timeout
@@ -373,12 +368,12 @@ public class Offboard3Manager {
 				return;
 			}
 
-			// set setpoint synchronized and send to PX4
+            // Calculate and send command
 			synchronized(this) {
 
 				cmd.type_mask    = 0;
 				model.slam.clearFlags();
-
+				
 
 				if(xyzExecutor.isPlanned() && t_elapsed <= xyzExecutor.getTotalTime()) {
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_XYZ_PLANNER, true);
@@ -393,6 +388,7 @@ public class Offboard3Manager {
 					cmd.y       = current_target.pos().y;
 					cmd.z       = current_target.pos().z;
 				}
+			
 
 				if(xyzExecutor.isPlanned() && t_elapsed <= xyzExecutor.getTotalTime()) {
 					cmd.vx       = (float)xyzExecutor.getVelocity(t_elapsed,0);
@@ -430,7 +426,6 @@ public class Offboard3Manager {
 
 				} else {
 
-
 					// Yaw control aligns to path based on velocity direction or setpoint
 					if(xyzExecutor.isPlanned() && t_elapsed <= xyzExecutor.getTotalTime()) {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
@@ -456,23 +451,21 @@ public class Offboard3Manager {
 					}
 				}
 
-				model.debug.x = (float)Math.sqrt(cmd.vx * cmd.vx + cmd.vy * cmd.vy +cmd.vz * cmd.vz);
-				model.debug.y = cmd.yaw_rate;
-				model.debug.z = cmd.yaw;
-
-
 				if(isRunning) {
 					cmd.time_boot_ms = model.sys.t_boot_ms;
 					cmd.isValid  = true;
 					cmd.coordinate_frame = MAV_FRAME.MAV_FRAME_LOCAL_NED;
-
 					control.sendMAVLinkMessage(cmd);
-
-					if(!offboardEnabled)
-						enableOffboard();
-
 				}
 			}
+			
+			if(!offboardEnabled)
+				enableOffboard();
+
+			model.debug.x = (float)Math.sqrt(cmd.vx * cmd.vx + cmd.vy * cmd.vy +cmd.vz * cmd.vz);
+			model.debug.y = cmd.yaw_rate;
+			model.debug.z = cmd.yaw;
+
 
 			if(t_elapsed < xyzExecutor.getTotalTime())
 				updateTrajectoryModel(t_elapsed);
@@ -503,13 +496,13 @@ public class Offboard3Manager {
 			}
 			else
 				target.replaceNaNPositionBy(current_state.pos());
-
-			if(MSP3DUtils.isFinite(current.sev())) {
-				target.replaceNaNVelocityBy(current_state.sev());
-				target.setTargetIsSetpoint(true);
-			}
-			else
-				target.replaceNaNVelocityBy(current_state.vel());
+			//
+			//			if(MSP3DUtils.isFinite(current.sev())) {
+			//				target.replaceNaNVelocityBy(current_state.sev());
+			//				target.setTargetIsSetpoint(true);
+			//			}
+			//			else
+			//				target.replaceNaNVelocityBy(current_state.vel());
 
 
 			// Yaw execturion planning 
@@ -682,6 +675,10 @@ public class Offboard3Manager {
 			model.traj.svx = (float)xyzExecutor.getInitialVelocity(0);
 			model.traj.svy = (float)xyzExecutor.getInitialVelocity(1);
 			model.traj.svz = (float)xyzExecutor.getInitialVelocity(2);
+			
+			model.traj.sax = (float)xyzExecutor.getInitialAcceleration(0);
+			model.traj.say = (float)xyzExecutor.getInitialAcceleration(1);
+			model.traj.saz = (float)xyzExecutor.getInitialAcceleration(2);
 
 			model.traj.tms = DataModel.getSynchronizedPX4Time_us();
 
