@@ -72,11 +72,7 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 			t_started_ns = System.nanoTime();
 		return (System.nanoTime() - t_started_ns ) / 1_000_000_000.0f;
 	}
-	
-	public void determineTargetYaw(GeoTuple4D_F32<?> p_current) {
-		if(Float.isNaN(pos.w))
-			pos.w = MSP3DUtils.angleXY(pos.x - p_current.x,pos.y - p_current.y);
-	}
+
 
 	public void determineTargetVelocity(GeoTuple4D_F32<?> p_current) {
 
@@ -88,9 +84,6 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 		vel.x = vel.x * max_velocity / n;
 		vel.y = vel.y * max_velocity / n;
 		vel.z = vel.z * max_velocity / n;
-
-		if(Float.isNaN(pos.w))
-			pos().w = MSP3DUtils.angleXY(vel.x,vel.y);
 
 	}
 

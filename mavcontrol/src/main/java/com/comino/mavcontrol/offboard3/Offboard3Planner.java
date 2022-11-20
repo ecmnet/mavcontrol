@@ -197,7 +197,6 @@ public class Offboard3Planner {
 
 			switch(target.getType()) {
 			case Offboard3AbstractTarget.TYPE_POS:
-				target.determineTargetYaw(current_state.pos());
 				xyzPlanner.setGoal(target.pos(), target.vel(), target.acc());
 				break;
 			case Offboard3AbstractTarget.TYPE_POS_VEL:
@@ -270,7 +269,6 @@ public class Offboard3Planner {
 				current_state.pos().w = (float)yawPlanner.getGoalPosition();
 				current_state.vel().w = (float)yawPlanner.getGoalVelocity();
 				current_state.acc().w = 0;
-
 			} 
 			
 
