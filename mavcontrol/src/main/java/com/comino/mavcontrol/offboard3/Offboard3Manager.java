@@ -40,7 +40,7 @@ public class Offboard3Manager {
 
 	private static Offboard3Manager instance;
 
-	private static final int   UPDATE_RATE                 	    = 20;					    // Offboard update rate in [ms]
+	private static final int   UPDATE_RATE                 	    = 50;					    // Offboard update rate in [ms]
 	private static final float DEFAULT_TIMEOUT                	= 5.0f;					    // Default timeout 1s
 
 	private static final float RADIUS_ACCEPT                    = 0.3f;                     // Acceptance radius in [m]
@@ -222,8 +222,6 @@ public class Offboard3Manager {
 			this.timeout     = timeout_action;
 			this.t_elapsed   = 0;
 
-			this.t_elapsed_last = System.nanoTime();
-
 			if(planner.getFinalPlan().isEmpty())
 				return;
 
@@ -240,8 +238,10 @@ public class Offboard3Manager {
 
 			if(isRunning)
 				return;
+			
+			this.t_elapsed_last = System.nanoTime();
 
-			isRunning = true;
+			isRunning = true; 
 			offboard_worker = wq.addCyclicTask("HP", UPDATE_RATE, this);
 
 		}
@@ -252,22 +252,19 @@ public class Offboard3Manager {
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
 					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
 					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
-
 		}
 
 		public void stop() {
 
-
+			wq.removeTask("HP", offboard_worker);
+			this.offboard_worker = 0;
+			
+			reset();
+			
 			this.isRunning       = false;
 			this.offboardEnabled = false;
 
-			reset();
-
-			wq.removeTask("NP", offboard_worker);
-			offboard_worker = 0;
-
 			model.slam.clearFlags();
-
 		}
 
 		public void setTarget(float yaw) {
@@ -292,14 +289,16 @@ public class Offboard3Manager {
 			if(!isRunning)
 				return;
 
-
 			// Convert current state
 			current.update();
 
 			// timing
 			t_elapsed_last = t_elapsed;
 			t_elapsed = current_target.getElapsedTime();
-
+			
+			if((t_elapsed - t_elapsed_last) < 0.010f) {
+				return;
+			}
 
 			// check current state and perform action 
 			if((yawExecutor.isPlanned() || xyzExecutor.isPlanned()) &&
@@ -408,7 +407,6 @@ public class Offboard3Manager {
 				}
 
 				if(yawExecutor.isPlanned()) {	
-
 					// Yaw controlled by planner
 					if(t_elapsed <= yawExecutor.getTotalTime()) {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_PLANNER, true);
@@ -431,6 +429,7 @@ public class Offboard3Manager {
 							current_target.pos().w = MSP3DUtils.angleXY(cmd.vx,cmd.vy);
 							cmd.yaw      = current_target.pos().w;
 							cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - current.pos().w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);
+							// System.err.println("YAW CONTROL1 "+MSPMathUtils.normAngle(cmd.yaw - current.pos().w)+":"+cmd.yaw_rate);
 						} 
 					} else {
 						// XYZ Target reached but not yaw: Further yaw turning via YAWControl
@@ -438,7 +437,7 @@ public class Offboard3Manager {
 							model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
 							cmd.yaw       = current_target.pos().w;
-							cmd.yaw_rate  = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - current.pos().w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);		
+							cmd.yaw_rate  = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - current.pos().w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);	
 						} else {
 							model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
