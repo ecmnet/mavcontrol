@@ -94,7 +94,7 @@ public class Offboard3Planner {
 		Offboard3Plan<Offboard3AbstractTarget> new_plan = new Offboard3Plan<Offboard3AbstractTarget>();
 
 		reset(); current.update();
-
+	
 		new_plan.setEstimatedTime(MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_velocity);
 
 		if(new_plan.getEstimatedTime() < (5/max_xyz_velocity+3.0f)) {

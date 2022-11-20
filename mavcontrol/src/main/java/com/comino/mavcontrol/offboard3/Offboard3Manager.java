@@ -307,6 +307,7 @@ public class Offboard3Manager {
 				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
 					model.slam.wpcount = 0;
+					model.slam.di = 0;
 
 					if(reached!=null) {
 						reached.action();
@@ -463,8 +464,10 @@ public class Offboard3Manager {
 			model.debug.z = cmd.yaw;
 
 
-			if(t_elapsed < xyzExecutor.getTotalTime())
+			if(t_elapsed < xyzExecutor.getTotalTime()) {
+				model.slam.di = MSP3DUtils.distance3D(current_target.pos(), current.pos());
 				updateTrajectoryModel(t_elapsed);
+			}
 		}
 
 		private Offboard3AbstractTarget planNextSectionExecution(Offboard3Current current_state) {
