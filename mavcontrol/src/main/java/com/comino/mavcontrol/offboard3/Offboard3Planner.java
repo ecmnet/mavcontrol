@@ -48,6 +48,8 @@ public class Offboard3Planner {
 	private final DataModel                    model;
 	private final IMAVController               control;
 
+	// Admins
+	private int plannedSectionCount = 0;
 
 	// Planning parameters
 	private float acceptance_radius;
@@ -69,8 +71,13 @@ public class Offboard3Planner {
 	public LinkedList<Offboard3AbstractTarget> getFinalPlan() {
 		return final_plan;
 	}
+	
+	public int getPlannedSectionCount() {
+		return plannedSectionCount;
+	}
 
 	public void reset() {
+		plannedSectionCount = 0;
 		final_plan.clear();
 		yawPlanner.reset();
 		xyzPlanner.reset();
@@ -159,11 +166,11 @@ public class Offboard3Planner {
 		Offboard3State nextPlannedCurrentState = initial_state; 
 		Point3D_F64 obstacle = new Point3D_F64(model.slam.ox,model.slam.oy,model.slam.oz);
 
-		int index = 0;
+		plannedSectionCount = 0;
 		// Plan sections
 		for(Offboard3AbstractTarget section : plan) {
 			nextPlannedCurrentState = planSection(section, nextPlannedCurrentState);
-			section.setIndex(++index);
+			section.setIndex(++plannedSectionCount);
 			plan.addCostsAndTime((float)xyzPlanner.getCost(), xyzPlanner.getTotalTime());
 		}
 		
