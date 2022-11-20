@@ -187,48 +187,6 @@ public class Offboard3Planner {
 
 		target.replaceNaNPositionBy(current_state.pos());
 
-		// Yaw Planning 
-
-		yawPlanner.reset();
-		if(Float.isFinite(target.pos().w)) {
-
-			target.pos().w = normAngle(target.pos().w );  
-			current_state.pos().w = normAngle(current_state.pos().w);
-
-			//        	System.err.println("1. from " + pc.w +" to " + target.getTargetPosition().w + " delta " +(target.getTargetPosition().w - pc.w));
-
-			if((target.pos().w - current_state.pos().w) > (float)Math.PI) {
-				target.pos().w  = (target.pos().w -(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
-			}
-
-			if((target.pos().w - current_state.pos().w) < -(float)Math.PI) {
-				target.pos().w  = (target.pos().w +(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
-			}
-
-			//			System.err.println("2. from " + pc.w +" to " + target.getTargetPosition().w + " delta " +(target.getTargetPosition().w - pc.w));
-
-			yawPlanner.setInitialState(current_state.pos().w, current_state.vel().w, 0);
-			yawPlanner.setTargetState(target.pos().w , 0, 0);
-
-			if(target.getDuration() < 0)
-				estimated_yaw_duration = Math.abs(target.pos().w  - current_state.pos().w) * 2.0f /MAX_YAW_VEL;
-			else
-				estimated_yaw_duration = target.getDuration();
-
-			if(estimated_yaw_duration > MIN_YAW_PLANNING_DURATION) {
-				if(estimated_yaw_duration < 3)
-					estimated_yaw_duration = 3;
-				planned_yaw_duration = yawPlanner.generateTrajectory(estimated_yaw_duration);
-				//System.out.println("\tYaw (Planner): "+MSPMathUtils.fromRad(target.pos().w )+" in "+estimated_yaw_duration+" secs");
-			} 
-
-			current_state.pos().w = (float)yawPlanner.getGoalPosition();
-			current_state.vel().w = (float)yawPlanner.getGoalVelocity();
-			current_state.acc().w = 0;
-
-		} 
-
-
 		// XYZ planning
 
 		xyzPlanner.reset();
@@ -239,6 +197,7 @@ public class Offboard3Planner {
 
 			switch(target.getType()) {
 			case Offboard3AbstractTarget.TYPE_POS:
+				target.determineTargetYaw(current_state.pos());
 				xyzPlanner.setGoal(target.pos(), target.vel(), target.acc());
 				break;
 			case Offboard3AbstractTarget.TYPE_POS_VEL:
@@ -266,15 +225,53 @@ public class Offboard3Planner {
 
 			if(isValid(target.vel())) {
 				planned_xyz_duration = xyzPlanner.generate(estimated_xyz_duration);
-				//System.out.println("\tXYZ Velocity  (Planner): "+target+" (" +MSP3DUtils.distance3D(target.pos(), current_state.pos()) +") in "+estimated_xyz_duration+" secs");
-
 			}
 			else {
 				if(estimated_xyz_duration < 2)
 					estimated_xyz_duration = 2f;
 				planned_xyz_duration = xyzPlanner.generate(estimated_xyz_duration);
-				//System.out.println("\tXYZ Position  (Planner): "+target+" ("+MSP3DUtils.distance3D(target.pos(), current_state.pos())+") in "+estimated_xyz_duration+" secs");
 			}
+			
+			
+			// Yaw Planning 
+
+			yawPlanner.reset();
+			if(Float.isFinite(target.pos().w)) {
+
+				target.pos().w = normAngle(target.pos().w );  
+				current_state.pos().w = normAngle(current_state.pos().w);
+
+				//        	System.err.println("1. from " + pc.w +" to " + target.getTargetPosition().w + " delta " +(target.getTargetPosition().w - pc.w));
+
+				if((target.pos().w - current_state.pos().w) > (float)Math.PI) {
+					target.pos().w  = (target.pos().w -(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
+				}
+
+				if((target.pos().w - current_state.pos().w) < -(float)Math.PI) {
+					target.pos().w  = (target.pos().w +(float)MSPMathUtils.PI2) % (float)MSPMathUtils.PI2;
+				}
+
+				//			System.err.println("2. from " + pc.w +" to " + target.getTargetPosition().w + " delta " +(target.getTargetPosition().w - pc.w));
+
+				yawPlanner.setInitialState(current_state.pos().w, current_state.vel().w, 0);
+				yawPlanner.setTargetState(target.pos().w , 0, 0);
+
+				if(target.getDuration() < 0)
+					estimated_yaw_duration = Math.abs(target.pos().w  - current_state.pos().w) * 2.0f /MAX_YAW_VEL;
+				else
+					estimated_yaw_duration = target.getDuration();
+
+				if(estimated_yaw_duration > MIN_YAW_PLANNING_DURATION) {
+					if(estimated_yaw_duration < 3)
+						estimated_yaw_duration = 3;
+					planned_yaw_duration = yawPlanner.generateTrajectory(estimated_yaw_duration);
+				} 
+
+				current_state.pos().w = (float)yawPlanner.getGoalPosition();
+				current_state.vel().w = (float)yawPlanner.getGoalVelocity();
+				current_state.acc().w = 0;
+
+			} 
 			
 
 			target.setPlannedSectionTime(planned_xyz_duration > planned_yaw_duration ? planned_xyz_duration : planned_yaw_duration);
@@ -284,6 +281,7 @@ public class Offboard3Planner {
 			xyzPlanner.getGoalPosition(new_current_state.pos());
 			xyzPlanner.getGoalVelocity(new_current_state.vel());
 			xyzPlanner.getGoalAcceleration(new_current_state.acc());
+	
 		}
 
 

@@ -7,40 +7,40 @@ import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point4D_F32;
 
 public abstract class Offboard3AbstractTarget extends Offboard3State {
-	
+
 	public final static int TYPE_POS       = 1;
 	public final static int TYPE_POS_VEL   = 2;
 	public final static int TYPE_VEL       = 3;
-	
-	
+
+
 	public static final GeoTuple4D_F32<Point4D_F32> null_v = new Point4D_F32(0, 0, 0, 0);
-	
-	
-    private int     type               =  0;
+
+
+	private int     type               =  0;
 	private float   max_velocity       =  Float.NaN;
 	private float   duration           = -1;
 	private float   section_time       =  0;
 	private int     index              =  0;
-	
+
 	private long    t_started_ns       =  0;
 	private boolean targetIsSetpoint   =  false;
-	
-	
+
+
 	public Offboard3AbstractTarget(int type, float x, float y, float z, float w, float d_sec) {
 		this.pos.setTo(x,y,z,w);
 		this.vel.setTo(0,0,0,Float.NaN);
 		this.acc.setTo(0,0,0,Float.NaN);
-		
+
 		this.duration = d_sec;
 		this.type     = type;	
 	}
 
 	public Offboard3AbstractTarget(int type, GeoTuple4D_F32<?> p, float v, float d_sec) {
-		
+
 		this.pos.setTo(p.x,p.y,p.z,p.w);
 		this.acc.setTo(0,0,0,Float.NaN);
 		this.max_velocity = v;
-		
+
 		this.type  = type;
 		this.duration = d_sec;
 	}
@@ -48,15 +48,15 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	public float getDuration() {
 		return duration;
 	}
-	
+
 	public int getType() {
 		return type;
 	}
-	
+
 	public int getIndex() {
 		return index;
 	}
-	
+
 	public void setIndex(int i) {
 		this.index = i;
 	}
@@ -66,11 +66,16 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 			t_started_ns = System.nanoTime();
 		return t_started_ns;
 	}
-	
+
 	public float getElapsedTime() {
 		if(t_started_ns == 0)
 			t_started_ns = System.nanoTime();
 		return (System.nanoTime() - t_started_ns ) / 1_000_000_000.0f;
+	}
+	
+	public void determineTargetYaw(GeoTuple4D_F32<?> p_current) {
+		if(Float.isNaN(pos.w))
+			pos.w = MSP3DUtils.angleXY(pos.x - p_current.x,pos.y - p_current.y);
 	}
 
 	public void determineTargetVelocity(GeoTuple4D_F32<?> p_current) {
@@ -83,7 +88,10 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 		vel.x = vel.x * max_velocity / n;
 		vel.y = vel.y * max_velocity / n;
 		vel.z = vel.z * max_velocity / n;
-		
+
+		if(Float.isNaN(pos.w))
+			pos().w = MSP3DUtils.angleXY(vel.x,vel.y);
+
 	}
 
 	public boolean isPosReached(GeoTuple4D_F32<?> c, float max, float max_yaw) {
@@ -111,23 +119,23 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 		}
 		return true;
 	}
-	
+
 	public void setTargetIsSetpoint(boolean flag) {
 		targetIsSetpoint = flag;
 	}
-	
+
 	public void setPlannedSectionTime(float t) {
 		section_time = t;
 	}
-	
+
 	public float getPlannedSectionTime() {
 		return section_time;
 	}
-	
+
 	public boolean isTargetSetpoint() {
 		return targetIsSetpoint;
 	}
-	
+
 	public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append(super.toString());

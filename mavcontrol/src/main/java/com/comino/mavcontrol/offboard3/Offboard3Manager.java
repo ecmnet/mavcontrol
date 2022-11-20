@@ -110,7 +110,7 @@ public class Offboard3Manager {
 
 	}
 
-	public void moveTo(float x, float y, float z, float w,ITargetReached action) {
+	public void moveTo(float x, float y, float z, float w, ITargetReached action) {
 
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && !model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
 			return;
@@ -299,10 +299,6 @@ public class Offboard3Manager {
 			// timing
 			t_elapsed_last = t_elapsed;
 			t_elapsed = current_target.getElapsedTime();
-			
-//			if((t_elapsed - t_elapsed_last) < 0) {
-//				return;
-//			}
 
 
 			// check current state and perform action 
@@ -332,7 +328,7 @@ public class Offboard3Manager {
 
 
 			try {
-			// Do a collision check
+				// Do a collision check
 				checkCollisionForPlannedSection(current_target,t_elapsed);
 			} catch(Offboard3CollisionException c) {
 
@@ -369,12 +365,12 @@ public class Offboard3Manager {
 				return;
 			}
 
-            // Calculate and send command
+			// Calculate and send command
 			synchronized(this) {
 
 				cmd.type_mask    = 0;
 				model.slam.clearFlags();
-				
+
 
 				if(xyzExecutor.isPlanned() && t_elapsed <= xyzExecutor.getTotalTime()) {
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_XYZ_PLANNER, true);
@@ -389,7 +385,7 @@ public class Offboard3Manager {
 					cmd.y       = current_target.pos().y;
 					cmd.z       = current_target.pos().z;
 				}
-			
+
 
 				if(xyzExecutor.isPlanned() && t_elapsed <= xyzExecutor.getTotalTime()) {
 					cmd.vx       = (float)xyzExecutor.getVelocity(t_elapsed,0);
@@ -459,7 +455,7 @@ public class Offboard3Manager {
 					control.sendMAVLinkMessage(cmd);
 				}
 			}
-			
+
 			if(!offboardEnabled)
 				enableOffboard();
 
@@ -477,9 +473,9 @@ public class Offboard3Manager {
 			if(planner.getFinalPlan().isEmpty()) {
 				return current_target;
 			}
-			
+
 			MSPStringUtils.getInstance().out("XYZ CUR (Execution): "+current_state);
-			
+
 			Offboard3AbstractTarget new_target = planner.getFinalPlan().poll();
 			model.slam.wpcount = new_target.getIndex();
 
@@ -507,6 +503,40 @@ public class Offboard3Manager {
 			//			else
 			//				target.replaceNaNVelocityBy(current_state.vel());
 
+
+			// XYZ execuion planning
+
+			xyzExecutor.reset(); t_planned_xyz = 0;
+			if((isFinite(target.pos()) || isValid(target.vel())) &&	!target.isPosReached(current_state.pos(),acceptance_radius,Float.NaN)) {
+
+				xyzExecutor.setInitialState(current_state.pos(),current_state.vel(),current_state.acc());
+
+				switch(target.getType()) {
+				case Offboard3AbstractTarget.TYPE_POS:
+					xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
+					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
+					MSPStringUtils.getInstance().out("XYZ POS (Execution): "+target);
+					break;
+				case Offboard3AbstractTarget.TYPE_POS_VEL:
+					target.determineTargetVelocity(current_state.pos());
+					xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
+					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
+					MSPStringUtils.getInstance().out("XYZ POSVEL (Execution): "+target);
+					break;
+				case Offboard3AbstractTarget.TYPE_VEL:
+					target.determineTargetVelocity(current_state.pos());
+					xyzExecutor.setGoal(null, target.vel(), target.acc());
+					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
+					MSPStringUtils.getInstance().out("XYZ VEL (Execution): "+target);
+					break;
+				default:
+					System.err.println("Wrong target type:"+target.getType());
+					xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
+					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
+					MSPStringUtils.getInstance().out("XYZ OTHER (Execution): "+target);
+					break;
+				}
+			}
 
 			// Yaw execturion planning 
 			yawExecutor.reset(); t_planned_yaw = 0;
@@ -543,41 +573,6 @@ public class Offboard3Manager {
 				} 
 
 			} 
-
-
-			// XYZ execuion planning
-
-			xyzExecutor.reset(); t_planned_xyz = 0;
-			if((isFinite(target.pos()) || isValid(target.vel())) &&	!target.isPosReached(current_state.pos(),acceptance_radius,Float.NaN)) {
-
-				xyzExecutor.setInitialState(current_state.pos(),current_state.vel(),current_state.acc());
-
-				switch(target.getType()) {
-				case Offboard3AbstractTarget.TYPE_POS:
-					xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
-					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
-					MSPStringUtils.getInstance().out("XYZ POS (Execution): "+target);
-					break;
-				case Offboard3AbstractTarget.TYPE_POS_VEL:
-					target.determineTargetVelocity(current_state.pos());
-					xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
-					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
-					MSPStringUtils.getInstance().out("XYZ POSVEL (Execution): "+target);
-					break;
-				case Offboard3AbstractTarget.TYPE_VEL:
-					target.determineTargetVelocity(current_state.pos());
-					xyzExecutor.setGoal(null, target.vel(), target.acc());
-					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
-					MSPStringUtils.getInstance().out("XYZ VEL (Execution): "+target);
-					break;
-				default:
-					System.err.println("Wrong target type:"+target.getType());
-					xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
-					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
-					MSPStringUtils.getInstance().out("XYZ OTHER (Execution): "+target);
-					break;
-				}
-			}
 
 			t_timeout = DEFAULT_TIMEOUT + (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw) ;
 
@@ -678,7 +673,7 @@ public class Offboard3Manager {
 			model.traj.svx = (float)xyzExecutor.getInitialVelocity(0);
 			model.traj.svy = (float)xyzExecutor.getInitialVelocity(1);
 			model.traj.svz = (float)xyzExecutor.getInitialVelocity(2);
-			
+
 			model.traj.sax = (float)xyzExecutor.getInitialAcceleration(0);
 			model.traj.say = (float)xyzExecutor.getInitialAcceleration(1);
 			model.traj.saz = (float)xyzExecutor.getInitialAcceleration(2);
