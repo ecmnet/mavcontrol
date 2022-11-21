@@ -407,21 +407,10 @@ public class Offboard3Manager {
 					cmd.afz       = Float.NaN;
 				}
 
-				if(!current_target.isAutoYaw()) {	
-					// Yaw controlled by planner
-					if(t_elapsed <= yawExecutor.getTotalTime()) {
-						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_PLANNER, true);
-						cmd.yaw_rate = (float)yawExecutor.getVelocity(t_elapsed);
-						cmd.yaw      = (float)yawExecutor.getPosition(t_elapsed);
-					} else {
-						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
-						cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
-						cmd.yaw_rate = 0;
-						cmd.yaw      = current_target.pos().w;
-					}
-
-				} else {
+				if(current_target.isAutoYaw()) {	
+					
 					// Yaw control aligns to path based on velocity direction or setpoint
+					
 					if(xyzExecutor.isPlanned() && t_elapsed <= xyzExecutor.getTotalTime()) {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
 						cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
@@ -446,6 +435,21 @@ public class Offboard3Manager {
 						}
 					}
 
+				} else {
+					
+					// Yaw controlled by planner
+					
+					if(t_elapsed <= yawExecutor.getTotalTime()) {
+						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_PLANNER, true);
+						cmd.yaw_rate = (float)yawExecutor.getVelocity(t_elapsed);
+						cmd.yaw      = (float)yawExecutor.getPosition(t_elapsed);
+					} else {
+						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
+						cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
+						cmd.yaw_rate = 0;
+						cmd.yaw      = current_target.pos().w;
+					}
+					
 				}
 
 				if(isRunning) {
