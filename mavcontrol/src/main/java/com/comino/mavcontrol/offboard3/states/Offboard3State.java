@@ -2,6 +2,8 @@ package com.comino.mavcontrol.offboard3.states;
 
 import java.text.DecimalFormat;
 
+import com.comino.mavutils.MSPMathUtils;
+
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point4D_F32;
 
@@ -12,7 +14,8 @@ public class Offboard3State {
 	protected final GeoTuple4D_F32<?> acc  = new Point4D_F32(0,0,0,0);
 	
 	
-	private final DecimalFormat f = new DecimalFormat("##0.00");
+	protected final DecimalFormat f = new DecimalFormat(" #0.00;-#0.00");
+	protected final DecimalFormat r = new DecimalFormat(" #0.0°;-#0.0°");
 	
 	public Offboard3State() {
 		
@@ -83,9 +86,12 @@ public class Offboard3State {
 	
 	public String toString() {
 		StringBuilder b = new StringBuilder();
-		b.append(" Pos: ("+f.format(pos.x)+","+f.format(pos.y)+","+f.format(pos.z)+")"); b.append("\t");
-		b.append(" Vel: ("+f.format(vel.x)+","+f.format(vel.y)+","+f.format(vel.z)+")"); b.append("\t");
-		b.append(" Acc: ("+f.format(acc.x)+","+f.format(acc.y)+","+f.format(acc.z)+")"); b.append("\t");
+		b.append(" Pos: ("+f.format(pos.x)+","+f.format(pos.y)+","+f.format(pos.z)+")"+","+r.format(MSPMathUtils.fromRad(pos.w))); 
+		b.append("\t");
+		b.append(" Vel: ("+f.format(vel.x)+","+f.format(vel.y)+","+f.format(vel.z)+")"); 
+		b.append("\t");
+		b.append(" Acc: ("+f.format(acc.x)+","+f.format(acc.y)+","+f.format(acc.z)+")"); 
+		b.append("\t");
 		return b.toString();
 	}
 

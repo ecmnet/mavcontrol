@@ -24,18 +24,28 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 
 	private long    t_started_ns       =  0;
 	private boolean targetIsSetpoint   =  false;
+	private boolean auto_yaw          =  false;
 
 
 	public Offboard3AbstractTarget(int type, float x, float y, float z, float w, float d_sec) {
+		this(type,x,y,z,w,d_sec,Float.isNaN(w));
+	}
+
+	public Offboard3AbstractTarget(int type, float x, float y, float z, float w, float d_sec, boolean auto_yaw) {
 		this.pos.setTo(x,y,z,w);
 		this.vel.setTo(0,0,0,Float.NaN);
 		this.acc.setTo(0,0,0,Float.NaN);
 
 		this.duration = d_sec;
 		this.type     = type;	
+		this.auto_yaw = auto_yaw;
+	}
+	
+	public Offboard3AbstractTarget(int type, GeoTuple4D_F32<?> p, float v, float d_sec) {
+		this(type,p,v,d_sec,Float.isNaN(p.w));
 	}
 
-	public Offboard3AbstractTarget(int type, GeoTuple4D_F32<?> p, float v, float d_sec) {
+	public Offboard3AbstractTarget(int type, GeoTuple4D_F32<?> p, float v, float d_sec, boolean auto_yaw) {
 
 		this.pos.setTo(p.x,p.y,p.z,p.w);
 		this.acc.setTo(0,0,0,Float.NaN);
@@ -43,10 +53,15 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 
 		this.type  = type;
 		this.duration = d_sec;
+		this.auto_yaw = auto_yaw;
 	}
 
 	public float getDuration() {
 		return duration;
+	}
+	
+	public boolean isAutoYaw() {
+		return auto_yaw;
 	}
 
 	public int getType() {
@@ -132,8 +147,9 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append(super.toString());
-		b.append("\tDuration set: "+duration);
-		b.append("\tPlanned time: "+section_time);
+		b.append("Duration: "+f.format(duration)+"s ");
+		b.append("Planned: "+f.format(section_time)+"s ");
+		b.append("AutoYaw: "+auto_yaw);
 		return b.toString();
 	}
 

@@ -204,6 +204,10 @@ public class SingleAxisTrajectory {
 	public boolean isPlanned() {
 		return _isPlanned;
 	}
+	
+	public void setAsPlanned(boolean isPlanned) {
+		this._isPlanned = isPlanned;
+	}
 
 	public double getTotalTime() {
 		return _totalTime;

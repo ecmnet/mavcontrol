@@ -238,7 +238,7 @@ public class Offboard3Manager {
 
 			if(isRunning)
 				return;
-			
+
 			this.t_elapsed_last = System.nanoTime();
 
 			isRunning = true; 
@@ -258,9 +258,9 @@ public class Offboard3Manager {
 
 			wq.removeTask("HP", offboard_worker);
 			this.offboard_worker = 0;
-			
+
 			reset();
-			
+
 			this.isRunning       = false;
 			this.offboardEnabled = false;
 
@@ -295,7 +295,7 @@ public class Offboard3Manager {
 			// timing
 			t_elapsed_last = t_elapsed;
 			t_elapsed = current_target.getElapsedTime();
-			
+
 			if((t_elapsed - t_elapsed_last) < 0.010f) {
 				return;
 			}
@@ -407,7 +407,7 @@ public class Offboard3Manager {
 					cmd.afz       = Float.NaN;
 				}
 
-				if(yawExecutor.isPlanned()) {	
+				if(!current_target.isAutoYaw()) {	
 					// Yaw controlled by planner
 					if(t_elapsed <= yawExecutor.getTotalTime()) {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_PLANNER, true);
@@ -421,7 +421,6 @@ public class Offboard3Manager {
 					}
 
 				} else {
-
 					// Yaw control aligns to path based on velocity direction or setpoint
 					if(xyzExecutor.isPlanned() && t_elapsed <= xyzExecutor.getTotalTime()) {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
@@ -446,6 +445,7 @@ public class Offboard3Manager {
 							cmd.yaw      = current_target.pos().w;
 						}
 					}
+
 				}
 
 				if(isRunning) {
@@ -540,6 +540,7 @@ public class Offboard3Manager {
 				}
 			}
 
+
 			// Yaw execturion planning 
 			yawExecutor.reset(); t_planned_yaw = 0;
 			if(Float.isFinite(target.pos().w)) {
@@ -572,8 +573,8 @@ public class Offboard3Manager {
 						estimated_yaw_duration = 3;
 					t_planned_yaw = yawExecutor.generateTrajectory(estimated_yaw_duration);
 					MSPStringUtils.getInstance().out("Yaw (Execution): "+MSPMathUtils.fromRad(target.pos().w )+" in "+estimated_yaw_duration+" secs");
-				} 
-
+				
+				}
 			} 
 
 			t_timeout = DEFAULT_TIMEOUT + (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw) ;
