@@ -97,13 +97,13 @@ public class Offboard3Planner {
 	
 		new_plan.setEstimatedTime(MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_velocity);
 
-		if(new_plan.getEstimatedTime() < (5/max_xyz_velocity+3.0f)) {
+		if(new_plan.getEstimatedTime() < (5/max_xyz_velocity+2.0f)) {
 			new_plan.add(new Offboard3PosTarget(pos_target));
 		}
 
 		else {
-			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,3.0f));
-			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,new_plan.getEstimatedTime()*4f/8f));
+			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,2.0f));
+			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,new_plan.getEstimatedTime()*5f/8f));
 			new_plan.add(new Offboard3PosTarget(pos_target));
 		}
 
