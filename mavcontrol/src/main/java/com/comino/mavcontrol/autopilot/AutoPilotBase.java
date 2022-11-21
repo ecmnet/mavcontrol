@@ -359,7 +359,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			precisionLand(enable);
 			break;
 		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
-			planner.enable(enable);
+			if(control.isSimulation())
+			  TestActionFactory.continuous_planning(enable);
 			break;
 		case MSP_AUTOCONTROL_MODE.OBSTACLE_STOP:
 			if(enable)

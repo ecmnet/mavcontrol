@@ -34,6 +34,17 @@ public class TestActionFactory {
 			control.sendMAVLinkMessage(msg);
 			return;
 		}
+		
+		if(model.state.l_z < -2.5f) {
+			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
+			msg.px    =  Float.NaN;
+			msg.py    =  Float.NaN;
+			msg.pz    =  Float.NaN;
+			msg.pw    =  Float.NaN;
+			msg.flags =  model.vision.flags;
+			control.sendMAVLinkMessage(msg);
+			return;
+		}
 
 		if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED) && model.sys.isStatus(Status.MSP_LPOS_VALID) && 
 				!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_TAKEOFF) ) {
@@ -72,33 +83,33 @@ public class TestActionFactory {
 		final MessageBus bus = MessageBus.getInstance();
 
 		if(enable) {
-			
+
 			if(!MSP3DUtils.isFinite(person.position))
 				person.position.setTo(-2, 0, -1.5);
-			
+
 			worker = wq.addCyclicTask("LP", 100, () -> {
-				
+
 				person.object_id = 0;
 				person.tms = System.currentTimeMillis();
-				
+
 				if(person.position.y > 4) 
 					sign = -1.0f;
 				if(person.position.y < -4) 
 					sign = 1.0f;
 				person.position.y += ( 0.002 * sign);
-				
+
 				bus.publish(person);
-				
+
 			});
 		} else {
-			
+
 			person.tms = 0;
 			bus.publish(person);
-			
+
 			wq.removeTask("LP", worker);
 		}
 	}
-	
+
 	public static void turnTest() {
 		final Offboard3Manager offboard = Offboard3Manager.getInstance();
 		if(offboard!=null) {
@@ -117,6 +128,24 @@ public class TestActionFactory {
 		m.slam.oy = (float)(Math.random()*3 -1.5);
 		m.slam.oz = -1.5f;
 
+	}
+
+	static int worker2 = 0; 
+	public static void continuous_planning(boolean enable) {
+
+		final WorkQueue  wq = WorkQueue.getInstance();
+		final Offboard3Manager offboard = Offboard3Manager.getInstance();
+
+		if(enable) {
+
+			worker2 = wq.addCyclicTask("LP", 4000, () -> {
+                offboard.moveTo((float)Math.random()*10f-5f, (float)Math.random()*10f-5f, 
+                		(float)Math.random()*5-5.5f, Float.NaN);
+			});
+
+		} else {
+			wq.removeTask("LP", worker2);
+		}
 	}
 
 }

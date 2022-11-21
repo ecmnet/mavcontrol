@@ -76,7 +76,6 @@ public class Offboard3Manager {
 				control.writeLogMessage(new LogMessage("[msp] Offboard externally stopped.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 			}
 		});
-
 	}
 
 

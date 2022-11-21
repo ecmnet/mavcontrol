@@ -45,8 +45,10 @@ public class OffboardActionFactory {
 		final Offboard3Manager offboard = Offboard3Manager.getInstance();
 		final MSPLogger logger = MSPLogger.getInstance();
 		
-		if(!m.vision.isStatus(Vision.FIDUCIAL_LOCKED))
+		if(!m.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
+			logger.writeLocalMsg("[mgc] Fiducial not visible. Not executed.",MAV_SEVERITY.MAV_SEVERITY_INFO);
 			return;
+		}
 		
 		logger.writeLocalMsg("[mgc] PX4 prec.Landing with rotate.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 		
