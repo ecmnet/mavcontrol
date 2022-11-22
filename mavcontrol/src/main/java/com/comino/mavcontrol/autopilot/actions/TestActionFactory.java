@@ -23,7 +23,6 @@ public class TestActionFactory {
 
 		final DataModel model = control.getCurrentModel();
 
-
 		if(model.sys.isStatus(Status.MSP_LANDED)) {
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
 			msg.px    =  Float.NaN;
@@ -35,7 +34,7 @@ public class TestActionFactory {
 			return;
 		}
 		
-		if(model.state.l_z < -2.5f) {
+		if(model.hud.ar > 2.5f) {
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
 			msg.px    =  Float.NaN;
 			msg.py    =  Float.NaN;
