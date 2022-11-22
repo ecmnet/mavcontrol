@@ -21,7 +21,10 @@ import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.MSPStringUtils;
 
+import georegression.geometry.UtilVector3D_F32;
+import georegression.geometry.UtilVector3D_F64;
 import georegression.struct.GeoTuple4D_F32;
+import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Point4D_F32;
 
@@ -130,30 +133,18 @@ public class Offboard3Planner {
 
 
 		} catch (Offboard3CollisionException col) {
+			
+			if(!control.isSimulation()) 
+				return;
 
-			System.err.println("WARNING: Collsion expected");
-
-
-
-			//			 System.err.println("Collsion expected. Re-planning....");
-			//			
-			//			
-			//			Offboard3TargetState critical_target = new_plan.get(col.getPlanningSectionIndex());
-			//			
-			//			pos_target.x = pos_target.x + 5;
-			//    
-			//            new_plan.replaceWith(col.getPlanningSectionIndex(), 
-			//            		new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,critical_target.getPlannedSectionTime()/2f),
-			//            		new Offboard3TargetState(pos_target,current.pos(),max_xyz_velocity,critical_target.getPlannedSectionTime()/2f)
-			//            		);
-			//            
-			//            try {
-			//				planPath(new_plan, current);
-			//			} catch (Offboard3CollisionException e) {
-			//				 System.out.println("Collsion expected. Re-planning failed.");
-			//				 System.err.println(new_plan);
-			//				 return;
-			//			}
+			System.err.println("WARNING: Collsion expected at "+col.getExpectedStateAtCollision());
+			
+			
+			// Do a replanning around the obstacle
+			
+//			new_plan.replaceWith(col.getPlanningSectionIndex(), 
+//			);
+			
 		}
 
 		MSPStringUtils.getInstance().out(new_plan);
@@ -164,26 +155,23 @@ public class Offboard3Planner {
 	private void planPath(Offboard3Plan<Offboard3AbstractTarget> plan, Offboard3Current initial_state) throws Offboard3CollisionException {
 
 		Offboard3State nextPlannedCurrentState = initial_state; 
-		Point3D_F64 obstacle = new Point3D_F64(model.slam.ox,model.slam.oy,model.slam.oz);
+		
+		Point3D_F32 obstacle = new Point3D_F32(model.slam.ox,model.slam.oy,model.slam.oz);
 
 		plannedSectionCount = 0;
+		
 		// Plan sections
 		for(Offboard3AbstractTarget section : plan) {
+			
+			section.setIndex(plannedSectionCount++);
+			
 			nextPlannedCurrentState = planSection(section, nextPlannedCurrentState);
-			section.setIndex(++plannedSectionCount);
 			plan.addCostsAndTime((float)xyzPlanner.getCost(), xyzPlanner.getTotalTime());
+			
+			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP))
+			  collisionCheck.check(obstacle, 0, section.getIndex());
 		}
-		
-		if(!model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP))
-			return;
-
-		// Check collision
-		for(int sections = 0; sections < plan.size();sections++) {
-			collisionCheck.check(obstacle, 0, sections);
-		}	
 	}
-
-
 
 	private Offboard3State planSection(Offboard3AbstractTarget target, Offboard3State current_state)  {
 

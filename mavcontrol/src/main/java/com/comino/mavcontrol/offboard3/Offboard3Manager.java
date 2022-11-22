@@ -32,6 +32,7 @@ import com.comino.mavutils.MSPStringUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 import georegression.struct.GeoTuple4D_F32;
+import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Point4D_F32;
 
@@ -142,7 +143,7 @@ public class Offboard3Manager {
 		private final WorkQueue wq = WorkQueue.getInstance();
 
 		// obstacle
-		final Point3D_F64 obstacle = new Point3D_F64();
+		final Point3D_F32 obstacle = new Point3D_F32();
 
 		private float acceptance_radius = RADIUS_ACCEPT;
 		private float acceptance_yaw    = YAW_ACCEPT;

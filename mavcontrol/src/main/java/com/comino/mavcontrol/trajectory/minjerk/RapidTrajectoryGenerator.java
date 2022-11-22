@@ -50,6 +50,8 @@ import org.ddogleg.solver.PolynomialSolver;
 import org.ejml.data.Complex_F64;
 
 import com.comino.mavcom.model.DataModel;
+import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.offboard3.states.Offboard3State;
 
 import georegression.geometry.GeometryMath_F64;
 import georegression.struct.GeoTuple3D_F32;
@@ -391,6 +393,16 @@ public class RapidTrajectoryGenerator {
 			v.setIdx(i, _axis[i].getVelocity(t));
 			p.setIdx(i, _axis[i].getPosition(t));
 		}
+	}
+	
+	public void getState(double t, Offboard3State state) {
+		
+		for(int i=0;i<3;i++) {
+			state.acc().setIdx(i, (float)_axis[i].getAcceleration(t));
+			state.vel().setIdx(i, (float)_axis[i].getVelocity(t));
+			state.pos().setIdx(i, (float)_axis[i].getPosition(t));
+		}	
+		state.pos().w = MSP3DUtils.angleXY(state.vel());
 	}
 
 	public Point3D_F64 getJerk(double t, Point3D_F64 out) {

@@ -4,8 +4,10 @@ import java.util.LinkedList;
 
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard3.exceptions.Offboard3CollisionException;
+import com.comino.mavcontrol.offboard3.states.Offboard3State;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 
+import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
 
 public class Offboard3CollisionCheck {
@@ -20,25 +22,25 @@ public class Offboard3CollisionCheck {
 	}
 
 
-	public void check(LinkedList<Point3D_F64> obstacles, float time_section_start,int planningSectionsIndex) 
+	public void check(LinkedList<Point3D_F32> obstacles, float time_section_start,int planningSectionsIndex) 
 			throws Offboard3CollisionException {
 
-		for(Point3D_F64 obstacle : obstacles) {
+		for(Point3D_F32 obstacle : obstacles) {
 			check(obstacle,time_section_start,planningSectionsIndex);
 		}
 	}
 	
-	public void check(Point3D_F64 obstacle, float time_section_start) 
+	public void check(Point3D_F32 obstacle, float time_section_start) 
 			throws Offboard3CollisionException {
          check(obstacle,time_section_start,0);
 	}
 
-	public void check(Point3D_F64 obstacle, float time_section_start, int planningSectionsIndex) 
+	public void check(Point3D_F32 obstacle, float time_section_start, int planningSectionsIndex) 
 			throws Offboard3CollisionException {
 
 
 		float time_elapsed = 0; float time_step = 0.2f; 
-		final Point3D_F64 position     = new Point3D_F64();
+		final Offboard3State state_of_collision    = new Offboard3State();
 
 
 		if(!MSP3DUtils.isFinite(obstacle))
@@ -52,11 +54,11 @@ public class Offboard3CollisionCheck {
 
 		// Brute force method
 		for(time_elapsed = time_step; time_elapsed < trajectory_generator.getTotalTime(); time_elapsed += time_step) {
-			trajectory_generator.getPosition(time_elapsed, position);
+			trajectory_generator.getState(time_elapsed, state_of_collision);
 
 			// Check only YX distance
-			if(MSP3DUtils.distance2D(position, obstacle) < MIN_DISTANCE_OBSTACLE) { 
-				throw new Offboard3CollisionException(time_elapsed, trajectory_generator,planningSectionsIndex);
+			if(MSP3DUtils.distance2D(state_of_collision.pos(), obstacle) < MIN_DISTANCE_OBSTACLE) { 
+				throw new Offboard3CollisionException(time_elapsed, state_of_collision, planningSectionsIndex);
 			}
 
 			// TODO Check with current map
