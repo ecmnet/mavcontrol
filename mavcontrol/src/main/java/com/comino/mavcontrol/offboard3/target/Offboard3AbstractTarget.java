@@ -63,6 +63,10 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	public boolean isAutoYaw() {
 		return auto_yaw;
 	}
+	
+	public void setAutoYaw(boolean auto_yaw) {
+		 this.auto_yaw = auto_yaw;
+	}
 
 	public int getType() {
 		return type;

@@ -43,11 +43,12 @@ public class Offboard3Manager {
 	private static final int   UPDATE_RATE                 	    = 50;					    // Offboard update rate in [ms]
 	private static final float DEFAULT_TIMEOUT                	= 5.0f;					    // Default timeout 1s
 
-	private static final float RADIUS_ACCEPT                    = 0.3f;                     // Acceptance radius in [m]
+	private static final float RADIUS_ACCEPT                    = 0.2f;                     // Acceptance radius in [m]
 	private static final float YAW_ACCEPT                	    = MSPMathUtils.toRad(1);    // Acceptance alignmnet yaw in [rad]
 
 	private static final float MAX_YAW_VEL                      = MSPMathUtils.toRad(45);   // Maxumum speed in [rad/s]
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
+	private static final float MIN_DISTANCE_FOR_YAW_CONTROL     = 0.5f;                     // Minimum distance for yaw control
 	private static final float YAW_PV							= 0.05f;                    // P factor for yaw speed control
 
 	private static final float MAX_XYZ_VEL                      = 1.0f;                     // Maxumum speed in [m/s]
@@ -405,9 +406,9 @@ public class Offboard3Manager {
 				}
 
 				if(current_target.isAutoYaw()) {	
-					
+
 					// Yaw control aligns to path based on velocity direction or setpoint
-					
+
 					if(xyzExecutor.isPlanned() && t_elapsed <= xyzExecutor.getTotalTime()) {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
 						cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
@@ -433,9 +434,9 @@ public class Offboard3Manager {
 					}
 
 				} else {
-					
+
 					// Yaw controlled by planner
-					
+
 					if(t_elapsed <= yawExecutor.getTotalTime()) {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_PLANNER, true);
 						cmd.yaw_rate = (float)yawExecutor.getVelocity(t_elapsed);
@@ -446,7 +447,7 @@ public class Offboard3Manager {
 						cmd.yaw_rate = 0;
 						cmd.yaw      = current_target.pos().w;
 					}
-					
+
 				}
 
 				if(isRunning) {
@@ -574,9 +575,12 @@ public class Offboard3Manager {
 						estimated_yaw_duration = 3;
 					t_planned_yaw = yawExecutor.generateTrajectory(estimated_yaw_duration);
 					MSPStringUtils.getInstance().out("Yaw (Execution): "+MSPMathUtils.fromRad(target.pos().w )+" in "+estimated_yaw_duration+" secs");
-				
+
 				}
-			} 
+			} else if(MSP3DUtils.distance3D(target.pos(), current_state.pos()) < MIN_DISTANCE_FOR_YAW_CONTROL) {
+				target.setAutoYaw(false);
+				target.pos().w = current_state.pos().w;
+			}
 
 			t_timeout = DEFAULT_TIMEOUT + (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw) ;
 
