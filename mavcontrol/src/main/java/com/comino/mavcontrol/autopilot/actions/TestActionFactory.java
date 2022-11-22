@@ -121,8 +121,6 @@ public class TestActionFactory {
 
 		final DataModel m  = AutoPilotBase.getInstance().getControl().getCurrentModel();
 
-		System.out.println("Set random obstacle");
-
 		m.slam.ox = (float)(Math.random()*3 -1.5);
 		m.slam.oy = (float)(Math.random()*3 -1.5);
 		m.slam.oz = -1.5f;
