@@ -229,7 +229,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected void takeoffCompletedAction() {
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, true);
-		
+
 	}
 
 	protected void start(int cycle_ms) {
@@ -323,17 +323,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			MapTestFactory.buildWall(map, model, 1.5f, 0.5f);
 			break;
 		case MSP_AUTOCONTROL_ACTION.ROTATE:
-//			if(control.isSimulation())
-//			  TestActionFactory.turnTest();
-//			else
-			  OffboardActionFactory.turn_to(MSPMathUtils.toRad(param));
+			OffboardActionFactory.turn_to(MSPMathUtils.toRad(param));
 			break;
 		case MSP_AUTOCONTROL_ACTION.LAND:
 			precisionLand(enable);
-			break;
-		case MSP_AUTOCONTROL_MODE.SITL_MODE1:
-			if(control.isSimulation())
-			  TestActionFactory.continuous_planning(enable);
 			break;
 		case MSP_AUTOCONTROL_MODE.OBSTACLE_STOP:
 			if(enable)
@@ -353,6 +346,24 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				takeoff_handler.abort("Abort");
 			}
 			//	countDownAndTakeoff(5,enable);
+			break;
+
+
+
+		case MSP_AUTOCONTROL_MODE.SITL_MODE1:
+			if(control.isSimulation())
+				TestActionFactory.continuous_planning(enable);
+			break;
+
+		case MSP_AUTOCONTROL_ACTION.SITL_ACTION1:
+			if(control.isSimulation())
+				TestActionFactory.setRandomObstacle();
+			break;
+
+
+		case MSP_AUTOCONTROL_ACTION.SITL_ACTION2:
+			if(control.isSimulation())
+				;
 			break;
 		}
 
