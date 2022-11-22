@@ -36,22 +36,17 @@ package com.comino.mavcontrol.autopilot.actions;
 
 import org.mavlink.messages.ESTIMATOR_STATUS_FLAGS;
 import org.mavlink.messages.MAV_CMD;
-import org.mavlink.messages.MAV_MODE_FLAG;
 import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
-import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.log.MSPLogger;
-import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.param.ParameterAttributes;
-import com.comino.mavcontrol.offboard.OffboardManager;
-import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 import georegression.struct.point.Vector4D_F32;

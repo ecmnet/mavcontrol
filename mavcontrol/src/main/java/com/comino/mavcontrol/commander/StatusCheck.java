@@ -67,8 +67,7 @@ public class StatusCheck implements Runnable {
 		}
 
 
-		if (model.sys.isStatus(Status.MSP_CONNECTED) && !model.sys.isStatus(Status.MSP_SITL)
-				&& !model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FCUM)) {
+		if (model.sys.isStatus(Status.MSP_CONNECTED) && !model.sys.isStatus(Status.MSP_SITL)) {
 
 			// Checks for MSP driven vehicles
 

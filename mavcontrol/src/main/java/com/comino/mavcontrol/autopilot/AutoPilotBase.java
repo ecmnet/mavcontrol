@@ -33,8 +33,6 @@
 
 package com.comino.mavcontrol.autopilot;
 
-import org.mavlink.messages.MAV_CMD;
-import org.mavlink.messages.MAV_MODE_FLAG;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
@@ -44,7 +42,6 @@ import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.config.MSPParams;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.log.MSPLogger;
-import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
@@ -53,16 +50,11 @@ import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
 import com.comino.mavcontrol.autopilot.actions.OffboardActionFactory;
-import com.comino.mavcontrol.autopilot.actions.SequencerActionFactory;
 import com.comino.mavcontrol.autopilot.actions.TakeOffHandler;
 import com.comino.mavcontrol.autopilot.actions.TestActionFactory;
 import com.comino.mavcontrol.autopilot.safety.SafetyCheckHandler;
-import com.comino.mavcontrol.autopilot.tests.PlannerTest;
 import com.comino.mavcontrol.ekf2utils.EKF2ResetCheck;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
-import com.comino.mavcontrol.sequencer.ISeqAction;
-import com.comino.mavcontrol.sequencer.Sequencer;
-import com.comino.mavcontrol.struct.SeqItem;
 import com.comino.mavmap.map.map3D.Map3DSpacialInfo;
 import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
 import com.comino.mavmap.map.map3D.store.LocaMap3DStorage;
@@ -72,13 +64,10 @@ import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 import georegression.struct.point.Point3D_F64;
-import georegression.struct.point.Vector4D_F32;
 
 
 public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
-	/* TEST ONLY */
-	private PlannerTest planner = null;
 
 	protected static final int   CERTAINITY_THRESHOLD          = 100;
 	protected static final float WINDOWSIZE       	           = 3.0f;
@@ -107,8 +96,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected boolean              publish_microgrid = true;
 
 	protected boolean                      isRunning = false;
-
-	protected Sequencer                    sequencer = null;
 
 
 
@@ -174,7 +161,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		else
 			this.takeoff_handler = new TakeOffHandler(control, null);
 
-		this.safetycheck_handler = new SafetyCheckHandler(control, sequencer);
+		this.safetycheck_handler = new SafetyCheckHandler(control);
 
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_SERVICES,Status.MSP_SLAM_AVAILABILITY, (n) -> {
 			if(n.isSensorAvailable(Status.MSP_SLAM_AVAILABILITY)) {	
@@ -227,7 +214,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		// Abort any sequence if PX4 landing is triggered
 		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE, Status.NAVIGATION_STATE_AUTO_LAND, StatusManager.EDGE_RISING, (n) -> {
 			if(!model.sys.isStatus(Status.MSP_LANDED)) { // Workaround; Landing mode triggered on ground sometimes
-				sequencer.abort();
+				//sequencer.abort();
 				takeoff_handler.abort("Landing");
 				//			if(future!=null) future.cancel(true);
 				wq.removeTask("LP",future);
@@ -241,15 +228,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 	protected void takeoffCompletedAction() {
-
-
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, true);
-		control.writeLogMessage(new LogMessage("[msp] Obstacle survey executed.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-		rotate(45,() -> {
-			control.writeLogMessage(new LogMessage("[msp] Takeoff procedure completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-			return true;
-		});
-
+		
 	}
 
 	protected void start(int cycle_ms) {
@@ -261,13 +241,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		if(publish_microgrid)
 			wq.addCyclicTask("NP",20, new MapToModelTransfer());
 
-		//		wq.addCyclicTask("NP",100, () -> {
-		//			
-		//			if(mapForget && MAP_RETENTION_TIME_MS > 0)
-		//				 map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS  );
-		//			
-		//			
-		//		});
 	}
 
 
@@ -358,7 +331,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		case MSP_AUTOCONTROL_ACTION.LAND:
 			precisionLand(enable);
 			break;
-		case MSP_AUTOCONTROL_MODE.PX4_PLANNER:
+		case MSP_AUTOCONTROL_MODE.SITL_MODE1:
 			if(control.isSimulation())
 			  TestActionFactory.continuous_planning(enable);
 			break;
@@ -373,15 +346,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			if(control.isSimulation())
 				TestActionFactory.test_simulate_person(enable);
 			break;
-		case MSP_AUTOCONTROL_ACTION.TEST_SEQ1:
-			if(control.isSimulation())
-				// SequenceTestFactory.randomSequence(sequencer);
-				if(control.isSimulation()) {
-					SequencerActionFactory.square(sequencer, 2);
-				}
-				else
-					logger.writeLocalMsg("[msp] Only available in simulation environment",MAV_SEVERITY.MAV_SEVERITY_INFO);
-			break;
 		case MSP_AUTOCONTROL_ACTION.TAKEOFF:
 			if(enable)
 				takeoff_handler.initiateTakeoff(control.isSimulation() ? 1 : 5);
@@ -389,12 +353,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				takeoff_handler.abort("Abort");
 			}
 			//	countDownAndTakeoff(5,enable);
-			break;
-		case MSP_AUTOCONTROL_ACTION.OFFBOARD_UPDATER:
-
-			break;
-		case MSP_AUTOCONTROL_ACTION.APPLY_MAP_FILTER:
-
 			break;
 		}
 
@@ -428,21 +386,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		Offboard3Manager.getInstance().abort();
 	}
-
-	/**
-	 * AutopilotAction: Rotates forth and back by a given angle and executes completed action
-	 * @param deg
-	 * @param completedAction
-	 */
-	public void rotate(float deg, ISeqAction completedAction) {
-		sequencer.clear();
-		float rad = MSPMathUtils.toRad(deg);
-		sequencer.add(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
-		sequencer.add(new SeqItem(Float.NaN,Float.NaN,Float.NaN,-2*rad));
-		sequencer.add(new SeqItem(Float.NaN,Float.NaN,Float.NaN,rad));
-		sequencer.execute(completedAction);
-	}
-
 
 	/**
 	 * AutopilotAction: Execute precision landing

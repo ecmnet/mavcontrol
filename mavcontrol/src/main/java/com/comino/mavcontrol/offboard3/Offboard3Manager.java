@@ -48,8 +48,8 @@ public class Offboard3Manager {
 
 	private static final float MAX_YAW_VEL                      = MSPMathUtils.toRad(45);   // Maxumum speed in [rad/s]
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
-	private static final float MIN_DISTANCE_FOR_YAW_CONTROL     = 0.5f;                     // Minimum distance for yaw control
-	private static final float YAW_PV							= 0.05f;                    // P factor for yaw speed control
+	private static final float MIN_DISTANCE_FOR_YAW_CONTROL     = 0.5f;                     // Minimum distance for auto yaw control
+	private static final float YAW_PV							= 0.05f;                    // P factor for auto yaw rate control
 
 	private static final float MAX_XYZ_VEL                      = 1.0f;                     // Maxumum speed in [m/s]
 
@@ -134,7 +134,7 @@ public class Offboard3Manager {
 
 	private class Offboard3Worker implements Runnable {
 
-		private final msg_set_position_target_local_ned cmd 		= new msg_set_position_target_local_ned(1,1);
+		private final msg_set_position_target_local_ned cmd = new msg_set_position_target_local_ned(1,1);
 
 		private final IMAVController control;
 		private final DataModel      model;
@@ -153,8 +153,9 @@ public class Offboard3Manager {
 		private boolean isRunning       = false;
 		private boolean offboardEnabled = false;
 
+		// Actions
 		private ITargetReached  reached = null;
-		private ITimeout         timeout = null;
+		private ITimeout        timeout = null;
 
 		// Current target
 		private Offboard3AbstractTarget current_target;
@@ -165,7 +166,6 @@ public class Offboard3Manager {
 		private final Offboard3Planner          planner;
 
 		// Collsion check
-
 		private final Offboard3CollisionCheck   collisionCheck;
 
 		// Executors
@@ -181,8 +181,7 @@ public class Offboard3Manager {
 		private float t_elapsed_last = 0;
 		private float t_planned_yaw = 0;
 		private float t_planned_xyz = 0;
-
-
+		
 
 		public Offboard3Worker(IMAVController control) {
 			this.control = control;
@@ -578,6 +577,7 @@ public class Offboard3Manager {
 
 				}
 			} else if(MSP3DUtils.distance3D(target.pos(), current_state.pos()) < MIN_DISTANCE_FOR_YAW_CONTROL) {
+				// Do not auto control yaw if too close to the target
 				target.setAutoYaw(false);
 				target.pos().w = current_state.pos().w;
 			}

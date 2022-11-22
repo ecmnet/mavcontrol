@@ -45,7 +45,6 @@ import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.model.segment.Vision;
-import com.comino.mavcontrol.sequencer.Sequencer;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 public class SafetyCheckHandler implements Runnable {
@@ -56,16 +55,14 @@ public class SafetyCheckHandler implements Runnable {
 	private final IMAVController  control;
 	private final DataModel       model;
 	private final MSPLogger       logger;
-	private final Sequencer       sequencer;
 
 	private final WorkQueue wq = WorkQueue.getInstance();
 
 	private boolean emergency           = false;
 	private long landing_trigger_tms    = 0;
 
-	public SafetyCheckHandler(IMAVController control, Sequencer sequencer) {
+	public SafetyCheckHandler(IMAVController control) {
 		this.control   = control;
-		this.sequencer = sequencer;
 		this.model     = control.getCurrentModel();
 		this.logger    = MSPLogger.getInstance();
 
@@ -96,7 +93,6 @@ public class SafetyCheckHandler implements Runnable {
 		if(model.rc.get(RC_LAND_CHANNEL) > RC_LAND_THRESHOLD && !control.isSimulation() && (System.currentTimeMillis()-landing_trigger_tms) > 500) {
 			landing_trigger_tms = System.currentTimeMillis();
 			emergency = true;
-			sequencer.abort();
 			if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_NAV_LAND, ( cmd,result) -> {
 					if(result != MAV_RESULT.MAV_RESULT_ACCEPTED)
