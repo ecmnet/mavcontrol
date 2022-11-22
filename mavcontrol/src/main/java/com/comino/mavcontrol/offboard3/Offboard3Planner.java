@@ -275,7 +275,6 @@ public class Offboard3Planner {
 
 				current_state.pos().w = (float)yawPlanner.getGoalPosition();
 				current_state.vel().w = (float)yawPlanner.getGoalVelocity();
-				current_state.acc().w = 0;
 			} 
 			
 

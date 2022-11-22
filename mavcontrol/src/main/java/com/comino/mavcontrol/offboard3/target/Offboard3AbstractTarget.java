@@ -34,7 +34,7 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	public Offboard3AbstractTarget(int type, float x, float y, float z, float w, float d_sec, boolean auto_yaw) {
 		this.pos.setTo(x,y,z,w);
 		this.vel.setTo(0,0,0,Float.NaN);
-		this.acc.setTo(0,0,0,Float.NaN);
+		this.acc.setTo(0,0,0);
 
 		this.duration = d_sec;
 		this.type     = type;	
@@ -48,7 +48,7 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	public Offboard3AbstractTarget(int type, GeoTuple4D_F32<?> p, float v, float d_sec, boolean auto_yaw) {
 
 		this.pos.setTo(p.x,p.y,p.z,p.w);
-		this.acc.setTo(0,0,0,Float.NaN);
+		this.acc.setTo(0,0,0);
 		this.max_velocity = v;
 
 		this.type  = type;

@@ -43,12 +43,15 @@ public class Offboard3Current extends Offboard3State {
 	public void update() {
 
 		if(model!=null) {
-			MSP3DUtils.convertCurrentPosition(model, pos);
-			MSP3DUtils.convertCurrentSpeed(model, vel);
-			MSP3DUtils.convertCurrentAcceleration(model,acc);
-			MSP3DUtils.convertTargetState(model, current_pos_setpoint);
-			MSP3DUtils.convertTargetSpeed(model, current_vel_setpoint);
-			MSP3DUtils.convertTargetAcceleration(model, current_acc_setpoint);
+			
+			pos.setTo(model.state.l_x,  model.state.l_y,  model.state.l_z,  model.attitude.y);
+			vel.setTo(model.state.l_vx, model.state.l_vy, model.state.l_vz, model.attitude.yr);
+			acc.setTo(model.state.l_ax, model.state.l_ay, model.state.l_az);
+		
+			current_pos_setpoint.setTo(model.target_state.l_x,  model.target_state.l_y,  model.target_state.l_z,  model.attitude.sy);
+			current_vel_setpoint.setTo(model.target_state.l_vx, model.target_state.l_vy, model.target_state.l_vz, model.attitude.syr);
+			current_acc_setpoint.setTo(model.target_state.l_ax, model.target_state.l_ay, model.target_state.l_az);
+
 			
 		} else {
 			System.err.println("Current state not updated. Model is NULL");

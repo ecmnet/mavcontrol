@@ -56,6 +56,7 @@ import georegression.struct.GeoTuple3D_F32;
 import georegression.struct.GeoTuple3D_F64;
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.GeoTuple4D_F64;
+import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector4D_F32;
 
@@ -400,11 +401,11 @@ public class RapidTrajectoryGenerator {
 		return out;
 	}
 
-	public Point3D_F64 getAcceleration(double t, Point3D_F64 out) {
+	public GeoTuple3D_F32<?>  getAcceleration(double t, GeoTuple3D_F32<?> out) {
 		if(out == null)
-			out = new Point3D_F64();
+			out = new Point3D_F32();
 		for(int i=0;i<3;i++)
-			out.setIdx(i, _axis[i].getAcceleration(t));
+			out.setIdx(i, (float)_axis[i].getAcceleration(t));
 		return out;
 	}
 
@@ -455,6 +456,12 @@ public class RapidTrajectoryGenerator {
 		for(int i=0;i<3;i++)
 			out.setIdx(i, (float)_axis[i].getGoalAcceleration());
 	}
+	
+	public void getGoalAcceleration(GeoTuple3D_F32<?> out) {
+		for(int i=0;i<3;i++)
+			out.setIdx(i, (float)_axis[i].getGoalAcceleration());
+	}
+
 
 	public double getPosition(double t, int i) {
 		return _axis[i].getPosition(t);
