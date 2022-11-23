@@ -32,10 +32,15 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	}
 
 	public Offboard3AbstractTarget(int type, float x, float y, float z, float w, float d_sec, boolean auto_yaw) {
+		this(type,x,y,z,w,0,d_sec,auto_yaw);
+	}
+	
+	public Offboard3AbstractTarget(int type, float x, float y, float z, float w, float v, float d_sec, boolean auto_yaw) {
 		this.pos.setTo(x,y,z,w);
 		this.vel.setTo(0,0,0,Float.NaN);
 		this.acc.setTo(0,0,0);
 
+		this.max_velocity = v;
 		this.duration = d_sec;
 		this.type     = type;	
 		this.auto_yaw = auto_yaw;

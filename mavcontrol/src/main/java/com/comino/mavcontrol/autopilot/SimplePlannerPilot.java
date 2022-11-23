@@ -110,7 +110,6 @@ public class SimplePlannerPilot extends AutoPilotBase {
 				model.slam.ox = Float.NaN;
 				model.slam.oy = Float.NaN;
 				model.slam.oz = Float.NaN;
-				model.slam.pv = Float.NaN;
 				return;
 			}
 			

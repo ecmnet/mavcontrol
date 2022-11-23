@@ -28,6 +28,12 @@ public class Offboard3State {
 		this.vel.setTo(vel.x,vel.y,vel.z,vel.w);
 		this.acc.setTo(acc.x,acc.y,acc.z);
 	}
+   
+   public Offboard3State(GeoTuple4D_F32<?> pos, GeoTuple4D_F32<?> vel, GeoTuple3D_F32<?> acc) {
+		this.pos.setTo(pos.x,pos.y,pos.z,pos.w);
+		this.vel.setTo(vel.x,vel.y,vel.z,vel.w);
+		this.acc.setTo(acc.x,acc.y,acc.z);
+	}
 	
 	public GeoTuple4D_F32<?> pos() {
 		return pos;
@@ -95,6 +101,10 @@ public class Offboard3State {
 		b.append(" Acc: ("+f.format(acc.x)+","+f.format(acc.y)+","+f.format(acc.z)+")"); 
 		b.append("\t");
 		return b.toString();
+	}
+	
+	public Offboard3State clone() {
+		return new Offboard3State(this.pos,this.vel,this.acc);	
 	}
 
 }

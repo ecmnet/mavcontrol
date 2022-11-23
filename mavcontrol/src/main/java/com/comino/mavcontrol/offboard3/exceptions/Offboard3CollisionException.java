@@ -15,9 +15,11 @@ public class Offboard3CollisionException extends Exception {
 	}
 
 	public Offboard3CollisionException(float time_of_collision, Offboard3State state_of_collision, int planning_section_index) {
+		
 		this.time_of_collision      = time_of_collision;
 		this.state_of_collision     = state_of_collision;
 		this.planning_section_index = planning_section_index;
+		
 	}
 	
 	public float getExpectedTimeOfCollision() {

@@ -5,6 +5,7 @@ import java.util.LinkedList;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.control.impl.MAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard3.exceptions.Offboard3CollisionException;
@@ -21,8 +22,6 @@ import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.MSPStringUtils;
 
-import georegression.geometry.UtilVector3D_F32;
-import georegression.geometry.UtilVector3D_F64;
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
@@ -139,12 +138,27 @@ public class Offboard3Planner {
 
 			System.err.println("WARNING: Collsion expected at "+col.getExpectedStateAtCollision());
 			
+			model.slam.ix = col.getExpectedStateAtCollision().pos().x;
+			model.slam.iy = col.getExpectedStateAtCollision().pos().y;
+			model.slam.iz = col.getExpectedStateAtCollision().pos().z;
 			
-			// Do a replanning around the obstacle
 			
-//			new_plan.replaceWith(col.getPlanningSectionIndex(), 
-//			);
-			
+//			// Do a replanning around the obstacle
+//			
+//			Offboard3PosVelTarget target = new Offboard3PosVelTarget(col.getExpectedStateAtCollision().vel().norm());
+//			Point3D_F32 obstacle         = new Point3D_F32(model.slam.ox,model.slam.oy,model.slam.oz);
+//			
+//			generateAvoidanceTarget(col.getExpectedStateAtCollision(),obstacle, target);
+//			
+//			
+//			new_plan.replaceWith(col.getPlanningSectionIndex(),target);
+//			try {
+//				planPath(new_plan, current);
+//			} catch (Offboard3CollisionException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
+//			
 		}
 
 		MSPStringUtils.getInstance().out(new_plan);
@@ -281,6 +295,33 @@ public class Offboard3Planner {
 		return new_current_state;
 
 	}
+	
+	private void generateAvoidanceTarget(Offboard3State state_of_collision,Point3D_F32 obstacle, Offboard3AbstractTarget target ) {
+		
+		final float       DISTANCE = 0.5f;
+		final GeoTuple4D_F32<?> p  = new Point4D_F32();
+		
+		target.pos().setTo(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
+	
+		float max_distance = Float.MIN_VALUE; float distance = 0; int i = 0;
+		for(i = 0; i < 50; i++) {
+			generateRandomPoint(state_of_collision.pos(),DISTANCE,p);
+			distance = MSP3DUtils.distance2D(p,obstacle);
+			if(distance > DISTANCE && distance > max_distance && p.z <= obstacle.z) {
+				max_distance = distance; target.pos().setTo(p.x,p.y,p.z,Float.NaN);
+			}
+		}	
+	}
+	
+	
+	private void generateRandomPoint(GeoTuple4D_F32<?> center, float distance, GeoTuple4D_F32<?> output) {
+		output.setTo(2f*(float)Math.random()-1f, 2*(float)Math.random()-1f, 0 , 0);
+		output.normalize();
+		output.scale(distance);
+		output.plusIP(center);
+	}
+	
+	
 
 	private float normAngle(float a) {
 		return a - (2*(float)Math.PI) * (float)Math.floor((a + (float)Math.PI - 0.5f) / (2*(float)Math.PI));
@@ -291,6 +332,22 @@ public class Offboard3Planner {
 	}
 
 
+	public static void main(String[] args) {
+		
+		Offboard3Planner planner = new Offboard3Planner(new MAVController(),0.5f,0.01f);
+		
+		Offboard3State soc = new Offboard3State();
+		soc.pos().setTo(1,1,-1.5f,0);
+		
+		Point3D_F32 obstacle = new Point3D_F32(1.2f,1,-1.5f);
+		
+		Offboard3AbstractTarget t = new Offboard3PosVelTarget(1.0f);
+		
+		planner.generateAvoidanceTarget(soc,obstacle,t);
+		
+		System.out.println(t);
+		
+	}
 
 
 }

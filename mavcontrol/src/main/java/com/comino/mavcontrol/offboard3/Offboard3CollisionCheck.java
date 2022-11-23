@@ -8,15 +8,15 @@ import com.comino.mavcontrol.offboard3.states.Offboard3State;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 
 import georegression.struct.point.Point3D_F32;
-import georegression.struct.point.Point3D_F64;
 
 public class Offboard3CollisionCheck {
 
-	private static final float MIN_DISTANCE_OBSTACLE            = 0.5F;                     // Minimal distance to obstacle
-	
+	private static final float MIN_DISTANCE_OBSTACLE            = 0.5f;                     // Minimal distance to obstacle
+	private static final float STEP_TIME                        = 0.2f;                     // Time steps to check
+
 	private final RapidTrajectoryGenerator trajectory_generator;
 
-	
+
 	public Offboard3CollisionCheck(RapidTrajectoryGenerator trajectory_generator) {
 		this.trajectory_generator = trajectory_generator;
 	}
@@ -29,31 +29,28 @@ public class Offboard3CollisionCheck {
 			check(obstacle,time_section_start,planningSectionsIndex);
 		}
 	}
-	
+
 	public void check(Point3D_F32 obstacle, float time_section_start) 
 			throws Offboard3CollisionException {
-         check(obstacle,time_section_start,0);
+		check(obstacle,time_section_start,0);
 	}
 
 	public void check(Point3D_F32 obstacle, float time_section_start, int planningSectionsIndex) 
 			throws Offboard3CollisionException {
 
-
-		float time_elapsed = 0; float time_step = 0.2f; 
-		final Offboard3State state_of_collision    = new Offboard3State();
-
-
-		if(!MSP3DUtils.isFinite(obstacle))
+		if(!MSP3DUtils.isFinite(obstacle) || time_section_start > trajectory_generator.getTotalTime())
 			return;
 
-		// TODO: Put collsions check and re-planning into own class
+		float time_elapsed = 0; 
+		final Offboard3State state_of_collision    = new Offboard3State();
 
 		// TODO: Analytical solution as the line parameters are known
 
 		// TODO get nearest obstacle position into obstacle
 
 		// Brute force method
-		for(time_elapsed = time_step; time_elapsed < trajectory_generator.getTotalTime(); time_elapsed += time_step) {
+		for(time_elapsed = STEP_TIME; time_elapsed < trajectory_generator.getTotalTime(); time_elapsed += STEP_TIME) {
+
 			trajectory_generator.getState(time_elapsed, state_of_collision);
 
 			// Check only YX distance
