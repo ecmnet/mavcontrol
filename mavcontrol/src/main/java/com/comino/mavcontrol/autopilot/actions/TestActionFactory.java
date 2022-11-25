@@ -136,8 +136,8 @@ public class TestActionFactory {
 		if(enable) {
 
 			worker2 = wq.addCyclicTask("LP", 4000, () -> {
-                offboard.moveTo((float)Math.random()*10f-5f, (float)Math.random()*10f-5f, 
-                		(float)Math.random()*5-5.5f, Float.NaN);
+                offboard.moveTo((float)Math.random()*8f-4f, (float)Math.random()*8f-4f, 
+                		(float)Math.random()*2-3.0f, Float.NaN);
 			});
 
 		} else {

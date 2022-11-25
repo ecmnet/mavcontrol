@@ -4,7 +4,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 
-public class Offboard3Plan<T> extends LinkedList<T> {
+import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
+
+public class Offboard3Plan extends LinkedList<Offboard3AbstractTarget> {
 
 	private static final long serialVersionUID = -2180412674433672222L;
 
@@ -14,7 +16,7 @@ public class Offboard3Plan<T> extends LinkedList<T> {
 
 
 	@Override
-	public boolean add(T e) {
+	public boolean add(Offboard3AbstractTarget e) {
 		return super.add(e);
 	}
 
@@ -25,18 +27,25 @@ public class Offboard3Plan<T> extends LinkedList<T> {
 		total_costs    = 0;
 		estimated_time = 0;
 	}
-	
-	public void replaceWith(int index, @SuppressWarnings("unchecked") T... sections) {
-		replaceWith(index,Arrays.asList(sections));
+
+
+	public void set(Offboard3Plan plan) {
+		this.clear(); this.addAll(plan);
+		total_time      = plan.total_time;
+		total_costs     = plan.total_costs;
+		estimated_time  = plan.estimated_time;
 	}
 
-	public void replaceWith(int index, Collection<? extends T> sections) {
-		if(index >= this.size())
+	public void replace(int index, @SuppressWarnings("unchecked") Offboard3AbstractTarget... sections) {
+		replace(index,Arrays.asList(sections));
+	}
+
+	public void replace(int index, Collection<? extends Offboard3AbstractTarget> sections) {
+		if(index > this.size())
 			return;
 		super.remove(index);
 		super.addAll(index,sections);
 	}
-	
 
 	public void setEstimatedTime(float t) {
 		estimated_time = t;
@@ -50,14 +59,29 @@ public class Offboard3Plan<T> extends LinkedList<T> {
 	public float getTotalTime() {
 		return total_time;
 	}
-	
+
+	public float getTotalTimeUpTo(int section) {
+		float time = 0; 
+		for(int i = 0; i<section;i++) 
+			time += this.get(i).getPlannedSectionTime();
+		return time;
+	}
+
 	public float getEstimatedTime() {
 		return estimated_time;
 	}
 
-
 	public float getTotalCosts() {
 		return total_costs;
+	}
+
+	public Offboard3Plan clone() {
+		Offboard3Plan n = new Offboard3Plan();
+		n.estimated_time = estimated_time;
+		n.total_costs    = total_costs;
+		n.total_time     = total_time;
+		n.addAll(this);	
+		return n;
 	}
 
 	public String toString() {
@@ -65,7 +89,7 @@ public class Offboard3Plan<T> extends LinkedList<T> {
 		int index = 0;
 		b.append("\n");
 		b.append("Plan ===================================================================================================================================\n");
-		for(T s : this) {
+		for(Offboard3AbstractTarget s : this) {
 			b.append(++index); b.append(".:"); b.append(s); b.append("\n");
 		}
 		b.append("Total costs    : "); b.append(total_costs);    b.append("\n");

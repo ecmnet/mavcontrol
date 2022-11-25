@@ -99,11 +99,13 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 
 
 	public void determineTargetVelocity(GeoTuple4D_F32<?> p_current) {
+		
+		
 
 		vel.setTo(pos.x-p_current.x, pos.y-p_current.y, pos.z-p_current.z, 0);
 		MSP3DUtils.replaceNaN3D(vel, null_v);
 
-		float n = vel.norm();
+		float n = MSP3DUtils.norm3D(vel);
 
 		vel.x = vel.x * max_velocity / n;
 		vel.y = vel.y * max_velocity / n;
@@ -156,9 +158,10 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	public String toString() {
 		StringBuilder b = new StringBuilder();
 		b.append(super.toString());
-		b.append("Duration: "+f.format(duration)+"s ");
-		b.append("Planned: "+f.format(section_time)+"s ");
-		b.append("AutoYaw: "+auto_yaw);
+		b.append("Est.: "+f.format(duration)+"s ");
+		b.append("Plan: "+f.format(section_time)+"s ");
+		b.append("Type: "+type+" ");
+		b.append("Yaw: "+auto_yaw);
 		return b.toString();
 	}
 

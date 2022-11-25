@@ -8,8 +8,8 @@ public class Offboard3PosVelTarget extends Offboard3AbstractTarget {
 		super(TYPE_POS_VEL,p, v,d_sec);
 	}
 	
-	public Offboard3PosVelTarget(float v) {
-		super(TYPE_POS_VEL,Float.NaN, Float.NaN, Float.NaN, Float.NaN, v,-1f ,true);
+	public Offboard3PosVelTarget(float v, float d) {
+		super(TYPE_POS_VEL,Float.NaN, Float.NaN, Float.NaN, Float.NaN, v, d ,true);
 	}
 
 }
