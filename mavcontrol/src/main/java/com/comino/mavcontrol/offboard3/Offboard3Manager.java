@@ -301,7 +301,7 @@ public class Offboard3Manager {
 			}
 
 			// check current state and perform action 
-			if((yawExecutor.isPlanned() || xyzExecutor.isPlanned()) &&
+			if((yawExecutor.isPlanned() || xyzExecutor.isPlanned()) && planner.getFinalPlan().isEmpty() &&
 					t_elapsed > yawExecutor.getTotalTime() && t_elapsed > xyzExecutor.getTotalTime()) {
 
 				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {

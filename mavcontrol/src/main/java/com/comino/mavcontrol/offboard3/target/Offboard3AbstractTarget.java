@@ -65,6 +65,10 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 		return duration;
 	}
 	
+	public void setDuration( float d) {
+		this.duration = d;
+	}
+	
 	public boolean isAutoYaw() {
 		return auto_yaw;
 	}

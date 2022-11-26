@@ -352,7 +352,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		case MSP_AUTOCONTROL_MODE.SITL_MODE1:
 			if(control.isSimulation())
-				TestActionFactory.continuous_planning(enable);
+				TestActionFactory.continuous_planning(control.getCurrentModel(),enable);
 			break;
 
 		case MSP_AUTOCONTROL_ACTION.SITL_ACTION1:

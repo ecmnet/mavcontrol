@@ -15,6 +15,8 @@ import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
+import georegression.struct.point.Point3D_F32;
+
 public class TestActionFactory {
 
 	final static msg_msp_vision msg = new msg_msp_vision(2,1);
@@ -128,17 +130,30 @@ public class TestActionFactory {
 	}
 
 	static int worker2 = 0; 
-	public static void continuous_planning(boolean enable) {
+	public static void continuous_planning(DataModel model,boolean enable) {
 
 		final WorkQueue  wq = WorkQueue.getInstance();
 		final Offboard3Manager offboard = Offboard3Manager.getInstance();
 
 		if(enable) {
-
+			
+			if(Float.isFinite(model.slam.ox)) {
 			worker2 = wq.addCyclicTask("LP", 4000, () -> {
-                offboard.moveTo((float)Math.random()*8f-4f, (float)Math.random()*8f-4f, 
+				
+                offboard.moveTo((float)Math.random()*4f-2f+model.slam.ox, (float)Math.random()*4f-2f+model.slam.oy, 
                 		(float)Math.random()*2-3.0f, Float.NaN);
+                
 			});
+			} else {
+				
+				worker2 = wq.addCyclicTask("LP", 4000, () -> {
+					
+	                offboard.moveTo((float)Math.random()*4f-2f, (float)Math.random()*4f-2f, 
+	                		(float)Math.random()*2-3.0f, Float.NaN);
+	                
+				});
+				
+			}
 
 		} else {
 			wq.removeTask("LP", worker2);
