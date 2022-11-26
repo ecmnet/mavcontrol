@@ -345,7 +345,6 @@ public class Offboard3Planner {
 	
 	private Offboard3AbstractTarget generateAvoidanceTarget(Offboard3CollisionException col,Point3D_F32 obstacle, float time, boolean right ) {
 
-
 		final float       DISTANCE = 0.6f;
 
 		float dx = col.getExpectedStateAtCollision().vel().x;
@@ -354,8 +353,11 @@ public class Offboard3Planner {
 		float scale = (float)Math.sqrt(dx * dx + dy *dy);
 		dx /= scale;
 		dy /= scale;
-
-		Offboard3AbstractTarget target = new Offboard3PosVelTarget(MSP3DUtils.norm3D(col.getExpectedStateAtCollision().vel()),time);
+		
+	//	float velocity = MSP3DUtils.norm3D(col.getExpectedStateAtCollision().vel());
+		float velocity = max_xyz_velocity * (col.getTotalTime() - time) / col.getTotalTime();
+		
+		Offboard3AbstractTarget target = new Offboard3PosVelTarget(velocity,time);
 
 		if(right) {
 			if (Math.abs(dx) < (float)Math.abs(dy))
@@ -370,6 +372,7 @@ public class Offboard3Planner {
 				target.pos().setTo(-dy * DISTANCE, dx * DISTANCE,Float.NaN,Float.NaN);
 		}
 		//		
+		
 		target.pos().x += obstacle.x;
 		target.pos().y += obstacle.y;
 

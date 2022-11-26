@@ -41,7 +41,7 @@ public class Offboard3CollisionCheck {
 		if(!MSP3DUtils.isFinite(obstacle) || time_section_start > trajectory_generator.getTotalTime())
 			return;
 
-		float time_elapsed = 0; int count = 0;
+		float time_elapsed = 0; 
 		final Offboard3State state_of_collision    = new Offboard3State();
 
 
@@ -56,10 +56,8 @@ public class Offboard3CollisionCheck {
 
 			// Check only YX distance
 			if(MSP3DUtils.distance2D(state_of_collision.pos(), obstacle) < MIN_DISTANCE_OBSTACLE) { 
-				if(++count > 3) {
-					System.out.println("Collsion in "+time_elapsed+"s");
-					throw new Offboard3CollisionException(time_elapsed, state_of_collision, planningSectionsIndex);
-				}
+					throw new Offboard3CollisionException(time_elapsed, trajectory_generator.getTotalTime(), state_of_collision, planningSectionsIndex);
+				
 
 			}
 			// TODO Check with current map
