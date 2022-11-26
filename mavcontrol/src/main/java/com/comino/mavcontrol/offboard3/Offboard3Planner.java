@@ -1,12 +1,8 @@
 package com.comino.mavcontrol.offboard3;
 
-import java.util.LinkedList;
-
 import org.mavlink.messages.MAV_SEVERITY;
-import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 
 import com.comino.mavcom.control.IMAVController;
-import com.comino.mavcom.control.impl.MAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.utils.MSP3DUtils;
@@ -27,13 +23,13 @@ import com.comino.mavutils.MSPStringUtils;
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
-import georegression.struct.point.Point4D_F32;
 
 public class Offboard3Planner {
 
 	private static final float MAX_YAW_VEL                      = MSPMathUtils.toRad(45);   // Maxumum speed in [rad/s]
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
 	private static final float MIN_XYZ_ESTIMATED_TIME           = 5f;                       // Minumum duration the planner ist used in [s]
+	private static final float MIN_AVOIDANCE_DISTANCE           = 0.7f;                     // Distance to obstacle
 
 	// Planners
 	private final SingleAxisTrajectory      yawPlanner = new SingleAxisTrajectory();
@@ -139,7 +135,7 @@ public class Offboard3Planner {
 			MSPStringUtils.getInstance().out("Old plan");
 			MSPStringUtils.getInstance().out(new_plan);
 
-			new_plan = doReplanning(new_plan, col);
+			new_plan = doReplanning(new_plan, col, MIN_AVOIDANCE_DISTANCE);
 
 			if(new_plan.isEmpty()) {
 				control.writeLogMessage(new LogMessage("[msp] Replanning found no solution.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
@@ -283,7 +279,7 @@ public class Offboard3Planner {
 		return new_current_state;
 	}
 
-	private Offboard3Plan doReplanning(Offboard3Plan plan, Offboard3CollisionException col) {
+	private Offboard3Plan doReplanning(Offboard3Plan plan, Offboard3CollisionException col, float distance) {
 
 		control.writeLogMessage(new LogMessage("[msp] Replanning performed.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 
@@ -296,7 +292,7 @@ public class Offboard3Planner {
 		float time = plan.getTotalTimeUpTo(col.getPlanningSectionIndex()) + col.getExpectedTimeOfCollision();
 
 		// Plan left path
-		Offboard3AbstractTarget target_l = generateAvoidanceTarget(col, obstacle, time, false);
+		Offboard3AbstractTarget target_l = generateAvoidanceTarget(col, obstacle, time, false, distance);
 
 		Offboard3Plan new_plan_l = new Offboard3Plan();
 		new_plan_l.add(target_l);
@@ -309,7 +305,7 @@ public class Offboard3Planner {
 		}
 
 		// Plan right path
-		Offboard3AbstractTarget target_r = generateAvoidanceTarget(col, obstacle, time, true);
+		Offboard3AbstractTarget target_r = generateAvoidanceTarget(col, obstacle, time, true, distance);
 
 		Offboard3Plan new_plan_r = new Offboard3Plan();
 		new_plan_r.add(target_r);
@@ -343,9 +339,9 @@ public class Offboard3Planner {
 		}
 	}
 	
-	private Offboard3AbstractTarget generateAvoidanceTarget(Offboard3CollisionException col,Point3D_F32 obstacle, float time, boolean right ) {
+	private Offboard3AbstractTarget generateAvoidanceTarget(Offboard3CollisionException col,Point3D_F32 obstacle, float time, 
+			     boolean right, float distance ) {
 
-		final float       DISTANCE = 0.6f;
 
 		float dx = col.getExpectedStateAtCollision().vel().x;
 		float dy = col.getExpectedStateAtCollision().vel().y;
@@ -361,17 +357,16 @@ public class Offboard3Planner {
 
 		if(right) {
 			if (Math.abs(dx) < (float)Math.abs(dy))
-				target.pos().setTo(dy * DISTANCE, -dx * DISTANCE,Float.NaN,Float.NaN);
+				target.pos().setTo(dy * distance, -dx * distance,Float.NaN,Float.NaN);
 			else
-				target.pos().setTo(-dy * DISTANCE, dx * DISTANCE,Float.NaN,Float.NaN);
+				target.pos().setTo(-dy * distance, dx * distance,Float.NaN,Float.NaN);
 
 		} else {
 			if (Math.abs(dx) > (float)Math.abs(dy))
-				target.pos().setTo(dy * DISTANCE, -dx * DISTANCE,Float.NaN,Float.NaN);
+				target.pos().setTo(dy * distance, -dx * distance,Float.NaN,Float.NaN);
 			else
-				target.pos().setTo(-dy * DISTANCE, dx * DISTANCE,Float.NaN,Float.NaN);
+				target.pos().setTo(-dy * distance, dx * distance,Float.NaN,Float.NaN);
 		}
-		//		
 		
 		target.pos().x += obstacle.x;
 		target.pos().y += obstacle.y;
