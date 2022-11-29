@@ -345,6 +345,9 @@ public class Offboard3Planner {
 
 		float dx = col.getExpectedStateAtCollision().vel().x;
 		float dy = col.getExpectedStateAtCollision().vel().y;
+		
+//		float dx = obstacle.x - col.getExpectedStateAtCollision().pos().x;
+//		float dy = obstacle.y - col.getExpectedStateAtCollision().pos().y;
 
 		float scale = (float)Math.sqrt(dx * dx + dy *dy);
 		dx /= scale;

@@ -41,7 +41,7 @@ public class Offboard3Manager {
 
 	private static Offboard3Manager instance;
 
-	private static final int   UPDATE_RATE                 	    = 50;					    // Offboard update rate in [ms]
+	private static final int   UPDATE_RATE                 	    = 33;					    // Offboard update rate in [ms]
 	private static final float DEFAULT_TIMEOUT                	= 5.0f;					    // Default timeout 1s
 
 	private static final float RADIUS_ACCEPT                    = 0.2f;                     // Acceptance radius in [m]
@@ -327,6 +327,7 @@ public class Offboard3Manager {
 			if(!planner.getFinalPlan().isEmpty() && xyzExecutor.isPlanned() && t_elapsed >= xyzExecutor.getTotalTime()) {
 				current_target = planNextSectionExecution(current);	
 				t_elapsed = 0;
+				return;
 			}
 
 
