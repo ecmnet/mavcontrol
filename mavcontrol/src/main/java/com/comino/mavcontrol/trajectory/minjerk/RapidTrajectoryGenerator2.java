@@ -46,8 +46,6 @@
 
 package com.comino.mavcontrol.trajectory.minjerk;
 
-import java.lang.reflect.InvocationTargetException;
-
 import org.ddogleg.solver.PolynomialSolver;
 import org.ejml.data.Complex_F64;
 
@@ -64,7 +62,7 @@ import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector4D_F32;
 
-public class RapidTrajectoryGenerator {
+public class  RapidTrajectoryGenerator2<T extends GeoTuple3D_F32<?>> {
 
 	private final double MIN_ACC		= 0.0;
 	private final double MAX_ACC		= 0.5;
@@ -80,7 +78,7 @@ public class RapidTrajectoryGenerator {
 	private final Point3D_F64 _tmp1 = new Point3D_F64();
 	private final Point3D_F64 _tmp2 = new Point3D_F64();
 
-	public RapidTrajectoryGenerator() {
+	public RapidTrajectoryGenerator2() {
 		super();
 		for(int i=0;i<3;i++) {
 			_axis[i] = new SingleAxisTrajectory();
@@ -88,7 +86,7 @@ public class RapidTrajectoryGenerator {
 		this._gravity = new Point3D_F64();
 	}
 
-	public RapidTrajectoryGenerator(Point3D_F64 gravity) {
+	public RapidTrajectoryGenerator2(Point3D_F64 gravity) {
 		super();
 		for(int i=0;i<3;i++) {
 			_axis[i] = new SingleAxisTrajectory();
@@ -96,7 +94,7 @@ public class RapidTrajectoryGenerator {
 		this._gravity = gravity;
 	}
 
-	public RapidTrajectoryGenerator(Point3D_F64 x0, Point3D_F64 v0, Point3D_F64 a0, Point3D_F64 gravity) {
+	public RapidTrajectoryGenerator2(Point3D_F64 x0, Point3D_F64 v0, Point3D_F64 a0, Point3D_F64 gravity) {
 		reset();
 		for(int i=0;i<3;i++) {
 			_axis[i] = new SingleAxisTrajectory();
@@ -434,146 +432,62 @@ public class RapidTrajectoryGenerator {
 		state.pos().w = MSP3DUtils.angleXY(state.vel());
 	}
 
-//	public Point3D_F64 getJerk(double t, Point3D_F64 out) {
-//		if(out == null)
-//			out = new Point3D_F64();
-//		for(int i=0;i<3;i++)
-//			out.setIdx(i, _axis[i].getJerk(t));
-//		return out;
-//	}
-
-//	public GeoTuple3D_F32<?>  getAcceleration(double t, GeoTuple3D_F32<?> out) {
-//		if(out == null)
-//			out = new Point3D_F32();
-//		for(int i=0;i<3;i++)
-//			out.setIdx(i, (float)_axis[i].getAcceleration(t));
-//		return out;
-//	}
-
-//	public GeoTuple3D_F32<?> getVelocity(double t, GeoTuple3D_F32<?> out) {
-//		if(out == null)
-//			out = new Point3D_F32();
-//		for(int i=0;i<3;i++)
-//			out.setIdx(i, (float)_axis[i].getVelocity(t));
-//		return out;
-//	}
-	
-	public <T extends GeoTuple3D_F32<?> > T getPosition(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, (float)_axis[i].getPosition(t));
-		return out;
-	}
-	
-	public <T extends GeoTuple3D_F64<?> > T getPosition(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, _axis[i].getPosition(t));
-		return out;
-	}
-	
-	public <T extends GeoTuple4D_F32<?> > T getPosition(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, (float)_axis[i].getPosition(t));
-		out.w = Float.NaN;
-		return out;
-	}
-	
-	public <T extends GeoTuple4D_F64<?> > T getPosition(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, _axis[i].getPosition(t));
-		out.w = Float.NaN;
-		return out;
-	}
-	
-	public <T extends GeoTuple3D_F32<?> > T getVelocity(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, (float)_axis[i].getVelocity(t));
-		return out;
-	}
-	
-	public <T extends GeoTuple3D_F64<?> > T getVelocity(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, _axis[i].getVelocity(t));
-		return out;
-	}
-	
-	public <T extends GeoTuple4D_F32<?> > T getVelocity(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, (float)_axis[i].getVelocity(t));
-		out.w = Float.NaN;
-		return out;
-	}
-	
-	public <T extends GeoTuple4D_F64<?> > T getVelocity(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, _axis[i].getVelocity(t));
-		out.w = Float.NaN;
-		return out;
-	}
-	
-	public <T extends GeoTuple3D_F32<?> > T getAcceleration(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, (float)_axis[i].getAcceleration(t));
-		return out;
-	}
-	
-	public <T extends GeoTuple3D_F64<?> > T getAcceleration(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, _axis[i].getAcceleration(t));
-		return out;
-	}
-	
-	public <T extends GeoTuple4D_F32<?> > T getAcceleration(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, (float)_axis[i].getAcceleration(t));
-		out.w = Float.NaN;
-		return out;
-	}
-	
-	public <T extends GeoTuple4D_F64<?> > T getAcceleration(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, _axis[i].getAcceleration(t));
-		out.w = Float.NaN;
-		return out;
-	}
-	
-	
-	public <T extends GeoTuple3D_F32<?> > T getJerk(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, (float)_axis[i].getJerk(t));
-		return out;
-	}
-	
-	public <T extends GeoTuple3D_F64<?> > T getJerk(double t, T  out) {
+	public Point3D_F64 getJerk(double t, Point3D_F64 out) {
+		if(out == null)
+			out = new Point3D_F64();
 		for(int i=0;i<3;i++)
 			out.setIdx(i, _axis[i].getJerk(t));
 		return out;
 	}
-	
-	public <T extends GeoTuple4D_F32<?> > T getJerk(double t, T  out) {
+
+	public GeoTuple3D_F32<?>  getAcceleration(double t, GeoTuple3D_F32<?> out) {
+		if(out == null)
+			out = new Point3D_F32();
 		for(int i=0;i<3;i++)
-			out.setIdx(i, (float)_axis[i].getJerk(t));
-		out.w = Float.NaN;
-		return out;
-	}
-	
-	public <T extends GeoTuple4D_F64<?> > T getJerk(double t, T  out) {
-		for(int i=0;i<3;i++)
-			out.setIdx(i, _axis[i].getJerk(t));
-		out.w = Float.NaN;
+			out.setIdx(i, (float)_axis[i].getAcceleration(t));
 		return out;
 	}
 
+	public GeoTuple3D_F32<?> getVelocity(double t, GeoTuple3D_F32<?> out) {
+		if(out == null)
+			out = new Point3D_F32();
+		for(int i=0;i<3;i++)
+			out.setIdx(i, (float)_axis[i].getVelocity(t));
+		return out;
+	}
 
-//	public void getVelocity(double t, GeoTuple4D_F32<?> out) {
-//		for(int i=0;i<3;i++)
-//			out.setIdx(i, (float)_axis[i].getVelocity(t));
-//		out.w = 0;
-//	}
+	public GeoTuple3D_F32<?> getPosition(double t, GeoTuple3D_F32<?> out) {
+		if(out == null)
+			out = new Point3D_F32();
+		for(int i=0;i<3;i++)
+			out.setIdx(i, (float)_axis[i].getPosition(t));
+		return out;
+	}
 
-//	public void getAcceleration(double t, GeoTuple4D_F32<?> out) {
-//		for(int i=0;i<3;i++)
-//			out.setIdx(i, (float)_axis[i].getAcceleration(t));
-//	}
+	public Point3D_F64 getPosition(double t, Point3D_F64 out) {
+		if(out == null)
+			out = new Point3D_F64();
+		for(int i=0;i<3;i++)
+			out.setIdx(i, _axis[i].getPosition(t));
+		return out;
+	}
+
+	public void getPosition(double t, GeoTuple4D_F32<?> out) {
+		for(int i=0;i<3;i++)
+			out.setIdx(i, (float)_axis[i].getPosition(t));
+		out.w = Float.NaN;
+	}
+
+	public void getVelocity(double t, GeoTuple4D_F32<?> out) {
+		for(int i=0;i<3;i++)
+			out.setIdx(i, (float)_axis[i].getVelocity(t));
+		out.w = 0;
+	}
+
+	public void getAcceleration(double t, GeoTuple4D_F32<?> out) {
+		for(int i=0;i<3;i++)
+			out.setIdx(i, (float)_axis[i].getAcceleration(t));
+	}
 
 	public void getGoalPosition(GeoTuple4D_F32<?> out) {
 		for(int i=0;i<3;i++)
@@ -650,7 +564,7 @@ public class RapidTrajectoryGenerator {
 		return _axis[i].getParamGamma();
 	}
 
-	public void set(RapidTrajectoryGenerator planner) {
+	public void set(RapidTrajectoryGenerator2 planner) {
 		for(int i=0;i<3;i++)
 			_axis[i].set(planner._axis[i]);
 	}

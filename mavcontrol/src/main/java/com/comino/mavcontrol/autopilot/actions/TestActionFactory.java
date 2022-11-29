@@ -141,7 +141,7 @@ public class TestActionFactory {
 			worker2 = wq.addCyclicTask("LP", 4000, () -> {
 				
                 offboard.moveTo((float)Math.random()*4f-2f+model.slam.ox, (float)Math.random()*4f-2f+model.slam.oy, 
-                		(float)Math.random()*2-3.0f, Float.NaN);
+                		(float)Math.random()*1-1.5f, Float.NaN);
                 
 			});
 			} else {
@@ -149,7 +149,7 @@ public class TestActionFactory {
 				worker2 = wq.addCyclicTask("LP", 4000, () -> {
 					
 	                offboard.moveTo((float)Math.random()*4f-2f, (float)Math.random()*4f-2f, 
-	                		(float)Math.random()*2-3.0f, Float.NaN);
+	                		(float)Math.random()*2-3f, Float.NaN);
 	                
 				});
 				
