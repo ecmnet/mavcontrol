@@ -242,11 +242,7 @@ public class RapidTrajectoryGenerator {
 
 	}
 
-	public Point3D_F32[] getDerivatives() {
-
-		Point3D_F32[] derivatives = new Point3D_F32[6];
-		for(int i=0; i< 6; i++)
-			derivatives[i] = new Point3D_F32();
+	public Point3D_F32[] getDerivatives(Point3D_F32[] derivatives) {
 
 		derivatives[0].setTo((float)getAxisParamAlpha(0),(float)getAxisParamAlpha(1),(float)getAxisParamAlpha(2));
 		derivatives[0].scale(1/120f);

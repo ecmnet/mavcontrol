@@ -115,6 +115,8 @@ public class Offboard3Manager {
 
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && !model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
 			return;
+		
+		// TODO: Ensure that no planning is in progress
 
 		Point4D_F32 p = new Point4D_F32(x,y,z,w);
 
@@ -331,9 +333,11 @@ public class Offboard3Manager {
 			}
 
 
+			// Collision check
 			try {
-				// Do a collision check
-				checkCollisionForPlannedSection(current_target,t_elapsed);
+				
+				collisionCheck.check(model, t_elapsed,0);
+				
 			} catch(Offboard3CollisionException c) {
 
 				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
@@ -593,17 +597,7 @@ public class Offboard3Manager {
 
 		}
 
-		private void checkCollisionForPlannedSection(Offboard3AbstractTarget target, float time_start) throws Offboard3CollisionException {
-
-
-			obstacle.setTo(model.slam.ox,model.slam.oy,model.slam.oz);
-
-			if(!MSP3DUtils.isFinite(obstacle))
-				return;
-
-			collisionCheck.check(obstacle, time_start);
-
-		}
+		
 
 
 		private void reset() {

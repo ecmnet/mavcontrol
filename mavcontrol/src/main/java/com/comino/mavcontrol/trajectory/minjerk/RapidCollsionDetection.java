@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import com.comino.mavcontrol.trajectory.minjerk.exceptions.RapidCollisionException;
-import com.comino.mavcontrol.trajectory.minjerk.struct.AbstractConvexObj;
+import com.comino.mavcontrol.trajectory.minjerk.math.Quartic;
+import com.comino.mavcontrol.trajectory.minjerk.struct.AbstractConvexObject;
 import com.comino.mavcontrol.trajectory.minjerk.struct.Boundary;
 import com.comino.mavcontrol.trajectory.minjerk.struct.Sphere;
 
@@ -17,9 +17,18 @@ import georegression.struct.point.Vector3D_F32;
 public class RapidCollsionDetection {
 	
 	// ported from https://github.com/nlbucki/RapidQuadcopterCollisionDetection/blob/master/src/CollisionChecker.cpp
+	
+	public static final float NO_COLLISION   = -1.0f;
+	public static final float NOT_DETERMINED = -2.0f;
 
 	private final Vector3D_F32 pos = new Vector3D_F32();
-
+	private final Point3D_F32[] trajDerivativeCoeffs = new Point3D_F32[6];
+	
+	public RapidCollsionDetection() {
+		
+		for(int i=0; i< 6; i++)
+			trajDerivativeCoeffs[i] = new Point3D_F32();
+	}
 
 	public boolean collisionCheck(Boundary boundary, RapidTrajectoryGenerator traj) {
 
@@ -27,7 +36,7 @@ public class RapidCollsionDetection {
 
 		float c[] = new float[5];
 
-		Point3D_F32[] trajDerivativeCoeffs = traj.getDerivatives();
+		traj.getDerivatives(trajDerivativeCoeffs);
 
 		for (int dim = 0; dim < 3; dim++) {
 			c[0] += (boundary.n.getIdx(dim) * trajDerivativeCoeffs[0].getIdx(dim));  //t**4
@@ -66,29 +75,43 @@ public class RapidCollsionDetection {
 
 		return false;
 	}
+	
+	public float collisionCheck(RapidTrajectoryGenerator traj, float ts, AbstractConvexObject obstacle, float minTimeSection) {
+		traj.getPosition(ts, pos);
+		if (obstacle.isPointInside(pos)) {
+			return ts;
+		}
+		
+		traj.getPosition(traj.getTotalTime(), pos);
+		if (obstacle.isPointInside(pos)) {
+			return ts;
+		}
+		
+		return collisionCheckSection(traj, ts, traj.getTotalTime(),obstacle, minTimeSection);
+	}
 
 
-	public boolean collisionCheckSection(RapidTrajectoryGenerator traj, float ts, float tf, AbstractConvexObj obstacle, float minTimeSection ) 
-	   throws RapidCollisionException {
+	public float collisionCheckSection(RapidTrajectoryGenerator traj, float ts, float tf, AbstractConvexObject obstacle, float minTimeSection ) 
+	    {
 
 		float midtime = (ts + tf) / 2;
 		Point3D_F32 midpoint = traj.getPosition(midtime,new Point3D_F32());
 
 		if (obstacle.isPointInside(midpoint)) {
-			throw new RapidCollisionException(midtime);
+			return midtime;
 		}
 
 		if (tf - ts < minTimeSection) {
 			// Our time resolution is too small, just give up (trajectory is likely tangent to obstacle surface)
 			System.err.println("Give up");
-			return false;
+			return NOT_DETERMINED;
 		}
 
 		Boundary tangentPlane = obstacle.getTangentPlane(midpoint);
 
 		float c[] = new float[5];
 
-		Point3D_F32[] trajDerivativeCoeffs = traj.getDerivatives();
+		traj.getDerivatives(trajDerivativeCoeffs);
 
 		for (int dim = 0; dim < 3; dim++) {
 			c[0] += (tangentPlane.n.getIdx(dim) * trajDerivativeCoeffs[0].getIdx(dim));  //t**4
@@ -136,14 +159,11 @@ public class RapidCollsionDetection {
 			traj.getPosition(testPointsHi.get(i), pos);
 			pos.setTo(pos.x - tangentPlane.p.x, pos.y - tangentPlane.p.y, pos.z - tangentPlane.p.z);
 			if (pos.dot(tangentPlane.n) <= 0) {
-				collisionCheckSection(traj,testPointsHi.get(i-1),tf, obstacle, minTimeSection);
-				break;
-				
-//				if(!collisionCheckSection(traj,testPointsHi.get(i-1),tf, obstacle, minTimeSection)) {
-//					break;
-//				} else {
-//					throw new RapidCollisionException(testPointsHi.get(i));
-//				}
+				if(collisionCheckSection(traj,testPointsHi.get(i-1),tf, obstacle, minTimeSection)<= 0.0) {
+					break;
+				} else {
+					return testPointsHi.get(i);
+				}
 			}
 		}
 		
@@ -155,7 +175,7 @@ public class RapidCollsionDetection {
 			}
 		}
 
-		return true;
+		return NO_COLLISION;
 	}
 
 
@@ -183,24 +203,15 @@ public class RapidCollsionDetection {
 
 		traj.generate(10f);
 
-		AbstractConvexObj obstacle = new Sphere(14f,1.8f,0,0.99f);
+		AbstractConvexObject obstacle = new Sphere(14f,1.8f,0,0.99f);
 
 		System.out.println(obstacle);
 
 		RapidCollsionDetection detector = new RapidCollsionDetection();
 
-		boolean collision;
-		try {
-			collision = detector.collisionCheckSection(traj,0.0f,10.0f,obstacle,0.01f);
-			System.out.println(collision);
-		} catch (RapidCollisionException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-		
-
-
+		float collision_time = detector.collisionCheckSection(traj,0.0f,10.0f,obstacle,0.01f);
+			System.out.println(collision_time);
+	
 	}
 
 

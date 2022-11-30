@@ -1,9 +1,11 @@
 package com.comino.mavcontrol.trajectory.minjerk.struct;
 
+import com.comino.mavcom.utils.MSP3DUtils;
+
 import georegression.struct.GeoTuple3D_F32;
 import georegression.struct.point.Point3D_F32;
 
-public class Sphere extends AbstractConvexObj {
+public class Sphere extends AbstractConvexObject {
 	
 	private float radius;
 	private GeoTuple3D_F32<?> center;
@@ -16,6 +18,10 @@ public class Sphere extends AbstractConvexObj {
 	public Sphere(float x, float y, float z, float radius) {
 		this.center = new Point3D_F32(x,y,z);
 		this.radius = radius;
+	}
+	
+	public boolean isValid() {
+		return MSP3DUtils.isFinite(center) && radius > 0;
 	}
 
 	@Override

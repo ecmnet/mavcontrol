@@ -1,4 +1,4 @@
-package com.comino.mavcontrol.trajectory.minjerk;
+package com.comino.mavcontrol.trajectory.minjerk.math;
 
 
 // Java port of https://github.com/nlbucki/RapidQuadcopterCollisionDetection/blob/master/src/quartic.cpp

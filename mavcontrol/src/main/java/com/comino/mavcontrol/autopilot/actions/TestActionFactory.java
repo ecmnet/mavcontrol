@@ -125,8 +125,8 @@ public class TestActionFactory {
 
 		m.slam.ox = (float)(Math.random()*3 -1.5);
 		m.slam.oy = (float)(Math.random()*3 -1.5);
-		m.slam.oz = -1.5f;
-
+		m.slam.oz = -1.2f;
+		
 	}
 
 	static int worker2 = 0; 
