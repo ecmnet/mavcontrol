@@ -6,11 +6,13 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard3.exceptions.Offboard3CollisionException;
 import com.comino.mavcontrol.offboard3.states.Offboard3State;
+import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
 import com.comino.mavcontrol.trajectory.minjerk.RapidCollsionDetection;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.struct.AbstractConvexObject;
 import com.comino.mavcontrol.trajectory.minjerk.struct.Sphere;
 
+import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F32;
 
 public class Offboard3CollisionCheck {
@@ -25,7 +27,26 @@ public class Offboard3CollisionCheck {
 	public Offboard3CollisionCheck(RapidTrajectoryGenerator trajectory_generator) {
 		this.trajectory_generator = trajectory_generator;
 	}
+	
+	public boolean isTargetFeasible(DataModel model,GeoTuple4D_F32<?> pos) {
+		Sphere obstacle = new Sphere(model.slam.ox,model.slam.oy, model.slam.oz, MIN_DISTANCE_OBSTACLE);
+		return isTargetFeasible(obstacle,pos);
+	}
+	
+	public boolean isTargetFeasible(AbstractConvexObject obstacle,GeoTuple4D_F32<?> pos) {
+		return !obstacle.isPointInside(new Point3D_F32(pos.x,pos.y,pos.z));
+	}
+	
+	public boolean isTargetFeasible(LinkedList<AbstractConvexObject> obstacles, GeoTuple4D_F32<?> pos) 
+			throws Offboard3CollisionException {
 
+		Point3D_F32 p = new Point3D_F32(pos.x,pos.y,pos.z);
+		for(AbstractConvexObject obstacle : obstacles) {
+			if(obstacle.isPointInside(p))
+					return false;
+		}
+		return true;
+	}
 
 	public void check(LinkedList<AbstractConvexObject> obstacles, float time_section_start, int planningSectionsIndex) 
 			throws Offboard3CollisionException {

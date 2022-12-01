@@ -179,11 +179,11 @@ public class Offboard3Manager {
 		private final YawSpeedControl           yawControl = new YawSpeedControl(YAW_PV, 0 ,MAX_YAW_VEL);
 
 		// Timing
-		private float t_timeout = 0;
-		private float t_elapsed = 0;
-		private float t_elapsed_last = 0;
-		private float t_planned_yaw = 0;
-		private float t_planned_xyz = 0;
+		private float t_timeout              = 0;
+		private float t_section_elapsed      = 0;
+		private float t_section_elapsed_last = 0;
+		private float t_planned_yaw          = 0;
+		private float t_planned_xyz          = 0;
 		
 
 		public Offboard3Worker(IMAVController control) {
@@ -219,10 +219,13 @@ public class Offboard3Manager {
 				control.writeLogMessage(new LogMessage("[msp] Landed. Offboard control rejected.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
 				return;
 			}
+			
+			if(!model.sys.isStatus(Status.MSP_CONNECTED))
+				return;
 
 			this.reached     = reached_action;
 			this.timeout     = timeout_action;
-			this.t_elapsed   = 0;
+			this.t_section_elapsed   = 0;
 
 			if(planner.getFinalPlan().isEmpty())
 				return;
@@ -241,7 +244,7 @@ public class Offboard3Manager {
 			if(isRunning)
 				return;
 
-			this.t_elapsed_last = System.nanoTime();
+			this.t_section_elapsed_last = System.nanoTime();
 
 			isRunning = true; 
 			offboard_worker = wq.addCyclicTask("HP", UPDATE_RATE, this);
@@ -295,16 +298,16 @@ public class Offboard3Manager {
 			current.update();
 
 			// timing
-			t_elapsed_last = t_elapsed;
-			t_elapsed = current_target.getElapsedTime();
+			t_section_elapsed_last = t_section_elapsed;
+			t_section_elapsed = current_target.getElapsedTime();
 
-			if((t_elapsed - t_elapsed_last) < 0.010f) {
+			if((t_section_elapsed - t_section_elapsed_last) < 0.005f) {
 				return;
 			}
 
 			// check current state and perform action 
 			if((yawExecutor.isPlanned() || xyzExecutor.isPlanned()) && planner.getFinalPlan().isEmpty() &&
-					t_elapsed > yawExecutor.getTotalTime() && t_elapsed > xyzExecutor.getTotalTime()) {
+					t_section_elapsed > yawExecutor.getTotalTime() && t_section_elapsed > xyzExecutor.getTotalTime()) {
 
 				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
@@ -313,22 +316,22 @@ public class Offboard3Manager {
 					model.slam.ix = Float.NaN;
 					model.slam.iy = Float.NaN;
 					model.slam.iz = Float.NaN;
+					
+					stopAndLoiter();
 
 					if(reached!=null) {
 						reached.action();
-						stop();
+						reached = null;
 					}
-					else
-						stopAndLoiter();
-					updateTrajectoryModel(t_elapsed);
+					updateTrajectoryModel(t_section_elapsed);
 					return;
 				} 
 			}
 
 			// Plan next target if required
-			if(!planner.getFinalPlan().isEmpty() && xyzExecutor.isPlanned() && t_elapsed >= xyzExecutor.getTotalTime()) {
+			if(!planner.getFinalPlan().isEmpty() && xyzExecutor.isPlanned() && t_section_elapsed >= xyzExecutor.getTotalTime()) {
 				current_target = planNextSectionExecution(current);	
-				t_elapsed = 0;
+				t_section_elapsed = 0;
 				return;
 			}
 
@@ -336,7 +339,7 @@ public class Offboard3Manager {
 			// Collision check
 			try {
 				
-				collisionCheck.check(model, t_elapsed,0);
+				collisionCheck.check(model, t_section_elapsed,0);
 				
 			} catch(Offboard3CollisionException c) {
 
@@ -363,12 +366,12 @@ public class Offboard3Manager {
 			}
 
 			// check timeout
-			if(t_timeout > 0 && t_elapsed > t_timeout) {
+			if(t_timeout > 0 && t_section_elapsed > t_timeout) {
 				model.slam.setFlag(Slam.OFFBOARD_FLAG_TIMEOUT, true);
 				stopAndLoiter();
 				if(timeout!=null)
 					timeout.action();
-				updateTrajectoryModel(t_elapsed);
+				updateTrajectoryModel(t_section_elapsed);
 				control.writeLogMessage(new LogMessage("[msp] Offboard timeout. Switched to HOLD.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				return;
 			}
@@ -379,11 +382,11 @@ public class Offboard3Manager {
 				cmd.type_mask    = 0;
 				model.slam.clearFlags();
 
-				if(xyzExecutor.isPlanned() && t_elapsed <= xyzExecutor.getTotalTime()) {
+				if(xyzExecutor.isPlanned() && t_section_elapsed <= xyzExecutor.getTotalTime()) {
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_XYZ_PLANNER, true);
-					cmd.x       = (float)xyzExecutor.getPosition(t_elapsed,0);
-					cmd.y       = (float)xyzExecutor.getPosition(t_elapsed,1);
-					cmd.z       = (float)xyzExecutor.getPosition(t_elapsed,2);
+					cmd.x       = (float)xyzExecutor.getPosition(t_section_elapsed,0);
+					cmd.y       = (float)xyzExecutor.getPosition(t_section_elapsed,1);
+					cmd.z       = (float)xyzExecutor.getPosition(t_section_elapsed,2);
 				} else {
 					if(!current_target.isTargetSetpoint()) 
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_XYZ_DIRECT, true);
@@ -393,20 +396,20 @@ public class Offboard3Manager {
 					cmd.z       = current_target.pos().z;
 				}
 
-				if(xyzExecutor.isPlanned() && t_elapsed <= xyzExecutor.getTotalTime()) {
-					cmd.vx       = (float)xyzExecutor.getVelocity(t_elapsed,0);
-					cmd.vy       = (float)xyzExecutor.getVelocity(t_elapsed,1);
-					cmd.vz       = (float)xyzExecutor.getVelocity(t_elapsed,2);
+				if(xyzExecutor.isPlanned() && t_section_elapsed <= xyzExecutor.getTotalTime()) {
+					cmd.vx       = (float)xyzExecutor.getVelocity(t_section_elapsed,0);
+					cmd.vy       = (float)xyzExecutor.getVelocity(t_section_elapsed,1);
+					cmd.vz       = (float)xyzExecutor.getVelocity(t_section_elapsed,2);
 				} else {
 					cmd.vx       = Float.NaN;
 					cmd.vy       = Float.NaN;
 					cmd.vz       = Float.NaN;  
 				}
 
-				if(xyzExecutor.isPlanned() && t_elapsed <= xyzExecutor.getTotalTime()) {
-					cmd.afx       = (float)xyzExecutor.getAcceleration(t_elapsed,0);
-					cmd.afy       = (float)xyzExecutor.getAcceleration(t_elapsed,1);
-					cmd.afz       = (float)xyzExecutor.getAcceleration(t_elapsed,2);
+				if(xyzExecutor.isPlanned() && t_section_elapsed <= xyzExecutor.getTotalTime()) {
+					cmd.afx       = (float)xyzExecutor.getAcceleration(t_section_elapsed,0);
+					cmd.afy       = (float)xyzExecutor.getAcceleration(t_section_elapsed,1);
+					cmd.afz       = (float)xyzExecutor.getAcceleration(t_section_elapsed,2);
 				} else {
 					cmd.afx       = Float.NaN;
 					cmd.afy       = Float.NaN;
@@ -417,13 +420,13 @@ public class Offboard3Manager {
 
 					// Yaw control aligns to path based on velocity direction or setpoint
 
-					if(xyzExecutor.isPlanned() && t_elapsed <= xyzExecutor.getTotalTime()) {
+					if(xyzExecutor.isPlanned() && t_section_elapsed <= xyzExecutor.getTotalTime()) {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
 						cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
 						if(Math.sqrt(cmd.vx*cmd.vx + cmd.vy*cmd.vy) > 0.1) {
 							current_target.pos().w = MSP3DUtils.angleXY(cmd.vx,cmd.vy);
 							cmd.yaw      = current_target.pos().w;
-							cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - current.pos().w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);
+							cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - current.pos().w), t_section_elapsed - t_section_elapsed_last,MAX_YAW_VEL);
 							// System.err.println("YAW CONTROL1 "+MSPMathUtils.normAngle(cmd.yaw - current.pos().w)+":"+cmd.yaw_rate);
 						} 
 					} else {
@@ -432,7 +435,7 @@ public class Offboard3Manager {
 							model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
 							cmd.yaw       = current_target.pos().w;
-							cmd.yaw_rate  = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - current.pos().w), t_elapsed - t_elapsed_last,MAX_YAW_VEL);	
+							cmd.yaw_rate  = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - current.pos().w), t_section_elapsed - t_section_elapsed_last,MAX_YAW_VEL);	
 						} else {
 							model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
 							cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
@@ -445,10 +448,10 @@ public class Offboard3Manager {
 
 					// Yaw controlled by planner
 
-					if(t_elapsed <= yawExecutor.getTotalTime()) {
+					if(t_section_elapsed <= yawExecutor.getTotalTime()) {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_PLANNER, true);
-						cmd.yaw_rate = (float)yawExecutor.getVelocity(t_elapsed);
-						cmd.yaw      = (float)yawExecutor.getPosition(t_elapsed);
+						cmd.yaw_rate = (float)yawExecutor.getVelocity(t_section_elapsed);
+						cmd.yaw      = (float)yawExecutor.getPosition(t_section_elapsed);
 					} else {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_DIRECT, true);
 						cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_RATE_IGNORE;
@@ -474,9 +477,9 @@ public class Offboard3Manager {
 			model.debug.z = cmd.yaw;
 
 
-			if(t_elapsed < xyzExecutor.getTotalTime()) {
+			if(t_section_elapsed < xyzExecutor.getTotalTime()) {
 				model.slam.di = MSP3DUtils.distance3D(current_target.pos(), current.pos());
-				updateTrajectoryModel(t_elapsed);
+				updateTrajectoryModel(t_section_elapsed);
 			}
 		}
 
@@ -602,8 +605,6 @@ public class Offboard3Manager {
 
 		private void reset() {
 
-			reached = null;
-
 			yawExecutor.reset();
 			xyzExecutor.reset();
 			yawControl.reset();
@@ -613,7 +614,7 @@ public class Offboard3Manager {
 			acceptance_radius = RADIUS_ACCEPT;
 			acceptance_yaw    = YAW_ACCEPT;
 			t_timeout         = DEFAULT_TIMEOUT;
-			t_elapsed_last    = 0;
+			t_section_elapsed_last    = 0;
 			t_planned_yaw     = 0;
 			t_planned_xyz     = 0;
 

@@ -35,7 +35,7 @@ public class TestActionFactory {
 			control.sendMAVLinkMessage(msg);
 			return;
 		}
-		
+
 		if(model.hud.ar > 2.5f) {
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
 			msg.px    =  Float.NaN;
@@ -126,36 +126,39 @@ public class TestActionFactory {
 		m.slam.ox = (float)(Math.random()*3 -1.5);
 		m.slam.oy = (float)(Math.random()*3 -1.5);
 		m.slam.oz = -1.2f;
-		
+
 	}
 
 	static int worker2 = 0; 
+	static boolean ready = true;
 	public static void continuous_planning(DataModel model,boolean enable) {
 
 		final WorkQueue  wq = WorkQueue.getInstance();
 		final Offboard3Manager offboard = Offboard3Manager.getInstance();
 
 		if(enable) {
-			
+
 			if(Float.isFinite(model.slam.ox)) {
-			worker2 = wq.addCyclicTask("LP", 4000, () -> {
-				
-                offboard.moveTo((float)Math.random()*4f-2f+model.slam.ox, (float)Math.random()*4f-2f+model.slam.oy, 
-                		(float)Math.random()*1-1.5f, Float.NaN);
-                
-			});
-			} else {
-				
-				worker2 = wq.addCyclicTask("LP", 4000, () -> {
-					
-	                offboard.moveTo((float)Math.random()*4f-2f, (float)Math.random()*4f-2f, 
-	                		(float)Math.random()*2-3f, Float.NaN);
-	                
+				worker2 = wq.addCyclicTask("LP", 2000, () -> {
+						offboard.moveTo((float)Math.random()*4f-2f+model.slam.ox, (float)Math.random()*4f-2f+model.slam.oy, 
+								(float)Math.random()*0.2f-1.2f, Float.NaN,() -> ready = true);
+		
 				});
-				
+			} else {
+
+				worker2 = wq.addCyclicTask("LP", 4000, () -> {
+					if(ready) {
+						ready = false;
+						offboard.moveTo((float)Math.random()*4f-2f, (float)Math.random()*4f-2f, 
+								(float)Math.random()*2-3f, Float.NaN,() -> ready = true);
+					}
+
+				});
+
 			}
 
 		} else {
+			ready = true;
 			wq.removeTask("LP", worker2);
 		}
 	}

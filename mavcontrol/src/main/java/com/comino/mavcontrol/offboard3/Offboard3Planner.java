@@ -115,10 +115,16 @@ public class Offboard3Planner {
 		lock.lock();
 
 		try { 
-			
+
 			reset(); current.update();
 
 			long tms = System.nanoTime();
+			
+			if(!collisionCheck.isTargetFeasible(model, pos_target)) {
+				control.writeLogMessage(new LogMessage("[msp] Target not feasible.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
+				final_plan.clear();
+				return;
+			}
 
 			Offboard3Plan new_plan = new Offboard3Plan();
 
@@ -319,6 +325,7 @@ public class Offboard3Planner {
 		try {
 			planPath(new_plan_l, current);
 		} catch (Offboard3CollisionException l) {
+			System.err.println("L found no solution");
 			new_plan_l.clear();
 		}
 
@@ -332,10 +339,12 @@ public class Offboard3Planner {
 		try {
 			planPath(new_plan_r, current);
 		} catch (Offboard3CollisionException r) {
+			System.err.println("R found no solution");
 			new_plan_r.clear();
 		}
 		MSPStringUtils.getInstance().out("Cost L: "+new_plan_l.getTotalCosts()+" Time L: "+new_plan_l.getTotalTime());
 		MSPStringUtils.getInstance().out("Cost R: "+new_plan_r.getTotalCosts()+" Time R: "+new_plan_r.getTotalTime());
+
 
 
 		if(new_plan_l.getTotalCosts() == 0) {
@@ -351,10 +360,19 @@ public class Offboard3Planner {
 		if(new_plan_l.getTotalCosts() < new_plan_r.getTotalCosts()) {
 			model.slam.setInfoPoint(target_l.pos());
 			return new_plan_l;	
-		} else {
+		}
+		if(new_plan_l.getTotalCosts() >= new_plan_r.getTotalCosts()) {
 			model.slam.setInfoPoint(target_r.pos());
 			return new_plan_r;	
 		}
+
+		System.err.println("Error: ");
+		System.err.println(new_plan_r);
+		System.err.println(current);
+	
+		new_plan_r.clear();
+		return new_plan_r;	
+
 	}
 
 	private Offboard3AbstractTarget generateAvoidanceTarget(Offboard3CollisionException col,Point3D_F32 obstacle, float time, 
