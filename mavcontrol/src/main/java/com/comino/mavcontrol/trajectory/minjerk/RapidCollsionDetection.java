@@ -21,8 +21,9 @@ public class RapidCollsionDetection {
 	public static final float NO_COLLISION   = -1.0f;
 	public static final float NOT_DETERMINED = -2.0f;
 
-	private final Vector3D_F32 pos = new Vector3D_F32();
+	private final Vector3D_F32  pos = new Vector3D_F32();
 	private final Point3D_F32[] trajDerivativeCoeffs = new Point3D_F32[6];
+	private final float         coef[] = new float[5];
 	
 	public RapidCollsionDetection() {
 		
@@ -34,16 +35,14 @@ public class RapidCollsionDetection {
 
 		boundary.n.normalize();
 
-		float c[] = new float[5];
-
 		traj.getDerivatives(trajDerivativeCoeffs);
 
 		for (int dim = 0; dim < 3; dim++) {
-			c[0] += (boundary.n.getIdx(dim) * trajDerivativeCoeffs[0].getIdx(dim));  //t**4
-			c[1] += (boundary.n.getIdx(dim) * trajDerivativeCoeffs[1].getIdx(dim));  //t**4
-			c[2] += (boundary.n.getIdx(dim) * trajDerivativeCoeffs[2].getIdx(dim));  //t**4
-			c[3] += (boundary.n.getIdx(dim) * trajDerivativeCoeffs[3].getIdx(dim));  //t**4
-			c[4] += (boundary.n.getIdx(dim) * trajDerivativeCoeffs[4].getIdx(dim));  //t**4
+			coef[0] += (boundary.n.getIdx(dim) * trajDerivativeCoeffs[0].getIdx(dim));  //t**4
+			coef[1] += (boundary.n.getIdx(dim) * trajDerivativeCoeffs[1].getIdx(dim));  //t**4
+			coef[2] += (boundary.n.getIdx(dim) * trajDerivativeCoeffs[2].getIdx(dim));  //t**4
+			coef[3] += (boundary.n.getIdx(dim) * trajDerivativeCoeffs[3].getIdx(dim));  //t**4
+			coef[4] += (boundary.n.getIdx(dim) * trajDerivativeCoeffs[4].getIdx(dim));  //t**4
 		}
 
 		float roots[] = new float[6];
@@ -52,10 +51,10 @@ public class RapidCollsionDetection {
 
 		int rootCount;
 
-		if (Math.abs(c[0]) > 1e-6f) 
-			rootCount = Quartic.solve_quartic(c[1] / c[0], c[2] / c[0], c[3] / c[0], c[4] / c[0], roots);
+		if (Math.abs(coef[0]) > 1e-6f) 
+			rootCount = Quartic.solve_quartic(coef[1] / coef[0], coef[2] / coef[0], coef[3] / coef[0], coef[4] / coef[0], roots);
 		else 
-			rootCount = Quartic.solveP3(c[2] / c[1], c[3] / c[1], c[4] / c[1], roots);
+			rootCount = Quartic.solveP3(coef[2] / coef[1], coef[3] / coef[1], coef[4] / coef[1], roots);
 
 		for (int i = 0; i < (rootCount + 2); i++) {
 			//don't evaluate points outside the domain
@@ -84,7 +83,7 @@ public class RapidCollsionDetection {
 		
 		traj.getPosition(traj.getTotalTime(), pos);
 		if (obstacle.isPointInside(pos)) {
-			return ts;
+			return traj.getTotalTime();
 		}
 		
 		return collisionCheckSection(traj, ts, traj.getTotalTime(),obstacle, minTimeSection);
@@ -109,24 +108,22 @@ public class RapidCollsionDetection {
 
 		Boundary tangentPlane = obstacle.getTangentPlane(midpoint);
 
-		float c[] = new float[5];
-
 		traj.getDerivatives(trajDerivativeCoeffs);
 
 		for (int dim = 0; dim < 3; dim++) {
-			c[0] += (tangentPlane.n.getIdx(dim) * trajDerivativeCoeffs[0].getIdx(dim));  //t**4
-			c[1] += (tangentPlane.n.getIdx(dim) * trajDerivativeCoeffs[1].getIdx(dim));  //t**3
-			c[2] += (tangentPlane.n.getIdx(dim) * trajDerivativeCoeffs[2].getIdx(dim));  //t**2
-			c[3] += (tangentPlane.n.getIdx(dim) * trajDerivativeCoeffs[3].getIdx(dim));  //t
-			c[4] += (tangentPlane.n.getIdx(dim) * trajDerivativeCoeffs[4].getIdx(dim));  //1
+			coef[0] += (tangentPlane.n.getIdx(dim) * trajDerivativeCoeffs[0].getIdx(dim));  //t**4
+			coef[1] += (tangentPlane.n.getIdx(dim) * trajDerivativeCoeffs[1].getIdx(dim));  //t**3
+			coef[2] += (tangentPlane.n.getIdx(dim) * trajDerivativeCoeffs[2].getIdx(dim));  //t**2
+			coef[3] += (tangentPlane.n.getIdx(dim) * trajDerivativeCoeffs[3].getIdx(dim));  //t
+			coef[4] += (tangentPlane.n.getIdx(dim) * trajDerivativeCoeffs[4].getIdx(dim));  //1
 		}
 
 		float roots[] = new float[4]; int rootCount;
 
-		if (Math.abs(c[0]) > 1e-6f) 
-			rootCount = Quartic.solve_quartic(c[1] / c[0], c[2] / c[0], c[3] / c[0], c[4] / c[0], roots);
+		if (Math.abs(coef[0]) > 1e-6f) 
+			rootCount = Quartic.solve_quartic(coef[1] / coef[0], coef[2] / coef[0], coef[3] / coef[0], coef[4] / coef[0], roots);
 		else 
-			rootCount = Quartic.solveP3(c[2] / c[1], c[3] / c[1], c[4] / c[1], roots);
+			rootCount = Quartic.solveP3(coef[2] / coef[1], coef[3] / coef[1], coef[4] / coef[1], roots);
 
 		Arrays.sort(roots);
 

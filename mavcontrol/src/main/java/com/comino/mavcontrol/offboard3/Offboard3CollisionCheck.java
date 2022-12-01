@@ -18,7 +18,7 @@ import georegression.struct.point.Point3D_F32;
 public class Offboard3CollisionCheck {
 
 	private static final float MIN_DISTANCE_OBSTACLE            = 0.5f;                     // Minimal distance to obstacle
-	private static final float STEP_TIME                        = 0.01f;                    // Time steps to check
+	private static final float STEP_TIME                        = 0.005f;                   // Time steps to check
 
 	private final RapidTrajectoryGenerator trajectory_generator;
 	private final RapidCollsionDetection detector = new RapidCollsionDetection();

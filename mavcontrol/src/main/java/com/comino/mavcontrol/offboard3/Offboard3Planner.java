@@ -122,7 +122,6 @@ public class Offboard3Planner {
 			
 			if(!collisionCheck.isTargetFeasible(model, pos_target)) {
 				control.writeLogMessage(new LogMessage("[msp] Target not feasible.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
-				final_plan.clear();
 				return;
 			}
 
@@ -144,7 +143,6 @@ public class Offboard3Planner {
 
 				planPath(new_plan, current);
 
-
 			} catch (Offboard3CollisionException col) {
 
 				if(!control.isSimulation() || replanning) 
@@ -159,6 +157,8 @@ public class Offboard3Planner {
 
 				if(new_plan.isEmpty()) {
 					control.writeLogMessage(new LogMessage("[msp] Replanning found no solution.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					final_plan.clear();
+					return;
 				}
 
 				MSPStringUtils.getInstance().out("New plan");
@@ -249,8 +249,7 @@ public class Offboard3Planner {
 					estimated_xyz_duration = 2f;
 				planned_xyz_duration = xyzPlanner.generate(estimated_xyz_duration);
 			}
-
-
+			
 			// Yaw Planning 
 
 			yawPlanner.reset();

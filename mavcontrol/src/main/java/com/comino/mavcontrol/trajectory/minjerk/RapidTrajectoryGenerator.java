@@ -330,6 +330,7 @@ public class RapidTrajectoryGenerator {
 			wBound = Math.sqrt(jmaxSqr / fminSqr);  //the 1e-6 is a divide-by-zero protection
 		else 
 			wBound = Double.MAX_VALUE;
+		
 
 		if(fmax < fminAllowed)  {
 			System.out.println("ForceMax: "+fmax+" < "+fminAllowed);
