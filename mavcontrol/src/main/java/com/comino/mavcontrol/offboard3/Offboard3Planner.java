@@ -36,12 +36,9 @@ public class Offboard3Planner {
 	// Planners
 	private final SingleAxisTrajectory      yawPlanner = new SingleAxisTrajectory();
 	private final RapidTrajectoryGenerator  xyzPlanner = new RapidTrajectoryGenerator(new Point3D_F64(0,0,0));
-	
+
 	// Gnerator for avoidance plans
 	private final Offboard3SphereTrajectoryGenerator avoidancePlanGenerator;
-
-	// List of final targets
-	private final Offboard3Plan final_plan = new Offboard3Plan();
 
 	// Current state
 	private final Offboard3Current            current;
@@ -60,8 +57,6 @@ public class Offboard3Planner {
 	private float acceptance_radius;
 	private float max_xyz_velocity;
 
-	private final ReentrantLock lock = new ReentrantLock();
-
 
 	public Offboard3Planner(IMAVController control, float acceptance_radius, float max_xyz_velocity) {
 
@@ -76,10 +71,6 @@ public class Offboard3Planner {
 
 	}
 
-	public Offboard3Plan getFinalPlan() {
-		return final_plan;
-	}
-
 	public int getPlannedSectionCount() {
 		return plannedSectionCount;
 	}
@@ -91,89 +82,72 @@ public class Offboard3Planner {
 		model.slam.iz = Float.NaN;
 
 		plannedSectionCount = 0;
-		final_plan.clear();
 		yawPlanner.reset();
 		xyzPlanner.reset();
 		current.update();
 	}
 
-	public void planDirectYaw(float yaw) {
-		lock.lock();
+	public Offboard3Plan planDirectYaw(float yaw) {
+		Offboard3Plan new_plan = new Offboard3Plan();
+		new_plan.add(new Offboard3YawTarget(yaw));
+		return new_plan;
+	}
 
-		try { 
+	public Offboard3Plan planDirectPath(GeoTuple4D_F32<?> pos_target) {
+		return planDirectPath(pos_target,false);
+	}
 
-			reset();
-			final_plan.add(new Offboard3YawTarget(yaw));
+	public Offboard3Plan planDirectPath(GeoTuple4D_F32<?> pos_target, boolean replanning) {
 
-		} finally {
-			lock.unlock();
+
+		reset(); current.update();
+
+		if(!collisionCheck.isTargetFeasible(model, pos_target)) {
+			control.writeLogMessage(new LogMessage("[msp] Target not feasible.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
+			return null;
 		}
-	}
 
-	public void planDirectPath(GeoTuple4D_F32<?> pos_target) {
-		planDirectPath(pos_target,false);
-	}
+		Offboard3Plan new_plan = new Offboard3Plan();
 
-	public void planDirectPath(GeoTuple4D_F32<?> pos_target, boolean replanning) {
+		new_plan.setEstimatedTime(MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_velocity);
 
-		lock.lock();
-
-		try { 
-
-			reset(); current.update();
-			
-			if(!collisionCheck.isTargetFeasible(model, pos_target)) {
-				control.writeLogMessage(new LogMessage("[msp] Target not feasible.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
-				return;
-			}
-
-			Offboard3Plan new_plan = new Offboard3Plan();
-
-			new_plan.setEstimatedTime(MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_velocity);
-
-			if(new_plan.getEstimatedTime() < (5/max_xyz_velocity+2.0f)) {
-				new_plan.add(new Offboard3PosTarget(pos_target));
-			}
-
-			else {
-				new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,2.0f));
-				new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,new_plan.getEstimatedTime()*5f/8f));
-				new_plan.add(new Offboard3PosTarget(pos_target));
-			}
-
-			try {
-
-				planPath(new_plan, current);
-
-			} catch (Offboard3CollisionException col) {
-
-				if(!control.isSimulation() || replanning) 
-					return;
-				
-				MSPStringUtils.getInstance().err(col.getExpectedStateAtCollision());
-
-				new_plan = doReplanning(new_plan, col, MIN_AVOIDANCE_DISTANCE);
-				if(new_plan == null) {
-					control.writeLogMessage(new LogMessage("[msp] Replanning found no solution.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-					return;
-				}
-			}
-
-			final_plan.set(new_plan);
-			MSPStringUtils.getInstance().out(final_plan);
-			
-
-		} finally {
-			lock.unlock();
+		if(new_plan.getEstimatedTime() < (5/max_xyz_velocity+2.0f)) {
+			new_plan.add(new Offboard3PosTarget(pos_target));
 		}
+
+		else {
+			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,2.0f));
+			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,new_plan.getEstimatedTime()*5f/8f));
+			new_plan.add(new Offboard3PosTarget(pos_target));
+		}
+
+		try {
+
+			planPath(new_plan, current);
+			MSPStringUtils.getInstance().out(new_plan);
+
+		} catch (Offboard3CollisionException col) {
+
+			if(!control.isSimulation() || replanning) 
+				return null;
+
+			new_plan = doReplanning(new_plan, col, MIN_AVOIDANCE_DISTANCE);
+
+			if(new_plan == null) {
+				control.writeLogMessage(new LogMessage("[msp] Replanning found no solution.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				return null;
+			}
+
+			MSPStringUtils.getInstance().err(current);
+			MSPStringUtils.getInstance().err(new_plan);
+		}
+
+		return new_plan;
+
 	}
 
-	public boolean isPlanning() {
-		return lock.isLocked();
-	}
 
-
-	public synchronized void planPath(Offboard3Plan plan, Offboard3Current initial_state) throws Offboard3CollisionException {
+	public void planPath(Offboard3Plan plan, Offboard3Current initial_state) throws Offboard3CollisionException {
 
 		Offboard3State nextPlannedCurrentState = initial_state; 
 
@@ -189,7 +163,7 @@ public class Offboard3Planner {
 
 			collisionCheck.check(xyzPlanner, model, 0, initial_state,section.getIndex());
 		}
-		
+
 	}
 
 	private Offboard3State planSection(Offboard3AbstractTarget target, Offboard3State current_state)  {
@@ -244,7 +218,7 @@ public class Offboard3Planner {
 					estimated_xyz_duration = 2f;
 				planned_xyz_duration = xyzPlanner.generate(estimated_xyz_duration);
 			}
-			
+
 			// Yaw Planning 
 
 			yawPlanner.reset();
@@ -294,26 +268,25 @@ public class Offboard3Planner {
 
 		return new_current_state;
 	}
-	
+
 
 	private Offboard3Plan doReplanning(Offboard3Plan plan, Offboard3CollisionException col, float distance) {
 
 		control.writeLogMessage(new LogMessage("[msp] Replanning performed.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-		
+
 		if(!col.getObstacle().isValid())
 			return null;
-		
-	
+
 		RuntimeAnalysis.start();
-		
+
 		Offboard3Plan new_plan = avoidancePlanGenerator.getAvoidancePlan(this, plan, col, distance);
 		if(new_plan!=null)
-		   model.slam.setInfoPoint(new_plan.getFirst().pos());
-		
+			model.slam.setInfoPoint(new_plan.getFirst().pos());
+
 		RuntimeAnalysis.end();
-		
+
 		return new_plan;
-		
+
 	}
 
 

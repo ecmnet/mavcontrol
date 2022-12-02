@@ -18,7 +18,7 @@ import georegression.struct.point.Vector3D_F32;
 
 public class Offboard3SphereTrajectoryGenerator {
 
-	private static final int NUMBER_CANDIDATES = 40;
+	private static final int NUMBER_CANDIDATES = 100;
 
 	private final Random              gauss = new Random();
 	private final Vector3D_F32        tmp   = new Vector3D_F32();
@@ -58,8 +58,6 @@ public class Offboard3SphereTrajectoryGenerator {
 			return null;
 		
 		Collections.sort(candidates); 
-		
-		MSPStringUtils.getInstance().err("Avoidance plan found:");
 
 		return candidates.get(0);
 	}
@@ -83,19 +81,19 @@ public class Offboard3SphereTrajectoryGenerator {
 
 		float time     = plan.getTotalTimeUpTo(col.getPlanningSectionIndex()) + col.getExpectedTimeOfCollision();
 	//	float velocity = max_xyz_velocity * (col.getTotalTime() - time) / col.getTotalTime();
-		float velocity = max_xyz_velocity / 2.0f;//MSP3DUtils.norm3D(col.getExpectedStateAtCollision().vel());
+		float velocity = max_xyz_velocity * 2.0f / 3.0f;//MSP3DUtils.norm3D(col.getExpectedStateAtCollision().vel());
 
 		Offboard3AbstractTarget target = new Offboard3PosVelTarget(velocity,time);
 
 		tmp.setTo(col.getCurrent().pos().x,col.getCurrent().pos().y,col.getCurrent().pos().z);
 		Boundary tangentPlane = col.getObstacle().getTangentPlane(tmp); 
 	//	do {
-			tmp.setTo((float)gauss.nextGaussian(),(float)gauss.nextGaussian(),(float)gauss.nextGaussian());
+			tmp.setTo((float)gauss.nextGaussian(),(float)gauss.nextGaussian(),(float)gauss.nextGaussian()+tmp.z);
 			tmp.normalize();
 			tmp.scale(min_distance_from_center);
 			tmp.setTo(col.getObstacle().getCenter().x+tmp.x,
-					col.getObstacle().getCenter().y+tmp.y,
-					col.getObstacle().getCenter().z+tmp.z);
+					  col.getObstacle().getCenter().y+tmp.y,
+					  col.getObstacle().getCenter().z+tmp.z);
 			target.pos().setTo(tmp.x,tmp.y,tmp.z,Float.NaN);  
 			tmp.setTo(tmp.x - tangentPlane.p.x, tmp.y - tangentPlane.p.y, tmp.z - tangentPlane.p.z);
 	//	} while( tmp.dot(tangentPlane.n) <=0);
