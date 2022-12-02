@@ -139,7 +139,7 @@ public class TestActionFactory {
 		if(enable) {
 
 			if(Float.isFinite(model.slam.ox)) {
-				worker2 = wq.addCyclicTask("LP", 2000, () -> {
+				worker2 = wq.addCyclicTask("LP", 4000, () -> {
 						offboard.moveTo((float)Math.random()*4f-2f+model.slam.ox, (float)Math.random()*4f-2f+model.slam.oy, 
 								(float)Math.random()*0.2f-1.2f, Float.NaN);
 				});

@@ -1,25 +1,32 @@
 package com.comino.mavcontrol.offboard3.exceptions;
 
+import com.comino.mavcontrol.offboard3.states.Offboard3Current;
 import com.comino.mavcontrol.offboard3.states.Offboard3State;
+import com.comino.mavcontrol.trajectory.minjerk.struct.AbstractConvexObject;
 
 public class Offboard3CollisionException extends Exception {
 
 	private static final long serialVersionUID = 3081893282526013227L;
 	
-	private float             time_of_collision;
-	private float             total_time;
-	private Offboard3State    state_of_collision;
-	private int               planning_section_index;
+	private float                time_of_collision;
+	private float                total_time;
+	private Offboard3State       state_of_collision;
+	private Offboard3Current     current;
+	private AbstractConvexObject obstacle;
+	private int                  planning_section_index;
+	
 
-	public Offboard3CollisionException(float time_of_collision,float total_time,Offboard3State state_of_collision) {
-		this(time_of_collision,total_time,state_of_collision,0);
+	public Offboard3CollisionException(AbstractConvexObject obstacle,float time_of_collision,float total_time,Offboard3Current current,Offboard3State state_of_collision) {
+		this(obstacle,time_of_collision,total_time,current,state_of_collision,0);
 	}
 
-	public Offboard3CollisionException(float time_of_collision, float total_time, Offboard3State state_of_collision, int planning_section_index) {
+	public Offboard3CollisionException(AbstractConvexObject obstacle,float time_of_collision, float total_time, Offboard3Current current,Offboard3State state_of_collision, int planning_section_index) {
 		
 		this.time_of_collision      = time_of_collision;
 		this.total_time             = total_time;
 		this.state_of_collision     = state_of_collision;
+		this.obstacle               = obstacle;
+		this.current                = current;
 		this.planning_section_index = planning_section_index;
 		
 	}
@@ -34,6 +41,14 @@ public class Offboard3CollisionException extends Exception {
 	
 	public Offboard3State getExpectedStateAtCollision() {
 		return state_of_collision;
+	}
+	
+	public Offboard3Current getCurrent() {
+		return current;
+	}
+	
+	public AbstractConvexObject getObstacle() {
+		return obstacle;
 	}
 	
 	public int getPlanningSectionIndex() {

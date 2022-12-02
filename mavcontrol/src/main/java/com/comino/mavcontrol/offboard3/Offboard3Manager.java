@@ -199,7 +199,7 @@ public class Offboard3Manager {
 			System.out.println("Acceptance radius: "+acceptance_radius+" m");
 
 			this.planner        = new Offboard3Planner(control, acceptance_radius, max_xyz_vel);
-			this.collisionCheck = new Offboard3CollisionCheck(xyzExecutor);
+			this.collisionCheck = new Offboard3CollisionCheck();
 
 
 		}
@@ -227,8 +227,10 @@ public class Offboard3Manager {
 			this.timeout     = timeout_action;
 			this.t_section_elapsed   = 0;
 
-			if(planner.getFinalPlan().isEmpty())
+			if(planner.getFinalPlan().isEmpty()) {
+				worker.stopAndLoiter();
 				return;
+			}
 
 			current.update();
 
@@ -304,6 +306,7 @@ public class Offboard3Manager {
 			if((t_section_elapsed - t_section_elapsed_last) < 0.005f) {
 				return;
 			}
+			
 
 			// check current state and perform action 
 			if((yawExecutor.isPlanned() || xyzExecutor.isPlanned()) && planner.getFinalPlan().isEmpty() &&
@@ -327,6 +330,7 @@ public class Offboard3Manager {
 					return;
 				} 
 			}
+			
 
 			// Plan next target if required
 			if(!planner.getFinalPlan().isEmpty() && xyzExecutor.isPlanned() && t_section_elapsed >= xyzExecutor.getTotalTime()) {
@@ -339,7 +343,7 @@ public class Offboard3Manager {
 			// Collision check
 			try {
 				
-				collisionCheck.check(model, t_section_elapsed,0);
+				collisionCheck.check(xyzExecutor, model, t_section_elapsed, current,0);
 				
 			} catch(Offboard3CollisionException c) {
 
@@ -423,7 +427,7 @@ public class Offboard3Manager {
 					if(xyzExecutor.isPlanned() && t_section_elapsed <= xyzExecutor.getTotalTime()) {
 						model.slam.setFlag(Slam.OFFBOARD_FLAG_YAW_CONTROL, true);
 						cmd.type_mask = cmd.type_mask |  MAV_MASK.MASK_YAW_IGNORE;
-						if(Math.sqrt(cmd.vx*cmd.vx + cmd.vy*cmd.vy) > 0.1) {
+						if((cmd.vx*cmd.vx + cmd.vy*cmd.vy) > 0) {
 							current_target.pos().w = MSP3DUtils.angleXY(cmd.vx,cmd.vy);
 							cmd.yaw      = current_target.pos().w;
 							cmd.yaw_rate = yawControl.update(MSPMathUtils.normAngle(cmd.yaw - current.pos().w), t_section_elapsed - t_section_elapsed_last,MAX_YAW_VEL);
@@ -608,8 +612,6 @@ public class Offboard3Manager {
 			yawExecutor.reset();
 			xyzExecutor.reset();
 			yawControl.reset();
-
-			planner.reset();
 
 			acceptance_radius = RADIUS_ACCEPT;
 			acceptance_yaw    = YAW_ACCEPT;

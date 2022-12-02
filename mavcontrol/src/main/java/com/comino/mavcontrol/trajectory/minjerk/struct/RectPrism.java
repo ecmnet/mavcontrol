@@ -8,11 +8,10 @@ public class RectPrism extends AbstractConvexObject {
 	
 	// Note no ratiation!
 	
-	private GeoTuple3D_F32<?> center;
 	private GeoTuple3D_F32<?> lengths;
 	
 	public RectPrism(GeoTuple3D_F32<?> center, GeoTuple3D_F32<?> sideLengths) {
-		this.center  = center;
+		super(center);
 		this.lengths = sideLengths;
 	}
 

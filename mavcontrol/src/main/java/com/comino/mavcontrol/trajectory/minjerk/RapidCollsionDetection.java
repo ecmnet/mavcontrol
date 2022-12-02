@@ -2,6 +2,7 @@ package com.comino.mavcontrol.trajectory.minjerk;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import com.comino.mavcontrol.trajectory.minjerk.math.Quartic;
@@ -102,7 +103,6 @@ public class RapidCollsionDetection {
 
 		if (tf - ts < minTimeSection) {
 			// Our time resolution is too small, just give up (trajectory is likely tangent to obstacle surface)
-			System.err.println("Give up");
 			return NOT_DETERMINED;
 		}
 

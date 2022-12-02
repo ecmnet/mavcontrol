@@ -8,20 +8,23 @@ import georegression.struct.point.Point3D_F32;
 public class Sphere extends AbstractConvexObject {
 	
 	private float radius;
-	private GeoTuple3D_F32<?> center;
 	
 	public Sphere(GeoTuple3D_F32<?> center, float radius) {
-		this.center = center;
+		super(center);
 		this.radius = radius;
 	}
 	
 	public Sphere(float x, float y, float z, float radius) {
-		this.center = new Point3D_F32(x,y,z);
+		super(new Point3D_F32(x,y,z));
 		this.radius = radius;
 	}
 	
 	public boolean isValid() {
 		return MSP3DUtils.isFinite(center) && radius > 0;
+	}
+	
+	public float getRadius() {
+		return radius;
 	}
 
 	@Override

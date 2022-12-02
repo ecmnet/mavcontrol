@@ -6,17 +6,18 @@ import java.util.LinkedList;
 
 import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
 
-public class Offboard3Plan extends LinkedList<Offboard3AbstractTarget> {
+public class Offboard3Plan extends LinkedList<Offboard3AbstractTarget> implements Comparable<Offboard3Plan>  {
 
 	private static final long serialVersionUID = -2180412674433672222L;
 
 	private float estimated_time = 0;
 	private float total_time     = 0;
 	private float total_costs    = 0;
+	
 
 
 	@Override
-	public boolean add(Offboard3AbstractTarget e) {
+	public boolean add(final Offboard3AbstractTarget e) {
 		return super.add(e);
 	}
 
@@ -29,7 +30,7 @@ public class Offboard3Plan extends LinkedList<Offboard3AbstractTarget> {
 	}
 
 
-	public void set(Offboard3Plan plan) {
+	public void set(final Offboard3Plan plan) {
 		this.clear(); this.addAll(plan);
 		total_time      = plan.total_time;
 		total_costs     = plan.total_costs;
@@ -99,6 +100,13 @@ public class Offboard3Plan extends LinkedList<Offboard3AbstractTarget> {
 		b.append("========================================================================================================================================\n");
 		return b.toString();
 	}
+
+	@Override
+	public int compareTo(Offboard3Plan o) {
+		return Float.compare(this.total_costs, o.getTotalCosts());
+	}
+	
+	
 
 
 }
