@@ -28,7 +28,7 @@ public class Offboard3SphereTrajectoryGenerator {
 
 	private final float               max_xyz_velocity;
 
-	private final List<Offboard3Plan> candidates         = new ArrayList<Offboard3Plan>(MAX_NUMBER_CANDIDATES);
+	private final List<Offboard3Plan> candidates = new ArrayList<Offboard3Plan>(MAX_NUMBER_CANDIDATES);
 
 	private int no_valid, no_invalid;
 
@@ -39,9 +39,9 @@ public class Offboard3SphereTrajectoryGenerator {
 
 	public Offboard3Plan getAvoidancePlan(Offboard3Planner planner, Offboard3Plan plan, Offboard3Collision col, float distance) {
 
-		RuntimeAnalysis.start();
-
 		no_valid = no_invalid = 0;	candidates.clear();
+		
+		RuntimeAnalysis.start();
 
 		float time     = plan.getTotalTimeUpTo(col.getPlanningSectionIndex()) + col.getExpectedTimeOfCollision();
 		//		float velocity = max_xyz_velocity * (col.getTotalTime() - time) / col.getTotalTime();
@@ -75,12 +75,11 @@ public class Offboard3SphereTrajectoryGenerator {
 			return null;
 
 		Collections.sort(candidates); 
-
-		RuntimeAnalysis.end();
 		
 		MSPStringUtils.getInstance().out("Valid candidates: "+no_valid+" Invalid candidates: "+no_invalid);
 
 
+		RuntimeAnalysis.end();
 		return candidates.get(0);
 	}
 

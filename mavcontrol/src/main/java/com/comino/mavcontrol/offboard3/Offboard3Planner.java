@@ -122,12 +122,12 @@ public class Offboard3Planner {
 			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,new_plan.getEstimatedTime()*5f/8f));
 			new_plan.add(new Offboard3PosTarget(pos_target));
 		}
-
+		
 		Offboard3Collision collision = planPath(new_plan, current);
 
 		if(collision != null) {
 
-			if(!control.isSimulation() || replanning) 
+			if(replanning) 
 				return null;
 
 			new_plan = doReplanning(new_plan, collision, MIN_AVOIDANCE_DISTANCE);
@@ -150,7 +150,6 @@ public class Offboard3Planner {
 
 	}
 
-
 	public Offboard3Collision planPath(Offboard3Plan plan, Offboard3Current initial_state) {
 
 		Offboard3State nextPlannedCurrentState = initial_state; 
@@ -167,6 +166,9 @@ public class Offboard3Planner {
 			
 			nextPlannedCurrentState = planSection(section, nextPlannedCurrentState);
 			plan.addCostsAndTime((float)xyzPlanner.getCost(), xyzPlanner.getTotalTime());
+			
+			if(!control.isSimulation()) 
+				return null;
 
 			collision = collisionCheck.check(xyzPlanner, obstacle , 0, initial_state, section.getIndex());
 			if(collision!=null)
