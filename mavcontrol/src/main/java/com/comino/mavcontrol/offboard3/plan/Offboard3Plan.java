@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 
+import com.comino.mavcontrol.offboard3.states.Offboard3Current;
 import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
 
 public class Offboard3Plan extends LinkedList<Offboard3AbstractTarget> implements Comparable<Offboard3Plan>  {
@@ -14,7 +15,6 @@ public class Offboard3Plan extends LinkedList<Offboard3AbstractTarget> implement
 	private float total_time     = 0;
 	private float total_costs    = 0;
 	
-
 
 	@Override
 	public boolean add(final Offboard3AbstractTarget e) {

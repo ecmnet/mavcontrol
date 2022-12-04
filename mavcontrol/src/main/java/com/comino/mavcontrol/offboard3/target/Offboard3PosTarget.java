@@ -5,6 +5,7 @@ import georegression.struct.point.Point3D_F64;
 
 public class Offboard3PosTarget extends Offboard3AbstractTarget {
 
+
 	public Offboard3PosTarget(GeoTuple4D_F32<?> p) {
 		super(TYPE_POS,p.x,p.y,p.z,p.w,-1);
 	}

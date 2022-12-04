@@ -26,6 +26,10 @@ public class RapidCollsionDetection {
 	private final Point3D_F32[] trajDerivativeCoeffs = new Point3D_F32[6];
 	private final float         coef[] = new float[5];
 	
+	private final List<Float> testPointsLo = new ArrayList<Float>(6);
+	private final List<Float> testPointsHi = new ArrayList<Float>(6);
+	
+	
 	public RapidCollsionDetection() {
 		
 		for(int i=0; i< 6; i++)
@@ -126,9 +130,8 @@ public class RapidCollsionDetection {
 			rootCount = Quartic.solveP3(coef[2] / coef[1], coef[3] / coef[1], coef[4] / coef[1], roots);
 
 		Arrays.sort(roots);
-
-		List<Float> testPointsLo = new ArrayList<Float>(6);
-		List<Float> testPointsHi = new ArrayList<Float>(6);
+		
+		testPointsLo.clear(); testPointsHi.clear();
 
 		testPointsLo.add(ts);
 		testPointsHi.add(midtime);

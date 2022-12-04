@@ -2,7 +2,6 @@ package com.comino.mavcontrol.offboard3;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_FRAME;
@@ -26,8 +25,8 @@ import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavcontrol.offboard2.ITargetReached;
-import com.comino.mavcontrol.offboard3.exceptions.Offboard3CollisionException;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
+import com.comino.mavcontrol.offboard3.states.Offboard3Collision;
 import com.comino.mavcontrol.offboard3.states.Offboard3Current;
 import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
@@ -189,8 +188,8 @@ public class Offboard3Manager {
 		private float t_planned_yaw          = 0;
 		private float t_planned_xyz          = 0;
 
-
 		public Offboard3Worker(IMAVController control) {
+			
 			this.control = control;
 			this.model   = control.getCurrentModel();
 			this.current = new Offboard3Current(model);
@@ -204,6 +203,8 @@ public class Offboard3Manager {
 
 			this.planner        = new Offboard3Planner(control, acceptance_radius, max_xyz_vel);
 			this.collisionCheck = new Offboard3CollisionCheck();
+			
+			// Warmup
 
 
 		}
@@ -230,9 +231,6 @@ public class Offboard3Manager {
 			this.reached     = reached_action;
 			this.timeout     = timeout_action;
 			this.t_section_elapsed   = 0;
-
-			if(planQueue.isEmpty())
-				return;
 
 			if(isRunning)
 				return;
@@ -268,24 +266,24 @@ public class Offboard3Manager {
 
 		public void setTarget(final float yaw) {
 			
-		//	ExecutorService.get().execute(()-> {
+			ExecutorService.get().execute(()-> {
 				planQueue.clear();
 				Offboard3Plan plan = planner.planDirectYaw(yaw);		
 				if(plan!=null)
 					planQueue.offer(plan);
-		//	});
+			});
 		}
 
 		public void setTarget(GeoTuple4D_F32<?> pos_target) {
 			
 			final GeoTuple4D_F32<?> _target = pos_target.copy();
 			
-		//	ExecutorService.get().execute(()-> {
+			ExecutorService.get().execute(()-> {
 				planQueue.clear();
 				Offboard3Plan plan = planner.planDirectPath(_target);
 				if(plan!=null)
 					planQueue.offer(plan);
-		//	});
+			});
 		}
 
 		public boolean isPlanned() {
@@ -352,18 +350,15 @@ public class Offboard3Manager {
 			}
 
 
-			// Collision check
-			try {
+			Offboard3Collision collision = collisionCheck.check(xyzExecutor, model, t_section_elapsed, current,0);
 
-				collisionCheck.check(xyzExecutor, model, t_section_elapsed, current,0);
-
-			} catch(Offboard3CollisionException c) {
+			if(collision!=null) {
 
 				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
 					//
 					float stop_time = 0.5f;
-					if(c.getExpectedTimeOfCollision() < stop_time) {
-						control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(c.getExpectedTimeOfCollision())+". Stopped.", 
+					if(collision.getExpectedTimeOfCollision() < stop_time) {
+						control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(collision.getExpectedTimeOfCollision())+". Stopped.", 
 								MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
 						stopAndLoiter();
 						return;

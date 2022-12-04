@@ -3,7 +3,7 @@ package com.comino.mavcontrol.offboard3;
 import java.util.LinkedList;
 
 import com.comino.mavcom.model.DataModel;
-import com.comino.mavcontrol.offboard3.exceptions.Offboard3CollisionException;
+import com.comino.mavcontrol.offboard3.states.Offboard3Collision;
 import com.comino.mavcontrol.offboard3.states.Offboard3Current;
 import com.comino.mavcontrol.offboard3.states.Offboard3State;
 import com.comino.mavcontrol.trajectory.minjerk.RapidCollsionDetection;
@@ -31,8 +31,7 @@ public class Offboard3CollisionCheck {
 		return !obstacle.isPointInside(new Point3D_F32(pos.x,pos.y,pos.z));
 	}
 	
-	public boolean isTargetFeasible(LinkedList<AbstractConvexObject> obstacles, GeoTuple4D_F32<?> pos) 
-			throws Offboard3CollisionException {
+	public boolean isTargetFeasible(LinkedList<AbstractConvexObject> obstacles, GeoTuple4D_F32<?> pos) {
 
 		Point3D_F32 p = new Point3D_F32(pos.x,pos.y,pos.z);
 		for(AbstractConvexObject obstacle : obstacles) {
@@ -42,35 +41,39 @@ public class Offboard3CollisionCheck {
 		return true;
 	}
 
-	public void check(RapidTrajectoryGenerator xyzPlanner,LinkedList<AbstractConvexObject> obstacles, float time_section_start ,Offboard3Current current, int planningSectionsIndex) 
-			throws Offboard3CollisionException {
+	public Offboard3Collision check(RapidTrajectoryGenerator xyzPlanner,LinkedList<AbstractConvexObject> obstacles, float time_section_start ,
+			Offboard3Current current, int planningSectionsIndex) {
 
+	    Offboard3Collision collision;
 		for(AbstractConvexObject obstacle : obstacles) {
-			check(xyzPlanner,obstacle,time_section_start,current,planningSectionsIndex);
+			collision = check(xyzPlanner,obstacle,time_section_start,current,planningSectionsIndex);
+			if(collision!=null)
+				return collision;
 		}
+		return null;
 	}
 
-	public void check(RapidTrajectoryGenerator xyzPlanner, DataModel model, float time_section_start, Offboard3Current current,int planningSectionsIndex)  
-			throws Offboard3CollisionException {
-		check(xyzPlanner,new Sphere(model.slam.ox,model.slam.oy, model.slam.oz, MIN_DISTANCE_OBSTACLE),time_section_start,current,planningSectionsIndex);
+	public Offboard3Collision check(RapidTrajectoryGenerator xyzPlanner, DataModel model, 
+			                              float time_section_start, Offboard3Current current,int planningSectionsIndex)  {
+		return check(xyzPlanner,new Sphere(model.slam.ox,model.slam.oy, model.slam.oz, MIN_DISTANCE_OBSTACLE),time_section_start,current,planningSectionsIndex);
 	}
 	
-	
-	// TODO: Check for ground contact
 
-	private void check(RapidTrajectoryGenerator xyzPlanner,AbstractConvexObject obstacle, float time_section_start, Offboard3Current current, int planningSectionsIndex) 
-			throws Offboard3CollisionException {
+	public Offboard3Collision check(RapidTrajectoryGenerator xyzPlanner,AbstractConvexObject obstacle, 
+			     float time_section_start, Offboard3Current current, int planningSectionsIndex)  {
 
 		if(!obstacle.isValid() || time_section_start > xyzPlanner.getTotalTime())
-			return;
+			return null;
 		
 		float time_of_detection = detector.collisionCheck(xyzPlanner, time_section_start, obstacle, STEP_TIME);
 	    if(time_of_detection >= 0) {
-			final Offboard3State state_of_collision    = new Offboard3State();
+			final Offboard3State state_of_collision = new Offboard3State();
 			xyzPlanner.getState(time_of_detection, state_of_collision);
-			throw new Offboard3CollisionException(obstacle, time_of_detection, xyzPlanner.getTotalTime(), 
+			return new Offboard3Collision(obstacle, time_of_detection, xyzPlanner.getTotalTime(), 
 					  current,state_of_collision, planningSectionsIndex);
 		}
+	    
+	    return null;
 		
 //    Brute Force method 
 //	    float time_elapsed = 0; 

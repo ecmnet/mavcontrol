@@ -8,9 +8,9 @@ import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.utils.MSP3DUtils;
-import com.comino.mavcontrol.offboard3.exceptions.Offboard3CollisionException;
 import com.comino.mavcontrol.offboard3.generator.Offboard3SphereTrajectoryGenerator;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
+import com.comino.mavcontrol.offboard3.states.Offboard3Collision;
 import com.comino.mavcontrol.offboard3.states.Offboard3Current;
 import com.comino.mavcontrol.offboard3.states.Offboard3State;
 import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
@@ -20,6 +20,7 @@ import com.comino.mavcontrol.offboard3.target.Offboard3YawTarget;
 import com.comino.mavcontrol.offboard3.utils.RuntimeAnalysis;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
+import com.comino.mavcontrol.trajectory.minjerk.struct.Sphere;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.MSPStringUtils;
 
@@ -31,7 +32,7 @@ public class Offboard3Planner {
 	private static final float MAX_YAW_VEL                      = MSPMathUtils.toRad(45);   // Maxumum speed in [rad/s]
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
 	private static final float MIN_XYZ_ESTIMATED_TIME           = 5f;                       // Minumum duration the planner ist used in [s]
-	private static final float MIN_AVOIDANCE_DISTANCE           = 1f;                       // Distance to obstacle
+	private static final float MIN_AVOIDANCE_DISTANCE           = 0.75f;                    // Distance to obstacle center
 
 	// Planners
 	private final SingleAxisTrajectory      yawPlanner = new SingleAxisTrajectory();
@@ -42,6 +43,7 @@ public class Offboard3Planner {
 
 	// Current state
 	private final Offboard3Current            current;
+	private final Offboard3Current            new_current_state = new Offboard3Current();
 
 	// Collsion check
 	private final Offboard3CollisionCheck     collisionCheck;
@@ -121,25 +123,27 @@ public class Offboard3Planner {
 			new_plan.add(new Offboard3PosTarget(pos_target));
 		}
 
-		try {
+		Offboard3Collision collision = planPath(new_plan, current);
 
-			planPath(new_plan, current);
-			MSPStringUtils.getInstance().out(new_plan);
-
-		} catch (Offboard3CollisionException col) {
+		if(collision != null) {
 
 			if(!control.isSimulation() || replanning) 
 				return null;
 
-			new_plan = doReplanning(new_plan, col, MIN_AVOIDANCE_DISTANCE);
+			new_plan = doReplanning(new_plan, collision, MIN_AVOIDANCE_DISTANCE);
 
 			if(new_plan == null) {
 				control.writeLogMessage(new LogMessage("[msp] Replanning found no solution.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				return null;
 			}
 
-			MSPStringUtils.getInstance().err(current);
+			MSPStringUtils.getInstance().err("Current state: "+current);
 			MSPStringUtils.getInstance().err(new_plan);
+			
+		} else {
+			
+			MSPStringUtils.getInstance().out(new_plan);
+			
 		}
 
 		return new_plan;
@@ -147,23 +151,28 @@ public class Offboard3Planner {
 	}
 
 
-	public void planPath(Offboard3Plan plan, Offboard3Current initial_state) throws Offboard3CollisionException {
+	public Offboard3Collision planPath(Offboard3Plan plan, Offboard3Current initial_state) {
 
 		Offboard3State nextPlannedCurrentState = initial_state; 
+		Offboard3Collision collision;
 
 		plannedSectionCount = 0;
+		
+		Sphere obstacle = new Sphere(model.slam.ox,model.slam.oy, model.slam.oz, 0.5f);
 
 		// Plan sections
 		for(Offboard3AbstractTarget section : plan) {
-
+			
 			section.setIndex(plannedSectionCount++);
-
+			
 			nextPlannedCurrentState = planSection(section, nextPlannedCurrentState);
 			plan.addCostsAndTime((float)xyzPlanner.getCost(), xyzPlanner.getTotalTime());
 
-			collisionCheck.check(xyzPlanner, model, 0, initial_state,section.getIndex());
+			collision = collisionCheck.check(xyzPlanner, obstacle , 0, initial_state, section.getIndex());
+			if(collision!=null)
+				return collision;
 		}
-
+		return null;
 	}
 
 	private Offboard3State planSection(Offboard3AbstractTarget target, Offboard3State current_state)  {
@@ -171,7 +180,6 @@ public class Offboard3Planner {
 		float estimated_xyz_duration = 0; float estimated_yaw_duration = 0; 
 		float planned_xyz_duration = 0; float planned_yaw_duration = 0; 
 
-		final Offboard3Current new_current_state = new Offboard3Current();
 
 		target.replaceNaNPositionBy(current_state.pos());
 
@@ -270,20 +278,17 @@ public class Offboard3Planner {
 	}
 
 
-	private Offboard3Plan doReplanning(Offboard3Plan plan, Offboard3CollisionException col, float distance) {
+	private Offboard3Plan doReplanning(Offboard3Plan plan, Offboard3Collision col, float distance) {
 
 		control.writeLogMessage(new LogMessage("[msp] Replanning performed.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 
 		if(!col.getObstacle().isValid())
 			return null;
 
-		RuntimeAnalysis.start();
 
 		Offboard3Plan new_plan = avoidancePlanGenerator.getAvoidancePlan(this, plan, col, distance);
 		if(new_plan!=null)
 			model.slam.setInfoPoint(new_plan.getFirst().pos());
-
-		RuntimeAnalysis.end();
 
 		return new_plan;
 

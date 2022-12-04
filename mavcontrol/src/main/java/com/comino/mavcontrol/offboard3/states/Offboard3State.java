@@ -16,8 +16,9 @@ public class Offboard3State {
 	protected final GeoTuple3D_F32<?> acc  = new Point3D_F32(0,0,0);
 	
 	
-	protected final DecimalFormat f = new DecimalFormat(" #0.00;-#0.00");
-	protected final DecimalFormat r = new DecimalFormat(" #0.0°;-#0.0°");
+	protected final static DecimalFormat f = new DecimalFormat(" #0.00;-#0.00");
+	protected final static DecimalFormat r = new DecimalFormat(" #0.0°;-#0.0°");
+	
 	
 	public Offboard3State() {
 		
@@ -94,11 +95,11 @@ public class Offboard3State {
 	
 	public String toString() {
 		StringBuilder b = new StringBuilder();
-		b.append(" Pos: ("+f.format(pos.x)+","+f.format(pos.y)+","+f.format(pos.z)+")"+","+r.format(MSPMathUtils.fromRad(pos.w))); 
+		b.append("Pos: ("+f.format(pos.x)+","+f.format(pos.y)+","+f.format(pos.z)+")"+","+r.format(MSPMathUtils.fromRad(pos.w))); 
 		b.append("\t");
-		b.append(" Vel: ("+f.format(vel.x)+","+f.format(vel.y)+","+f.format(vel.z)+")"); 
+		b.append("Vel: ("+f.format(vel.x)+","+f.format(vel.y)+","+f.format(vel.z)+")"); 
 		b.append("\t");
-		b.append(" Acc: ("+f.format(acc.x)+","+f.format(acc.y)+","+f.format(acc.z)+")"); 
+		b.append("Acc: ("+f.format(acc.x)+","+f.format(acc.y)+","+f.format(acc.z)+")"); 
 		b.append("\t");
 		return b.toString();
 	}

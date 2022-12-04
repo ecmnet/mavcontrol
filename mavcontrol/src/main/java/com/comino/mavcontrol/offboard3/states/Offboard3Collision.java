@@ -1,10 +1,10 @@
-package com.comino.mavcontrol.offboard3.exceptions;
+package com.comino.mavcontrol.offboard3.states;
 
 import com.comino.mavcontrol.offboard3.states.Offboard3Current;
 import com.comino.mavcontrol.offboard3.states.Offboard3State;
 import com.comino.mavcontrol.trajectory.minjerk.struct.AbstractConvexObject;
 
-public class Offboard3CollisionException extends Exception {
+public class Offboard3Collision extends Exception {
 
 	private static final long serialVersionUID = 3081893282526013227L;
 	
@@ -15,12 +15,16 @@ public class Offboard3CollisionException extends Exception {
 	private AbstractConvexObject obstacle;
 	private int                  planning_section_index;
 	
+	
+	public Offboard3Collision() {
+		super();
+	}
 
-	public Offboard3CollisionException(AbstractConvexObject obstacle,float time_of_collision,float total_time,Offboard3Current current,Offboard3State state_of_collision) {
+	public Offboard3Collision(AbstractConvexObject obstacle,float time_of_collision,float total_time,Offboard3Current current,Offboard3State state_of_collision) {
 		this(obstacle,time_of_collision,total_time,current,state_of_collision,0);
 	}
 
-	public Offboard3CollisionException(AbstractConvexObject obstacle,float time_of_collision, float total_time, Offboard3Current current,Offboard3State state_of_collision, int planning_section_index) {
+	public Offboard3Collision(AbstractConvexObject obstacle,float time_of_collision, float total_time, Offboard3Current current,Offboard3State state_of_collision, int planning_section_index) {
 		
 		this.time_of_collision      = time_of_collision;
 		this.total_time             = total_time;

@@ -1,5 +1,7 @@
 package com.comino.mavcontrol.offboard3.utils;
 
+import com.comino.mavutils.MSPStringUtils;
+
 public class RuntimeAnalysis {
 	
 	private static long t_start_ns = 0;
@@ -11,21 +13,21 @@ public class RuntimeAnalysis {
 	private static String s2;
 	
 	public static void start() {
-		s2 = "Start";
+		s2 = "S";
 		t_start_ns = System.nanoTime();
-		t_last_ns = System.nanoTime();
+		t_last_ns  = System.nanoTime();
 		
 	}
 	
 	public static void eval(String s) {
-		t1_us = (System.nanoTime()-t_start_ns)/1000; t2_us = (System.nanoTime()-t_last_ns)/1000;    
+		t1_us = (System.nanoTime()-t_start_ns)/1000L; t2_us = (System.nanoTime()-t_last_ns)/1000L;    
 		t_last_ns = System.nanoTime();
-		System.out.println(s+": TotalTime at '"+s+"': "+t1_us+"us"+" DeltaTime since '"+s2+"': "+t2_us);
+		MSPStringUtils.getInstance().out(s+": TotalTime at '"+s+"': "+t1_us+"us"+" DeltaTime since '"+s2+"': "+t2_us);
 		s2 = s;
 	}
 	
 	public static void end() {
-		System.out.println("Elapsed Time: "+((System.nanoTime()-t_start_ns)/1000)+"us");
+		MSPStringUtils.getInstance().out("Elapsed Time: "+((System.nanoTime()-t_start_ns)/1000L)+"us");
 	}
 
 }

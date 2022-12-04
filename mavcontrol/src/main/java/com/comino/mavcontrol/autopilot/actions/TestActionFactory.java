@@ -130,7 +130,7 @@ public class TestActionFactory {
 	}
 
 	static int worker2 = 0; 
-	static boolean ready = true;
+	static int skip = -1;
 	public static void continuous_planning(DataModel model,boolean enable) {
 
 		final WorkQueue  wq = WorkQueue.getInstance();
@@ -139,9 +139,17 @@ public class TestActionFactory {
 		if(enable) {
 
 			if(Float.isFinite(model.slam.ox)) {
-				worker2 = wq.addCyclicTask("LP", 4000, () -> {
-						offboard.moveTo((float)Math.random()*4f-2f+model.slam.ox, (float)Math.random()*4f-2f+model.slam.oy, 
-								(float)Math.random()*0.2f-1.2f, Float.NaN);
+				worker2 = wq.addCyclicTask("LP", 10000, () -> {
+					
+//						offboard.moveTo((float)Math.random()*4f-2f+model.slam.ox, (float)Math.random()*4f-2f+model.slam.oy, 
+//								(float)Math.random()*0.2f-1.2f, Float.NaN);
+//						
+						
+					   // Obstacle 
+					   offboard.moveTo((float)(Math.random()*2f-1f+0.8f)*skip + model.slam.ox, model.slam.oy,
+								(float)Math.random()*0.5f-1.5f, Float.NaN);
+					   skip = skip * -1;
+						
 				});
 			} else {
 				worker2 = wq.addCyclicTask("LP", 4000, () -> {
@@ -152,7 +160,7 @@ public class TestActionFactory {
 			}
 
 		} else {
-			ready = true;
+			
 			wq.removeTask("LP", worker2);
 		}
 	}
