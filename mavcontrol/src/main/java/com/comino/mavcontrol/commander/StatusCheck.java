@@ -19,6 +19,7 @@ public class StatusCheck implements Runnable {
 	private final IMAVController control;
 
 	private final WorkQueue wq = WorkQueue.getInstance();
+	private final PX4Parameters params;
 
 
 	private boolean isRunning = false;
@@ -30,6 +31,7 @@ public class StatusCheck implements Runnable {
 		super();
 		this.model   = control.getCurrentModel();
 		this.control = control;
+		this.params = PX4Parameters.getInstance();
 
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS,Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
 
@@ -125,7 +127,7 @@ public class StatusCheck implements Runnable {
 			}
 
 		} else {
-			if(logging)
+			if(logging &&  params.getParam("SYS_HAS_GPS")!=null && params.getParam("SYS_HAS_GPS").value == 1)
 				control.writeLogMessage(new LogMessage("[msp] GPS data not available.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
 		}
 
@@ -158,7 +160,6 @@ public class StatusCheck implements Runnable {
 	
 	private boolean performParameterChecks() {
 		
-		final PX4Parameters params = PX4Parameters.getInstance();
 		
 		boolean is_ok = true;
 		
@@ -169,6 +170,11 @@ public class StatusCheck implements Runnable {
 		
 		if(params.getParam("MIS_TAKEOFF_ALT")!=null && params.getParam("MIS_TAKEOFF_ALT").value > 2.0) {
 			control.writeLogMessage(new LogMessage("[msp] Takeoff altitude > 2.0m.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+		}
+		
+		if (model.gps.fixtype > 2 &&  params.getParam("SYS_HAS_GPS")!=null && params.getParam("SYS_HAS_GPS").value == 0) {
+			control.writeLogMessage(new LogMessage("[msp] GPS is disabled. Enable before flight.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
+			is_ok = false;
 		}
      		
 		
