@@ -39,6 +39,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
+import org.mavlink.messages.IMAVLinkMessageID;
 import org.mavlink.messages.MAV_BATTERY_CHARGE_STATE;
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_MODE_FLAG;
@@ -49,6 +50,7 @@ import org.mavlink.messages.MSP_COMPONENT_CTRL;
 import org.mavlink.messages.lquac.msg_gps_global_origin;
 import org.mavlink.messages.lquac.msg_msp_command;
 import org.mavlink.messages.lquac.msg_set_gps_global_origin;
+import org.mavlink.messages.lquac.msg_set_home_position;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.config.MSPParams;
@@ -59,6 +61,7 @@ import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavcontrol.autopilot.actions.OffboardActionFactory;
@@ -77,7 +80,9 @@ public class MSPCommander  {
 	private MSPLogger                  logger   = null;
 
 
+
 	private final WorkQueue wq = WorkQueue.getInstance();
+	private final PX4Parameters params;
 
 	public MSPCommander(IMAVMSPController control, MSPConfig config) {
 
@@ -85,7 +90,8 @@ public class MSPCommander  {
 		this.control = control;
 		this.model   = control.getCurrentModel();
 		this.logger  = MSPLogger.getInstance();
-		
+		this.params  = PX4Parameters.getInstance();
+
 		this.status_check   = new StatusCheck(control);
 		this.status_check.start();
 
@@ -105,10 +111,71 @@ public class MSPCommander  {
 	public AutoPilotBase getAutopilot() {
 		return autopilot;
 	}
-	
+
 	private void registerActions() {
-		
-		
+
+		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS, Status.MSP_CONNECTED, StatusManager.EDGE_RISING, (a) -> {
+			if(!model.sys.isStatus(Status.MSP_ARMED)) {
+				System.out.println("Setting up MAVLINK streams and refresh parameters...");
+				// Note: Interval is in us
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ACTUATOR_CONTROL_TARGET,-1);	
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_UTM_GLOBAL_POSITION,-1);	
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ESC_STATUS,-1);	
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ESC_INFO,-1);	
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ESTIMATOR_STATUS,50000);
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_POSITION_TARGET_LOCAL_NED,33333);
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_GLOBAL_POSITION_INT,33333);
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_POSITION_TARGET_GLOBAL_INT,33333);
+				params.requestRefresh(true);
+			}
+		});
+
+		control.getStatusManager().addListener(Status.MSP_PARAMS_LOADED, (n) -> {
+			if(n.isStatus(Status.MSP_PARAMS_LOADED) && !model.sys.isStatus(Status.MSP_ARMED)) {
+
+				params.sendParameter("RTL_DESCEND_ALT", 1.0f);
+				params.sendParameter("RTL_RETURN_ALT", 1.0f);
+				params.sendParameter("NAV_MC_ALT_RAD", 0.05f);
+
+				if(control.isSimulation()) {
+					params.sendParameter("COM_RC_OVERRIDE", 0);
+					params.sendParameter("COM_RCL_EXCEPT", 7);
+					params.sendParameter("MPC_XY_VEL_P_ACC", 4.5f);
+					params.sendParameter("MIS_TAKEOFF_ALT", 1.5f);
+
+					// Autotune params
+					params.sendParameter("MC_ROLL_P", 5.92f);
+					params.sendParameter("MC_ROLLRATE_P", 0.170f);
+					params.sendParameter("MC_ROLLRATE_I", 0.217f);
+					params.sendParameter("MC_ROLLRATE_D", 0.0036f);
+
+					params.sendParameter("MC_PITCH_P", 5.72f);
+					params.sendParameter("MC_PITCHRATE_P", 0.162f);
+					params.sendParameter("MC_PITCHRATE_I", 0.228f);
+					params.sendParameter("MC_PITCHRATE_D", 0.0037f);
+
+					params.sendParameter("MC_YAW_P", 5.0f);
+					params.sendParameter("MC_YAWRATE_P", 0.17f);
+					params.sendParameter("MC_YAWRATE_I", 0.17f);
+
+				}
+
+				// Simple check for tethered mode; needs to be better
+				if(model.battery.b0 > 14.1 && model.battery.b0  < 14.4) {
+					model.sys.bat_type = Status.MSP_BAT_TYPE_TETHERED;
+				} else {
+					model.sys.bat_type = Status.MSP_BAT_TYPE_BAT;
+				}
+				
+			}
+
+		});
+
+		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS, Status.MSP_LPOS_VALID, StatusManager.EDGE_RISING, (a) -> {
+			logger.writeLocalMsg("[msp] LPOS valid.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+		});
+
+
 	}
 
 
@@ -158,7 +225,7 @@ public class MSPCommander  {
 						autopilot.setMode((int)(cmd.param1)==MSP_COMPONENT_CTRL.ENABLE,(int)(cmd.param2),cmd.param3);
 						break;
 					case MSP_CMD.MSP_CMD_OFFBOARD_SETLOCALVEL:
-						
+
 						break;
 					case MSP_CMD.MSP_CMD_MICROSLAM:
 						switch((int)cmd.param1) {
@@ -182,7 +249,7 @@ public class MSPCommander  {
 
 	private void setGlobalOrigin(double lat, double lon, double altitude) {
 
-		if(model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY) || model.sys.isStatus(Status.MSP_GPOS_VALID))
+		if((params.getParam("SYS_HAS_GPS")!=null && params.getParam("SYS_HAS_GPS").value == 1) || model.sys.isStatus(Status.MSP_GPOS_VALID))
 			return;
 
 		// Note: In SITL Set global origin causes BARO failure 
@@ -191,18 +258,29 @@ public class MSPCommander  {
 			logger.writeLocalMsg("[msp] Global origin not set (SITL)",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 			return;
 		}
-
-		msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,1);
-		gor.target_system = 1;
-		gor.latitude = (long)(lat * 1e7);
-		gor.longitude = (long)(lon * 1e7);
-		if(altitude < 0)
-			gor.altitude = (int)(model.hud.ap * 1000f);
+		
+		final msg_set_home_position  home = new msg_set_home_position(1,1);
+		home.target_system = 1;
+        home.latitude = (long)(lat * 1e7);
+        home.longitude = (long)(lon * 1e7);
+        if(altitude < 0)
+			home.altitude = (int)(model.hud.ap * 1000f);
 		else
-			gor.altitude = (int)(altitude * 1000);
-		gor.time_usec = DataModel.getSynchronizedPX4Time_us();
-
-		control.sendMAVLinkMessage(gor);
+			home.altitude = (int)(altitude * 1000);
+		home.time_usec = DataModel.getSynchronizedPX4Time_us();
+		control.sendMAVLinkMessage(home);
+//		
+//		final msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,1);
+//		gor.target_system = 1;
+//		gor.latitude = (long)(lat * 1e7);
+//		gor.longitude = (long)(lon * 1e7);
+//		if(altitude < 0)
+//			gor.altitude = (int)(model.hud.ap * 1000f);
+//		else
+//			gor.altitude = (int)(altitude * 1000);
+//		gor.time_usec = DataModel.getSynchronizedPX4Time_us();
+//
+//		control.sendMAVLinkMessage(gor);
 		logger.writeLocalMsg("[msp] Setting reference position",MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 	}
@@ -248,13 +326,13 @@ public class MSPCommander  {
 
 
 	private void setOffboardPosition(msg_msp_command cmd) {
-//		if(cmd.param3 == 0 || cmd.param3 == Float.NaN)
-//			autopilot.moveto(cmd.param1, cmd.param2, Float.NaN, cmd.param4);
-//		else
-//			autopilot.moveto(cmd.param1, cmd.param2, cmd.param3, cmd.param4);
-		
+		//		if(cmd.param3 == 0 || cmd.param3 == Float.NaN)
+		//			autopilot.moveto(cmd.param1, cmd.param2, Float.NaN, cmd.param4);
+		//		else
+		//			autopilot.moveto(cmd.param1, cmd.param2, cmd.param3, cmd.param4);
+
 		OffboardActionFactory.move_to(cmd.param1, cmd.param2, Float.NaN);
-		
+
 	}
 
 
