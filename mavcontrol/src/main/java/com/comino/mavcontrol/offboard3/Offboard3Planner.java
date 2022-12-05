@@ -33,6 +33,8 @@ public class Offboard3Planner {
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
 	private static final float MIN_XYZ_ESTIMATED_TIME           = 5f;                       // Minumum duration the planner ist used in [s]
 	private static final float MIN_AVOIDANCE_DISTANCE           = 0.75f;                    // Distance to obstacle center
+	private static final float FMAX_FEASIBILITY                 = 1.5f;                     // Maximum force applied for a plan
+	private static final float WMAX_FEASIBILITY                 = 5f;                       // Maximimu rotation force for a plan
 
 	// Planners
 	private final SingleAxisTrajectory      yawPlanner = new SingleAxisTrajectory();
@@ -165,9 +167,14 @@ public class Offboard3Planner {
 			section.setIndex(plannedSectionCount++);
 			
 			nextPlannedCurrentState = planSection(section, nextPlannedCurrentState);
+			if(nextPlannedCurrentState==null) {
+				control.writeLogMessage(new LogMessage("[msp] Plan not feasible. Aborted.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
+				plan.clear();
+				return null;
+			}
 			plan.addCostsAndTime((float)xyzPlanner.getCost(), xyzPlanner.getTotalTime());
 			
-			if(!control.isSimulation()) 
+			if(control!=null && !control.isSimulation()) 
 				return null;
 
 			collision = collisionCheck.check(xyzPlanner, obstacle , 0, initial_state, section.getIndex());
@@ -227,6 +234,10 @@ public class Offboard3Planner {
 				if(estimated_xyz_duration < 2)
 					estimated_xyz_duration = 2f;
 				planned_xyz_duration = xyzPlanner.generate(estimated_xyz_duration);
+			}
+			
+			if(!xyzPlanner.checkInputFeasibility(0, FMAX_FEASIBILITY, WMAX_FEASIBILITY, 0.05f)) {
+				return null;
 			}
 
 			// Yaw Planning 

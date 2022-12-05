@@ -143,8 +143,6 @@ public class Offboard3Manager {
 
 		private final WorkQueue wq = WorkQueue.getInstance();
 
-		// obstacle
-		final Point3D_F32 obstacle = new Point3D_F32();
 
 		private float acceptance_radius = RADIUS_ACCEPT;
 		private float acceptance_yaw    = YAW_ACCEPT;

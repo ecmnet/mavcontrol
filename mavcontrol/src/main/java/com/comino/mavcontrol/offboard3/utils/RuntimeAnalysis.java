@@ -29,5 +29,9 @@ public class RuntimeAnalysis {
 	public static void end() {
 		MSPStringUtils.getInstance().out("Elapsed Time: "+((System.nanoTime()-t_start_ns)/1000L)+"us");
 	}
+	
+	public static void end(long count) {
+		MSPStringUtils.getInstance().out("Elapsed Time: "+((System.nanoTime()-t_start_ns)/(count*1000L))+"us");
+	}
 
 }

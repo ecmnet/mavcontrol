@@ -340,6 +340,7 @@ public class RapidTrajectoryGenerator {
 			System.out.println("ForceMin: "+fmin+" >"+fmaxAllowed);
 			return false;
 		}
+	
 
 		//possibly infeasible:
 		if (fmin < fminAllowed || fmax > fmaxAllowed || wBound > wmaxAllowed)

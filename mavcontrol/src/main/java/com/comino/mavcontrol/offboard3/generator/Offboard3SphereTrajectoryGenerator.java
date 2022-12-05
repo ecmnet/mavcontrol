@@ -5,25 +5,29 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
+import com.comino.mavcom.control.impl.MAVProxyController;
 import com.comino.mavcontrol.offboard3.Offboard3Planner;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
 import com.comino.mavcontrol.offboard3.states.Offboard3Collision;
+import com.comino.mavcontrol.offboard3.states.Offboard3Current;
+import com.comino.mavcontrol.offboard3.states.Offboard3State;
 import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
 import com.comino.mavcontrol.offboard3.target.Offboard3PosTarget;
 import com.comino.mavcontrol.offboard3.target.Offboard3PosVelTarget;
 import com.comino.mavcontrol.offboard3.utils.RuntimeAnalysis;
 import com.comino.mavcontrol.trajectory.minjerk.struct.Boundary;
+import com.comino.mavcontrol.trajectory.minjerk.struct.Sphere;
 import com.comino.mavutils.MSPStringUtils;
 
 import georegression.struct.GeoTuple3D_F32;
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Vector3D_F32;
+import georegression.struct.point.Vector4D_F32;
 
 public class Offboard3SphereTrajectoryGenerator {
 
-	private static final int MAX_NUMBER_CANDIDATES = 200;
+	private static final int MAX_NUMBER_CANDIDATES = 20;
 
-	private final Random              gauss = new Random(System.nanoTime());
 	private final Vector3D_F32        tmp   = new Vector3D_F32();
 
 	private final float               max_xyz_velocity;
@@ -40,8 +44,7 @@ public class Offboard3SphereTrajectoryGenerator {
 	public Offboard3Plan getAvoidancePlan(Offboard3Planner planner, Offboard3Plan plan, Offboard3Collision col, float distance) {
 
 		no_valid = no_invalid = 0;	candidates.clear();
-		
-		RuntimeAnalysis.start();
+
 
 		float time     = plan.getTotalTimeUpTo(col.getPlanningSectionIndex()) + col.getExpectedTimeOfCollision();
 		//		float velocity = max_xyz_velocity * (col.getTotalTime() - time) / col.getTotalTime();
@@ -63,10 +66,19 @@ public class Offboard3SphereTrajectoryGenerator {
 			candidate.add(target);
 			candidate.add(new Offboard3PosTarget(plan.getFirst().pos()));
 
-			if(planner.planPath(candidate, col.getCurrent())!=null)
+			if(planner.planPath(candidate, col.getCurrent())!=null) {
+				// Collision detected 
 				no_invalid++;
+			}
+			else if(candidate.isEmpty()) {
+				// No collision but not feasible
+				no_invalid++;
+				MSPStringUtils.getInstance().out("Fasibility violated.");
+			}
 			else
+				// No collision and not feasible
 				candidates.add(candidate); no_valid++;
+
 
 
 		} while((System.nanoTime() -ts) < 2500_000 && ++i < MAX_NUMBER_CANDIDATES );
@@ -75,11 +87,9 @@ public class Offboard3SphereTrajectoryGenerator {
 			return null;
 
 		Collections.sort(candidates); 
-		
+
 		MSPStringUtils.getInstance().out("Valid candidates: "+no_valid+" Invalid candidates: "+no_invalid);
 
-
-		RuntimeAnalysis.end();
 		return candidates.get(0);
 	}
 
@@ -87,9 +97,9 @@ public class Offboard3SphereTrajectoryGenerator {
 	// Generates random targets on the upper half sphere with the center at a distance from the tangent plane
 	public void generateRandomPoint(GeoTuple4D_F32<?> target, GeoTuple3D_F32<?> obstacle, Boundary boundary, float min_distance_from_center) 
 	{
-
 		do { 
-			tmp.setTo((float)gauss.nextGaussian()*3f,(float)gauss.nextGaussian()*3f,(float)gauss.nextGaussian()*3f);
+			tmp.setTo(0,0,0);
+			tmp.setTo((float)Math.random()*2f-1f,(float)Math.random()*2f-1f,(float)Math.random()*2f-1f);
 			tmp.normalize();
 			tmp.scale(min_distance_from_center);
 			tmp.setTo(obstacle.x+tmp.x,
@@ -101,6 +111,7 @@ public class Offboard3SphereTrajectoryGenerator {
 		} while( tmp.dot(boundary.n) <=0 || target.z > obstacle.z);
 
 	}
+
 
 
 }
