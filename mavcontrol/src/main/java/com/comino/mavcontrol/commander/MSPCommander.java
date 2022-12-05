@@ -95,9 +95,9 @@ public class MSPCommander  {
 		this.status_check   = new StatusCheck(control);
 		this.status_check.start();
 
+		registerActions();
 		registerCommands();
 		registerLowBattery();
-		registerActions();
 
 		System.out.println("Commander initialized");
 
@@ -118,15 +118,19 @@ public class MSPCommander  {
 			if(!model.sys.isStatus(Status.MSP_ARMED)) {
 				System.out.println("Setting up MAVLINK streams and refresh parameters...");
 				// Note: Interval is in us
+				
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ACTUATOR_CONTROL_TARGET,-1);	
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_UTM_GLOBAL_POSITION,-1);	
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ESC_STATUS,-1);	
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ESC_INFO,-1);	
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ESTIMATOR_STATUS,50000);
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_POSITION_TARGET_LOCAL_NED,33333);
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_GLOBAL_POSITION_INT,33333);
-				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_POSITION_TARGET_GLOBAL_INT,33333);
-				params.requestRefresh(true);
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_GLOBAL_POSITION_INT,50000);
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_POSITION_TARGET_GLOBAL_INT,50000);
+				
+				// Load parameters if required
+				if(!params.isLoaded())
+				  params.requestRefresh(true);
 			}
 		});
 
@@ -169,10 +173,6 @@ public class MSPCommander  {
 				
 			}
 
-		});
-
-		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS, Status.MSP_LPOS_VALID, StatusManager.EDGE_RISING, (a) -> {
-			logger.writeLocalMsg("[msp] LPOS valid.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 		});
 
 
