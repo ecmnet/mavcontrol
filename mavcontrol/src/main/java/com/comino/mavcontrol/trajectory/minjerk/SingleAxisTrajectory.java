@@ -306,7 +306,6 @@ public class SingleAxisTrajectory {
 		_accPeakTimes.t[0] = planner._accPeakTimes.t[0];
 		_accPeakTimes.t[1] = planner._accPeakTimes.t[1];
 
-
 		_posGoalDefined = planner._posGoalDefined;
 		_velGoalDefined = planner._velGoalDefined;
 		_accGoalDefined = planner._accGoalDefined;

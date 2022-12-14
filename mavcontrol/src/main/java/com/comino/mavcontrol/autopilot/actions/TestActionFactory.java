@@ -141,10 +141,6 @@ public class TestActionFactory {
 			if(Float.isFinite(model.slam.ox)) {
 				worker2 = wq.addCyclicTask("LP", 10000, () -> {
 					
-//						offboard.moveTo((float)Math.random()*4f-2f+model.slam.ox, (float)Math.random()*4f-2f+model.slam.oy, 
-//								(float)Math.random()*0.2f-1.2f, Float.NaN);
-//						
-						
 					   // Obstacle 
 					   offboard.moveTo((float)(Math.random()*2f-1f+0.8f)*skip + model.slam.ox, model.slam.oy,
 								(float)Math.random()*0.5f-1.5f, Float.NaN);
@@ -153,8 +149,8 @@ public class TestActionFactory {
 				});
 			} else {
 				worker2 = wq.addCyclicTask("LP", 4000, () -> {
-						offboard.moveTo((float)Math.random()*4f-2f, (float)Math.random()*4f-2f, 
-								(float)Math.random()*2-3f, Float.NaN);
+						offboard.moveTo((float)Math.random()*6f-3f, (float)Math.random()*6f-3f, 
+								(float)Math.random()*3-3f-0.5f, Float.NaN);
 				});
 
 			}

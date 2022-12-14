@@ -1,7 +1,5 @@
 package com.comino.mavcontrol.offboard3;
 
-import java.util.concurrent.locks.ReentrantLock;
-
 import org.mavlink.messages.MAV_SEVERITY;
 
 import com.comino.mavcom.control.IMAVController;
@@ -17,7 +15,6 @@ import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
 import com.comino.mavcontrol.offboard3.target.Offboard3PosTarget;
 import com.comino.mavcontrol.offboard3.target.Offboard3VelTarget;
 import com.comino.mavcontrol.offboard3.target.Offboard3YawTarget;
-import com.comino.mavcontrol.offboard3.utils.RuntimeAnalysis;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
 import com.comino.mavcontrol.trajectory.minjerk.struct.Sphere;
@@ -33,7 +30,7 @@ public class Offboard3Planner {
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
 	private static final float MIN_XYZ_ESTIMATED_TIME           = 5f;                       // Minumum duration the planner ist used in [s]
 	private static final float MIN_AVOIDANCE_DISTANCE           = 0.75f;                    // Distance to obstacle center
-	private static final float FMAX_FEASIBILITY                 = 1.5f;                     // Maximum force applied for a plan
+	private static final float FMAX_FEASIBILITY                 = 2.5f;                     // Maximum force applied for a plan
 	private static final float WMAX_FEASIBILITY                 = 5f;                       // Maximimu rotation force for a plan
 
 	// Planners
@@ -114,14 +111,15 @@ public class Offboard3Planner {
 		Offboard3Plan new_plan = new Offboard3Plan();
 
 		new_plan.setEstimatedTime(MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_velocity);
+		
+		float max_speed_time = new_plan.getEstimatedTime() - 2.0f - 2.0f;
 
-		if(new_plan.getEstimatedTime() < (5/max_xyz_velocity+2.0f)) {
+		if(max_speed_time < 1.0f) {
 			new_plan.add(new Offboard3PosTarget(pos_target));
 		}
-
 		else {
 			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,2.0f));
-			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,new_plan.getEstimatedTime()*5f/8f));
+			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,max_speed_time));
 			new_plan.add(new Offboard3PosTarget(pos_target));
 		}
 		
@@ -281,9 +279,14 @@ public class Offboard3Planner {
 			target.setPlannedSectionTime(planned_xyz_duration > planned_yaw_duration ? planned_xyz_duration : planned_yaw_duration);
 
 			// Update next planned current_state with estimated end state of section
-			xyzPlanner.getGoalPosition(new_current_state.pos());
-			xyzPlanner.getGoalVelocity(new_current_state.vel());
-			xyzPlanner.getGoalAcceleration(new_current_state.acc());
+			
+			xyzPlanner.getPosition(target.getPlannedSectionTime(), new_current_state.pos());
+			xyzPlanner.getVelocity(target.getPlannedSectionTime(), new_current_state.vel());
+			xyzPlanner.getAcceleration(target.getPlannedSectionTime(), new_current_state.acc());
+			
+//			xyzPlanner.getGoalPosition(new_current_state.pos());
+//			xyzPlanner.getGoalVelocity(new_current_state.vel());
+//			xyzPlanner.getGoalAcceleration(new_current_state.acc());
 
 		}
 

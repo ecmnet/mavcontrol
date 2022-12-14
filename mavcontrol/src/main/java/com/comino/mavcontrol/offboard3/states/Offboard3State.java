@@ -2,6 +2,7 @@ package com.comino.mavcontrol.offboard3.states;
 
 import java.text.DecimalFormat;
 
+import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.GeoTuple3D_F32;
@@ -102,6 +103,12 @@ public class Offboard3State {
 		b.append("Acc: ("+f.format(acc.x)+","+f.format(acc.y)+","+f.format(acc.z)+")"); 
 		b.append("\t");
 		return b.toString();
+	}
+	
+	public void set(RapidTrajectoryGenerator planner, float t) {
+		planner.getPosition(    t, this.pos);
+		planner.getVelocity(    t, this.vel);
+		planner.getAcceleration(t, this.acc);
 	}
 	
 	public Offboard3State clone() {

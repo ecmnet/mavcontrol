@@ -605,6 +605,10 @@ public class RapidTrajectoryGenerator {
 	public double getAcceleration(double t, int i) {
 		return _axis[i].getAcceleration(t);
 	}
+	
+	public double getJerk(double t, int i) {
+		return _axis[i].getJerk(t);
+	}
 
 	public double getInitialPosition(int i) {
 		return _axis[i].getInitialPos();
