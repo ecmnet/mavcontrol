@@ -32,6 +32,9 @@ public class Offboard3Planner {
 	private static final float MIN_AVOIDANCE_DISTANCE           = 0.75f;                    // Distance to obstacle center
 	private static final float FMAX_FEASIBILITY                 = 2.5f;                     // Maximum force applied for a plan
 	private static final float WMAX_FEASIBILITY                 = 5f;                       // Maximimu rotation force for a plan
+	
+	private static final float ACCELERATION_PHASE_SECS          = 2.0f;                     // Acceleration phase in seconds
+	private static final float DECELERATION_PHASE_SECS          = 2.0f;                     // Deceleration phase in seconds
 
 	// Planners
 	private final SingleAxisTrajectory      yawPlanner = new SingleAxisTrajectory();
@@ -112,13 +115,13 @@ public class Offboard3Planner {
 
 		new_plan.setEstimatedTime(MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_velocity);
 		
-		float max_speed_time = new_plan.getEstimatedTime() - 2.0f - 2.0f;
+		float max_speed_time = new_plan.getEstimatedTime() - ACCELERATION_PHASE_SECS - DECELERATION_PHASE_SECS;
 
 		if(max_speed_time < 1.0f) {
 			new_plan.add(new Offboard3PosTarget(pos_target));
 		}
 		else {
-			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,2.0f));
+			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,ACCELERATION_PHASE_SECS + ACCELERATION_PHASE_SECS/3.0f ));
 			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,max_speed_time));
 			new_plan.add(new Offboard3PosTarget(pos_target));
 		}

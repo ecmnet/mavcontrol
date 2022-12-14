@@ -317,11 +317,16 @@ public class Offboard3Manager {
 			t_section_elapsed_last = t_section_elapsed;
 			t_section_elapsed = current_target.getElapsedTime();
 
-
 			// check current state and perform action 
 			if((yawExecutor.isPlanned() || xyzExecutor.isPlanned()) && current_plan.isEmpty() &&
-					t_section_elapsed > yawExecutor.getTotalTime() && t_section_elapsed > xyzExecutor.getTotalTime()) {
-
+					t_section_elapsed > current_plan.getTotalTime()) {
+			
+				// Resend last offboard command until target is hit => avoid instability when switching to HOLD
+				cmd.time_boot_ms = model.sys.t_boot_ms;
+				cmd.isValid  = true;
+				cmd.coordinate_frame = MAV_FRAME.MAV_FRAME_LOCAL_NED;
+				control.sendMAVLinkMessage(cmd);
+				
 				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
 					model.slam.wpcount = 0;
@@ -329,8 +334,7 @@ public class Offboard3Manager {
 					model.slam.ix = Float.NaN;
 					model.slam.iy = Float.NaN;
 					model.slam.iz = Float.NaN;
-
-
+					
 					stopAndLoiter();
 
 					if(reached!=null) {
@@ -340,6 +344,7 @@ public class Offboard3Manager {
 					updateTrajectoryModel(t_section_elapsed);
 					return;
 				} 
+				return;
 			}
 
 
