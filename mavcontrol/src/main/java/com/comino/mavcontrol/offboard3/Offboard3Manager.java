@@ -48,7 +48,7 @@ public class Offboard3Manager {
 	private static final int   UPDATE_RATE                 	    = 33;					    // Offboard update rate in [ms]
 	private static final float DEFAULT_TIMEOUT                	= 5.0f;					    // Default timeout 1s
 
-	private static final float RADIUS_ACCEPT                    = 0.2f;                     // Acceptance radius in [m]
+	private static final float RADIUS_ACCEPT                    = 0.1f;                     // Acceptance radius in [m]
 	private static final float YAW_ACCEPT                	    = MSPMathUtils.toRad(1);    // Acceptance alignmnet yaw in [rad]
 
 	private static final float MAX_YAW_VEL                      = MSPMathUtils.toRad(45);   // Maxumum speed in [rad/s]
@@ -233,28 +233,24 @@ public class Offboard3Manager {
 
 			isRunning = true; 
 			offboard_worker = wq.addCyclicTask("HP", UPDATE_RATE, this);
-
 		}
 
 		public void stopAndLoiter() {
-
-			stop();
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER );
+			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd,result) -> {
+				if(result == MAV_RESULT.MAV_RESULT_ACCEPTED) 
+				  stop();	
+				else
+				  control.writeLogMessage(new LogMessage("Switching to hold failed. Continue offboard",MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+			},MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+			  MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER);
 		}
 
 		public void stop() {
-
 			this.isRunning       = false;
-
+			this.offboardEnabled = false;
 			wq.removeTask("HP", offboard_worker);
 			this.offboard_worker = 0;
-
 			reset(); 
-
-			this.offboardEnabled = false;
-
 			model.slam.clearFlags();
 		}
 
@@ -328,6 +324,14 @@ public class Offboard3Manager {
 				control.sendMAVLinkMessage(cmd);
 				
 				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {
+					
+					stopAndLoiter();
+					
+					if(reached!=null) {
+						reached.action();
+						reached = null;
+					} 
+					
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
 					model.slam.wpcount = 0;
 					model.slam.di = 0;
@@ -335,12 +339,6 @@ public class Offboard3Manager {
 					model.slam.iy = Float.NaN;
 					model.slam.iz = Float.NaN;
 					
-					stopAndLoiter();
-
-					if(reached!=null) {
-						reached.action();
-						reached = null;
-					}
 					updateTrajectoryModel(t_section_elapsed);
 					return;
 				} 

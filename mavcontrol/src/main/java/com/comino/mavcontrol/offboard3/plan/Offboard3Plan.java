@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 
+import com.comino.mavcom.model.DataModel;
 import com.comino.mavcontrol.offboard3.states.Offboard3Current;
 import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
 
@@ -89,7 +90,7 @@ public class Offboard3Plan extends LinkedList<Offboard3AbstractTarget> implement
 		final StringBuilder b = new StringBuilder();
 		int index = 0;
 		b.append("\n");
-		b.append("Plan ===================================================================================================================================\n");
+		b.append("Plan "+DataModel.getSynchronizedPX4Time_us()+" ===================================================================================================================================\n");
 		for(Offboard3AbstractTarget s : this) {
 			b.append(++index); b.append(".:"); b.append(s); b.append("\n");
 		}
@@ -97,7 +98,7 @@ public class Offboard3Plan extends LinkedList<Offboard3AbstractTarget> implement
 		b.append("Estimated time : "); b.append(estimated_time); b.append("\n");
 		b.append("Planned   time : "); b.append(total_time);     b.append("\n");
 
-		b.append("========================================================================================================================================\n");
+		b.append("=========================================================================================================================================================\n");
 		return b.toString();
 	}
 

@@ -17,8 +17,8 @@ public class Offboard3State {
 	protected final GeoTuple3D_F32<?> acc  = new Point3D_F32(0,0,0);
 	
 	
-	protected final static DecimalFormat f = new DecimalFormat(" #0.00;-#0.00");
-	protected final static DecimalFormat r = new DecimalFormat(" #0.0°;-#0.0°");
+	protected final static DecimalFormat f = new DecimalFormat(" ##0.00;-##0.00");
+	protected final static DecimalFormat r = new DecimalFormat(" ##0.0°;-##0.0°");
 	
 	
 	public Offboard3State() {
