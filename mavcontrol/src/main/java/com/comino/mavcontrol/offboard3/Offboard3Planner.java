@@ -92,8 +92,15 @@ public class Offboard3Planner {
 	}
 
 	public Offboard3Plan planDirectYaw(float yaw) {
+		
+		reset(); current.update();
+		
 		Offboard3Plan new_plan = new Offboard3Plan();
 		new_plan.add(new Offboard3YawTarget(yaw));
+		planPath(new_plan, current);
+		
+		MSPStringUtils.getInstance().out(new_plan);
+		
 		return new_plan;
 	}
 

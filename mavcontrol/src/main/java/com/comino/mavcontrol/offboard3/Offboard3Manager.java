@@ -37,6 +37,7 @@ import com.comino.mavutils.MSPStringUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 import georegression.struct.GeoTuple4D_F32;
+import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Point4D_F32;
 
@@ -54,6 +55,7 @@ public class Offboard3Manager {
 	private static final float MAX_YAW_VEL                      = MSPMathUtils.toRad(45);   // Maxumum speed in [rad/s]
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
 	private static final float MIN_DISTANCE_FOR_YAW_CONTROL     = 0.4f;                     // Minimum distance for auto yaw control
+	private static final float MAX_PATH_DEVIATION               = 0.1f;                     // Max allowed distance to planned position
 	private static final float YAW_PV							= 0.05f;                    // P factor for auto yaw rate control
 
 	private static final float MAX_XYZ_VEL                      = 1.0f;                     // Maxumum speed in [m/s]
@@ -158,6 +160,7 @@ public class Offboard3Manager {
 
 		// Current target
 		private Offboard3AbstractTarget current_target;
+		
 		// current state
 		private final Offboard3Current current;
 
@@ -373,7 +376,6 @@ public class Offboard3Manager {
 					}
 				}
 			}
-
 
 			// check timeout
 			if(t_timeout > 0 && t_section_elapsed > t_timeout) {

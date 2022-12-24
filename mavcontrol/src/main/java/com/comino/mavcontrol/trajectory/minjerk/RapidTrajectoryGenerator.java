@@ -46,8 +46,6 @@
 
 package com.comino.mavcontrol.trajectory.minjerk;
 
-import java.lang.reflect.InvocationTargetException;
-
 import org.ddogleg.solver.PolynomialSolver;
 import org.ejml.data.Complex_F64;
 
