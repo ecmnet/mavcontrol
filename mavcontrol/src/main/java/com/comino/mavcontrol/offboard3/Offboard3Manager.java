@@ -2,6 +2,7 @@ package com.comino.mavcontrol.offboard3;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.locks.LockSupport;
 
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_FRAME;
@@ -160,7 +161,7 @@ public class Offboard3Manager {
 
 		// Current target
 		private Offboard3AbstractTarget current_target;
-		
+
 		// current state
 		private final Offboard3Current current;
 
@@ -241,11 +242,11 @@ public class Offboard3Manager {
 		public void stopAndLoiter() {
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd,result) -> {
 				if(result == MAV_RESULT.MAV_RESULT_ACCEPTED) 
-				  stop();	
+					stop();	
 				else
-				  control.writeLogMessage(new LogMessage("Switching to hold failed. Continue offboard",MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+					control.writeLogMessage(new LogMessage("Switching to hold failed. Continue offboard",MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 			},MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-			  MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER);
+					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_AUTO, MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER);
 		}
 
 		public void stop() {
@@ -258,24 +259,19 @@ public class Offboard3Manager {
 		}
 
 		public void setTarget(final float yaw) {
-			new Thread(() -> {
-				planQueue.clear();
-				Offboard3Plan plan = planner.planDirectYaw(yaw);		
-				if(plan!=null)
-					planQueue.offer(plan);
-			}).start();
+			planQueue.clear();
+			Offboard3Plan plan = planner.planDirectYaw(yaw);		
+			if(plan!=null)
+				planQueue.offer(plan);
 		}
 
 		public void setTarget(GeoTuple4D_F32<?> pos_target) {
 
 			final GeoTuple4D_F32<?> _target = pos_target.copy();
-			new Thread(() -> {
-				planQueue.clear();
-				Offboard3Plan plan = planner.planDirectPath(_target);
-				if(plan!=null)
-					planQueue.offer(plan);
-			}).start();
-
+			planQueue.clear();
+			Offboard3Plan plan = planner.planDirectPath(_target);
+			if(plan!=null)
+				planQueue.offer(plan);
 		}
 
 		public boolean isPlanned() {
@@ -319,29 +315,29 @@ public class Offboard3Manager {
 			// check current state and perform action 
 			if((yawExecutor.isPlanned() || xyzExecutor.isPlanned()) && current_plan.isEmpty() &&
 					t_section_elapsed > current_plan.getTotalTime()) {
-			
+
 				// Resend last offboard command until target is hit => avoid instability when switching to HOLD
 				cmd.time_boot_ms = model.sys.t_boot_ms;
 				cmd.isValid  = true;
 				cmd.coordinate_frame = MAV_FRAME.MAV_FRAME_LOCAL_NED;
 				control.sendMAVLinkMessage(cmd);
-				
+
 				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {
-					
+
 					stopAndLoiter();
-					
+
 					if(reached!=null) {
 						reached.action();
 						reached = null;
 					} 
-					
+
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
 					model.slam.wpcount = 0;
 					model.slam.di = 0;
 					model.slam.ix = Float.NaN;
 					model.slam.iy = Float.NaN;
 					model.slam.iz = Float.NaN;
-					
+
 					updateTrajectoryModel(t_section_elapsed);
 					return;
 				} 
@@ -351,13 +347,18 @@ public class Offboard3Manager {
 
 			// Plan next target if required
 			if(!current_plan.isEmpty() && xyzExecutor.isPlanned() && t_section_elapsed >= xyzExecutor.getTotalTime()) {
-				
+
 				// replace current by last planned state of previous section to avoid undefined acceleration
 				if(t_section_elapsed > 0.01f)
-				  current.set(xyzExecutor, t_section_elapsed);
-				
+					current.set(xyzExecutor, t_section_elapsed);
+
 				current_target = planNextSectionExecution(current);	
-				t_section_elapsed = current_target.getElapsedTime();
+				if(current_target == null) {
+					control.writeLogMessage(new LogMessage("[msp] Execution of plan not possible. Stopped.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					stopAndLoiter();
+					return;
+				}	
+				t_section_elapsed = current_target.getElapsedTime();		
 			}
 
 
@@ -391,7 +392,10 @@ public class Offboard3Manager {
 			// Calculate and send command
 			synchronized(this) {
 
-				cmd.type_mask    = 0;
+				cmd.type_mask        = 0;
+				cmd.target_system    = 1;
+				cmd.target_component = 1;
+
 				model.slam.clearFlags();
 
 				if(xyzExecutor.isPlanned() && t_section_elapsed <= xyzExecutor.getTotalTime()) {
@@ -485,8 +489,9 @@ public class Offboard3Manager {
 				}
 			}
 
-			if(!offboardEnabled)
+			if(!offboardEnabled ) {
 				enableOffboard();
+			}
 
 			//			model.debug.x = (float)Math.sqrt(cmd.vx * cmd.vx + cmd.vy * cmd.vy +cmd.vz * cmd.vz);
 			//			model.debug.y = (float)Math.sqrt(cmd.afx * cmd.afx + cmd.afy * cmd.afy +cmd.afz * cmd.afz);
@@ -526,7 +531,7 @@ public class Offboard3Manager {
 				case Offboard3AbstractTarget.TYPE_POS:
 					xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
 					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
-					//					MSPStringUtils.getInstance().out("XYZ POS    (Execution): "+target);
+					//					MSPStringUtils.getInstance().err("XYZ POS    (Execution): "+target);
 					break;
 				case Offboard3AbstractTarget.TYPE_POS_VEL:
 					target.determineTargetVelocity(current_state.pos());
@@ -592,8 +597,13 @@ public class Offboard3Manager {
 			}
 
 			t_timeout = DEFAULT_TIMEOUT + (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw) ;
-
-			return target;
+			
+			if(Double.isFinite(xyzExecutor.getCost())) 
+			  return target;
+			else {
+				
+				return null;
+			}
 
 		}
 
@@ -636,6 +646,7 @@ public class Offboard3Manager {
 					worker.stopAndLoiter();
 					control.writeLogMessage(new LogMessage("[msp] Switching to offboard failed ("+result+").", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 					offboardEnabled = false;
+
 				} else {
 					offboardEnabled = true;;
 				}

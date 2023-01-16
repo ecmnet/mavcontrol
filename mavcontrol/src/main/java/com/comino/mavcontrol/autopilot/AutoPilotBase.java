@@ -33,6 +33,8 @@
 
 package com.comino.mavcontrol.autopilot;
 
+import org.mavlink.messages.MAV_CMD;
+import org.mavlink.messages.MAV_MODE_FLAG;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
@@ -42,6 +44,7 @@ import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.config.MSPParams;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.log.MSPLogger;
+import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
@@ -199,11 +202,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			takeoff_handler.abort("Disarmed");
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
 			wq.removeTask("LP",future);
+		
 
-
-			//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-			//					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-			//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL,MAV_CUST_MODE.PX4_CUSTOM_SUB_MODE_AUTO_LOITER);
+//
+//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+//					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
 
 		});
 

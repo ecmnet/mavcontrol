@@ -61,6 +61,7 @@ import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavcom.model.segment.Vision;
 import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
@@ -118,7 +119,7 @@ public class MSPCommander  {
 			if(!model.sys.isStatus(Status.MSP_ARMED)) {
 				System.out.println("Setting up MAVLINK streams and refresh parameters...");
 				// Note: Interval is in us
-				
+
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ACTUATOR_CONTROL_TARGET,-1);	
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_UTM_GLOBAL_POSITION,-1);	
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ESC_STATUS,-1);	
@@ -128,10 +129,10 @@ public class MSPCommander  {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_LOCAL_POSITION_NED,16666);
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_GLOBAL_POSITION_INT,50000);
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_POSITION_TARGET_GLOBAL_INT,50000);
-				
+
 				// Load parameters if required
 				if(!params.isLoaded())
-				  params.requestRefresh(true);
+					params.requestRefresh(true);
 			}
 		});
 
@@ -171,11 +172,10 @@ public class MSPCommander  {
 				} else {
 					model.sys.bat_type = Status.MSP_BAT_TYPE_BAT;
 				}
-				
+
 			}
 
 		});
-
 
 	}
 
@@ -259,29 +259,29 @@ public class MSPCommander  {
 			logger.writeLocalMsg("[msp] Global origin not set (SITL)",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 			return;
 		}
-		
+
 		final msg_set_home_position  home = new msg_set_home_position(1,1);
 		home.target_system = 1;
-        home.latitude = (long)(lat * 1e7);
-        home.longitude = (long)(lon * 1e7);
-        if(altitude < 0)
+		home.latitude = (long)(lat * 1e7);
+		home.longitude = (long)(lon * 1e7);
+		if(altitude < 0)
 			home.altitude = (int)(model.hud.ap * 1000f);
 		else
 			home.altitude = (int)(altitude * 1000);
 		home.time_usec = DataModel.getSynchronizedPX4Time_us();
 		control.sendMAVLinkMessage(home);
-//		
-//		final msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,1);
-//		gor.target_system = 1;
-//		gor.latitude = (long)(lat * 1e7);
-//		gor.longitude = (long)(lon * 1e7);
-//		if(altitude < 0)
-//			gor.altitude = (int)(model.hud.ap * 1000f);
-//		else
-//			gor.altitude = (int)(altitude * 1000);
-//		gor.time_usec = DataModel.getSynchronizedPX4Time_us();
-//
-//		control.sendMAVLinkMessage(gor);
+		//		
+		//		final msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,1);
+		//		gor.target_system = 1;
+		//		gor.latitude = (long)(lat * 1e7);
+		//		gor.longitude = (long)(lon * 1e7);
+		//		if(altitude < 0)
+		//			gor.altitude = (int)(model.hud.ap * 1000f);
+		//		else
+		//			gor.altitude = (int)(altitude * 1000);
+		//		gor.time_usec = DataModel.getSynchronizedPX4Time_us();
+		//
+		//		control.sendMAVLinkMessage(gor);
 		logger.writeLocalMsg("[msp] Setting reference position",MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 	}

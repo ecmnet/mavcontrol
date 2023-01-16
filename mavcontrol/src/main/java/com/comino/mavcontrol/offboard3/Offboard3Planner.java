@@ -199,7 +199,7 @@ public class Offboard3Planner {
 
 
 		target.replaceNaNPositionBy(current_state.pos());
-
+		
 		// XYZ planning
 
 		xyzPlanner.reset();
