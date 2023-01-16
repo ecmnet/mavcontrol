@@ -35,12 +35,12 @@ public class StatusCheck implements Runnable {
 
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS,Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
 
-		   if(!checkFlightReadiness(true)) {
-			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,0 );
-			control.writeLogMessage(new LogMessage("[msp] Disarmed. PreFlight health check failed", MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
+			if(!checkFlightReadiness(true)) {
+				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,0 );
+				control.writeLogMessage(new LogMessage("[msp] Disarmed. PreFlight health check failed", MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
 			} 
 		});
-		
+
 	}
 
 	public void start() {
@@ -127,8 +127,12 @@ public class StatusCheck implements Runnable {
 			}
 
 		} else {
-			if(logging &&  params.getParam("SYS_HAS_GPS")!=null && params.getParam("SYS_HAS_GPS").value == 1)
-				control.writeLogMessage(new LogMessage("[msp] GPS data not available.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+
+			if(model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY)) {
+				if(logging &&  params.getParam("SYS_HAS_GPS")!=null && params.getParam("SYS_HAS_GPS").value == 1)
+					control.writeLogMessage(new LogMessage("[msp] GPS data not available.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				is_ready = false;
+			}
 		}
 
 		if (!model.sys.isStatus(Status.MSP_GCL_CONNECTED)) {
@@ -156,41 +160,41 @@ public class StatusCheck implements Runnable {
 
 		return is_ready;
 	}
-	
-	
+
+
 	private boolean performParameterChecks() {
-		
-		
+
+
 		boolean is_ok = true;
-		
+
 		if(params.getParam("RTL_RETURN_ALT")!=null && params.getParam("RTL_RETURN_ALT").value != 1.0) {
 			control.writeLogMessage(new LogMessage("[msp] Return altitude not set to 1.0m",MAV_SEVERITY.MAV_SEVERITY_ERROR));
 			is_ok = false;
 		}
-		
+
 		if(params.getParam("MIS_TAKEOFF_ALT")!=null && params.getParam("MIS_TAKEOFF_ALT").value > 2.0) {
 			control.writeLogMessage(new LogMessage("[msp] Takeoff altitude > 2.0m.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
 		}
-		
+
 		if (model.gps.fixtype > 2 &&  params.getParam("SYS_HAS_GPS")!=null && params.getParam("SYS_HAS_GPS").value == 0) {
 			control.writeLogMessage(new LogMessage("[msp] GPS is disabled. Enable before flight.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
 			is_ok = false;
 		}
-     		
-		
+
+
 		return is_ok;
 	}
-	
+
 
 	@Override
 	public void run() {
 		if (model.sys.isStatus(Status.MSP_ACTIVE))
 			model.sys.setStatus(Status.MSP_READY_FOR_FLIGHT, checkFlightReadiness(false));
 	}
-	
-	
 
-	
+
+
+
 
 
 
