@@ -85,6 +85,13 @@ public class Offboard3Manager {
 				control.writeLogMessage(new LogMessage("[msp] Offboard externally stopped.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 			}
 		});
+		
+		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE,Status.NAVIGATION_STATE_AUTO_RTL, (n) -> {
+			if(n.isNavState(Status.NAVIGATION_STATE_AUTO_RTL) && worker.isRunning) {
+				worker.stop(); worker.reset();
+				control.writeLogMessage(new LogMessage("[msp] Offboard stopped by RTL.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			}
+		});
 	}
 
 
