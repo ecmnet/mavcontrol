@@ -136,7 +136,7 @@ public class TestActionFactory {
 		final WorkQueue  wq = WorkQueue.getInstance();
 		final Offboard3Manager offboard = Offboard3Manager.getInstance();
 
-		if(enable) {
+		if(enable && !model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_RTL)) {
 
 			if(Float.isFinite(model.slam.ox)) {
 				worker2 = wq.addCyclicTask("LP", 10000, () -> {

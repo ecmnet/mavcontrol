@@ -83,6 +83,8 @@ public class Offboard3Manager {
 			if(n.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && worker.isRunning) {
 				worker.stop(); worker.reset();
 				control.writeLogMessage(new LogMessage("[msp] Offboard externally stopped.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+				model.traj.clear();
+				control.sendMAVLinkMessage(new msg_msp_trajectory(2,1));
 			}
 		});
 		
@@ -90,6 +92,8 @@ public class Offboard3Manager {
 			if(n.isNavState(Status.NAVIGATION_STATE_AUTO_RTL) && worker.isRunning) {
 				worker.stop(); worker.reset();
 				control.writeLogMessage(new LogMessage("[msp] Offboard stopped by RTL.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+				model.traj.clear();
+				control.sendMAVLinkMessage(new msg_msp_trajectory(2,1));
 			}
 		});
 	}
