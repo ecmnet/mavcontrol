@@ -22,6 +22,7 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavcom.model.segment.Vision;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
@@ -77,25 +78,7 @@ public class Offboard3Manager {
 
 	private Offboard3Manager(IMAVController control) {
 		this.model   = control.getCurrentModel();
-		this.worker  = new Offboard3Worker(control);
-
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE,Status.NAVIGATION_STATE_AUTO_LOITER, (n) -> {
-			if(n.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && worker.isRunning) {
-				worker.stop(); worker.reset();
-				control.writeLogMessage(new LogMessage("[msp] Offboard externally stopped.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-				model.traj.clear();
-				control.sendMAVLinkMessage(new msg_msp_trajectory(2,1));
-			}
-		});
-		
-		control.getStatusManager().addListener(StatusManager.TYPE_PX4_NAVSTATE,Status.NAVIGATION_STATE_AUTO_RTL, (n) -> {
-			if(n.isNavState(Status.NAVIGATION_STATE_AUTO_RTL) && worker.isRunning) {
-				worker.stop(); worker.reset();
-				control.writeLogMessage(new LogMessage("[msp] Offboard stopped by RTL.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-				model.traj.clear();
-				control.sendMAVLinkMessage(new msg_msp_trajectory(2,1));
-			}
-		});
+		this.worker  = new Offboard3Worker(control);	
 	}
 
 
@@ -266,7 +249,10 @@ public class Offboard3Manager {
 			wq.removeTask("HP", offboard_worker);
 			this.offboard_worker = 0;
 			reset(); 
-			model.slam.clearFlags();
+			model.slam.clearFlags();		
+			model.traj.clear();
+			control.sendMAVLinkMessage(new msg_msp_trajectory(2,1));
+			return;
 		}
 
 		public void setTarget(final float yaw) {
@@ -294,6 +280,13 @@ public class Offboard3Manager {
 
 			if(!isRunning)
 				return;
+			
+			
+			if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && !model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
+				worker.stop(); worker.reset();
+				control.writeLogMessage(new LogMessage("[msp] Offboard externally stopped.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+				return;
+			}
 
 			// Convert current state
 			current.update();
