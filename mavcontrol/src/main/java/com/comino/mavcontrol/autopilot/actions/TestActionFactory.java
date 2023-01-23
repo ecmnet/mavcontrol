@@ -58,7 +58,7 @@ public class TestActionFactory {
 
 			model.vision.px = model.state.l_x + ((float)Math.random()-0.5f)*radius;
 			model.vision.py = model.state.l_y + ((float)Math.random()-0.5f)*radius;
-			model.vision.pz = 0.5f;	
+			model.vision.pz = 0f;	
 			model.vision.pw = ((float)Math.random()-0.5f)*12f;
 
 			//model.vision.pw = MSPMathUtils.toRad(135);
@@ -148,7 +148,7 @@ public class TestActionFactory {
 						
 				});
 			} else {
-				worker2 = wq.addCyclicTask("LP", 4000, () -> {
+				worker2 = wq.addCyclicTask("LP", 10000, () -> {
 						offboard.moveTo((float)Math.random()*6f-3f, (float)Math.random()*6f-3f, 
 								(float)Math.random()*3-3f-0.5f, Float.NaN);
 				});

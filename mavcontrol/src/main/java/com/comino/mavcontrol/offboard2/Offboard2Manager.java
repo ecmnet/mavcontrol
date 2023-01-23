@@ -17,6 +17,7 @@ import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
+import com.comino.mavcontrol.offboard3.action.ITargetReached;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
 import com.comino.mavutils.MSPMathUtils;
@@ -172,7 +173,7 @@ public class Offboard2Manager {
 		}
 
 		public void start() {
-			start(() -> stopAndLoiter());
+			start((model) -> stopAndLoiter());
 		}
 
 		public void start(ITargetReached reached) {
@@ -203,7 +204,7 @@ public class Offboard2Manager {
 			if(targetReached(pos_current, pos, acceptance_radius, acceptance_yaw)) {
 				control.writeLogMessage(new LogMessage("[msp] Target already reached.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				if(reached!=null) 
-					reached.action();
+					reached.execute(model);
 				return;
 			}
 
@@ -387,7 +388,7 @@ public class Offboard2Manager {
 					//System.out.println(t_elapsed+":"+t_planned+" -> "+targetReached(pos_current, pos, acceptance_radius, acceptance_yaw));
 
 					if(reached!=null) {
-						reached.action();
+						reached.execute(model);
 						stop();
 					}
 					else
