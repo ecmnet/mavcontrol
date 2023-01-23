@@ -280,8 +280,8 @@ public class Offboard3Manager {
 
 			if(!isRunning)
 				return;
-			
-			
+
+
 			if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && !model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
 				worker.stop(); worker.reset();
 				control.writeLogMessage(new LogMessage("[msp] Offboard externally stopped.", MAV_SEVERITY.MAV_SEVERITY_INFO));
@@ -510,8 +510,9 @@ public class Offboard3Manager {
 
 		private Offboard3AbstractTarget planNextSectionExecution(Offboard3State current_state) {
 
-			if(current_plan.isEmpty())
+			if(current_plan.isEmpty()) {
 				return null;
+			}
 
 			Offboard3AbstractTarget new_target = current_plan.poll();
 			model.slam.wpcount = new_target.getIndex();
@@ -602,13 +603,10 @@ public class Offboard3Manager {
 
 			t_timeout = DEFAULT_TIMEOUT + (t_planned_yaw < t_planned_xyz ? t_planned_xyz  : t_planned_yaw) ;
 			
-			if(Double.isFinite(xyzExecutor.getCost())) 
-			  return target;
-			else {
-				
+			if(Double.isInfinite(xyzExecutor.getCost()) && Double.isInfinite(yawExecutor.getCost())) 
 				return null;
-			}
-
+			else 
+				return target;
 		}
 
 
