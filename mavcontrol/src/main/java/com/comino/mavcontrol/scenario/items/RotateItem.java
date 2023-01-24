@@ -14,6 +14,13 @@ public class RotateItem extends AbstractScenarioItem {
 	public void setYaw(float yaw_degree) {
 	      this.yaw_rad = MSPMathUtils.toRad(yaw_degree);
 		}
+	
+	
+
+	@Override
+	public long getTimeout_ms() {
+		return 3_000L;
+	}
 
 	@Override
 	public void execute() {
@@ -21,11 +28,6 @@ public class RotateItem extends AbstractScenarioItem {
 		  offboard.rotate(yaw_rad, (m) -> completed());
 		else
 		  completed();
-	}
-
-	@Override
-	public void initialize() {
-        // Nothing to prepare
 	}
 
 }

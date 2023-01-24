@@ -3,33 +3,57 @@ package com.comino.mavcontrol.scenario;
 import java.util.Collection;
 import java.util.LinkedList;
 
+import org.mavlink.messages.MAV_SEVERITY;
+
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.model.segment.LogMessage;
+import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 import com.comino.mavcontrol.scenario.items.TestItem;
 
 public class ScenarioManager {
 
 	private final LinkedList<AbstractScenarioItem> itemList = new LinkedList<AbstractScenarioItem>();
-	
+
 	private final  ScenarioWorker scenarioWorker         = new ScenarioWorker();
+	private final  IMAVController control;
 	private        Thread         scenarioWorkerThread;
+	private final  Status         status;
+	
+	private boolean isRunning = false;
 
 
 	public ScenarioManager(IMAVController control) {
-
+       this.control = control;
+       this.status  = control.getCurrentModel().sys;
 	}
-	
+
 	public void addItem(AbstractScenarioItem item) {
 		itemList.add(item);
 	}
-	
-	public void addItem(Collection<AbstractScenarioItem> items) {
-		itemList.addAll(items);
+
+	public void addItems(Collection<AbstractScenarioItem> items) {
+		if(items!=null)
+		  itemList.addAll(items);
 	}
 
 	public void start() {
+		
+		if(!status.isStatus(Status.MSP_ARMED)) {
+			control.writeLogMessage(new LogMessage("[msp] Scenario not executed. Not armed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			itemList.clear();
+			return;
+		}
+		
+		if(isRunning) {
+			control.writeLogMessage(new LogMessage("[msp] Scenario already in progress.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			itemList.clear();
+			return;
+		}
 
 		if(itemList.size() > 0) {
+			
+			control.writeLogMessage(new LogMessage("[msp] Execute scenario with "+itemList.size()+" items.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 
 			for(AbstractScenarioItem item : itemList) {
 				item.initialize();
@@ -40,11 +64,10 @@ public class ScenarioManager {
 			scenarioWorkerThread.start();
 		}
 	}
-	
+
 	public void abort() {
 		scenarioWorker.abortRequest();
 	}
-
 
 	private class ScenarioWorker implements Runnable {
 
@@ -55,33 +78,68 @@ public class ScenarioManager {
 		@Override
 		public void run() {
 			
+			long tms;
+			
+			isRunning = true;
+
 			this.abort_request = false;
 			this.step_counter  = 0;
 
 			while(itemList.size()>0 && !abort_request) {
-				step_counter++;
-				currentItem = itemList.poll();
-				currentItem.execute();
+
+				synchronized(this) {
+
+					control.getCurrentModel().slam.wpcount = ++step_counter;
+					currentItem = itemList.poll();
+					currentItem.setOwner(this);
+					currentItem.execute();
+
+					try {
+						tms = System.currentTimeMillis()+currentItem.getTimeout_ms();
+						while(!currentItem.isCompleted() && System.currentTimeMillis() < tms && !currentItem.isAborted()) {
+							wait(currentItem.getTimeout_ms());
+						}
+						if(!currentItem.isCompleted()) {
+							itemList.clear();
+							control.writeLogMessage(new LogMessage("[msp] Scenario Timeout occurred in step "+step_counter,
+									MAV_SEVERITY.MAV_SEVERITY_ERROR));
+							return;
+						}
+						
+						if(currentItem.isAborted()) {
+							itemList.clear();
+							control.writeLogMessage(new LogMessage("[msp] Scenario aborted in step "+step_counter,
+									MAV_SEVERITY.MAV_SEVERITY_ERROR));
+							return;
+						}
+					} catch (InterruptedException e) { }
+
+				}
 			}
+			
+			isRunning = false;
+			control.writeLogMessage(new LogMessage("[msp] Scenario execution completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			control.getCurrentModel().slam.wpcount = 0;
 		}
-		
-		public void abortRequest() {
+
+		public synchronized void abortRequest() {
 			this.abort_request= true;
+			this.notify();
 		}
 	}
-	
-	
+
+
 	public static void main(String[] args) {
-		
+
 		ScenarioManager s = new ScenarioManager(null);
-		
+
 		s.addItem(new TestItem(1));
 		s.addItem(new TestItem(2));
 		s.addItem(new TestItem(3));
 		s.addItem(new TestItem(4));
-		
+
 		s.start();
-		
+
 	}
 
 

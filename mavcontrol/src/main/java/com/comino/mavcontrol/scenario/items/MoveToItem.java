@@ -31,9 +31,5 @@ public class MoveToItem extends AbstractScenarioItem {
 		 offboard.moveTo(target_position.x, target_position.y, target_position.z, target_position.w, (m) -> completed());
 	}
 
-	@Override
-	public void initialize() {
-        // Nothing to prepare
-	}
 
 }

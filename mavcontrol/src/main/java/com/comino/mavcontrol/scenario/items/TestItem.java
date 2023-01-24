@@ -1,6 +1,6 @@
 package com.comino.mavcontrol.scenario.items;
 
-import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcontrol.scenario.ScenarioManager;
 
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Vector4D_F32;
@@ -28,6 +28,7 @@ public class TestItem extends AbstractScenarioItem {
 
 	@Override
 	public void initialize() {
+		super.initialize();
        System.out.println("TestItem "+this.step+" initialized");
 	}
 

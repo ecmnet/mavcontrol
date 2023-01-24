@@ -21,7 +21,14 @@ public abstract class AbstractScenarioItem {
 	protected final DataModel          model;
 	protected final Offboard3Manager   offboard;
 
-	private final int type;
+	private final int     type;
+	
+
+	private       int     delay_secs = 0;
+	
+	private       boolean isCompleted;
+	private       boolean isAborted;
+	private       Object  owner;
 
 	public AbstractScenarioItem(int type, IMAVController control) {
 
@@ -37,7 +44,10 @@ public abstract class AbstractScenarioItem {
 		}
 	}
 
-	public abstract void initialize();
+	public void initialize() {
+		this.isCompleted = false;
+		this.isAborted   = false;
+	}
 
 	public abstract void execute();
 
@@ -48,17 +58,55 @@ public abstract class AbstractScenarioItem {
 	public void setPositionGlobal(double lat, double lon, double alt, double w) {
 		// TODO convert to local position and call setPositionLocal
 	}
+	
+	public void setDelay(int secs) {
+		this.delay_secs = secs;
+	}
+
+	public long getTimeout_ms() {
+		return 30_000L;
+	}
 
 	public int getType() {
 		return type;
 	}
 
-	protected void completed() {
-		// TODO: Notify manager to proceed to the next item
+	public boolean isCompleted() {
+		return isCompleted;
 	}
 	
+	public boolean isAborted() {
+		return isAborted;
+	}
+	
+	public void setOwner(Object owner) {
+		this.owner = owner;
+	}
+
+	protected void completed() {
+		synchronized(owner) {
+			if(delay_secs > 0)
+				wait(delay_secs*1_000);
+			this.isCompleted= true;
+			owner.notify();
+		}
+	}
+
 	protected void abort() {
-		// TODO: Notify manager to abort the scenario
+		synchronized(owner) {
+			this.isAborted = true;
+			owner.notify();
+		}
+	}
+	
+	protected void wait(int millisec) {
+		try { 
+			Thread.sleep(millisec); 
+		} catch(Exception e ) { }
+	}
+	
+	public String toString() {
+		return this.getClass().getSimpleName();
 	}
 
 

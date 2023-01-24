@@ -1,7 +1,12 @@
 package com.comino.mavcontrol.scenario.items;
 
+import org.mavlink.messages.MAV_SEVERITY;
+
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.model.segment.LogMessage;
+import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcontrol.autopilot.actions.TakeOffHandler;
+import com.comino.mavcontrol.scenario.ScenarioManager;
 
 public class TakeOffItem extends AbstractScenarioItem {
 	
@@ -20,11 +25,17 @@ public class TakeOffItem extends AbstractScenarioItem {
 
 	@Override
 	public void execute() {
-		takeoff_handler.initiateTakeoff(10);
+		if(model.sys.isStatus(Status.MSP_LANDED))
+		  takeoff_handler.initiateTakeoff(2);
+		else {
+		 control.writeLogMessage(new LogMessage("[msp] Takeoff skipped. Already in air.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+		  completed();
+		}
 	}
 
 	@Override
 	public void initialize() {
+		super.initialize();
 		if(Float.isFinite(altitude_m) && altitude_m > 0)
 			takeoff_handler.setTakeoffAltitude(altitude_m);
 	}
