@@ -53,7 +53,7 @@ public class OffboardActionFactory {
 		
 		offboard.moveTo(m.vision.px,m.vision.py,Float.NaN, m.attitude.y, (l) -> {
 				
-				offboard.moveTo(m.vision.px,m.vision.py,m.vision.pz-0.4f,m.vision.pw,(k) -> {
+				offboard.moveTo(m.vision.px,m.vision.py,m.vision.pz-0.3f,m.vision.pw,(k) -> {
 					
 					control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd, result) -> {
 						if(result != MAV_RESULT.MAV_RESULT_ACCEPTED)
@@ -65,7 +65,7 @@ public class OffboardActionFactory {
 					
 				},0.1f);
 			
-		}, 0.5f);
+		}, 0.7f);
 
 		//		offboard.moveTo(m.vision.px,m.vision.py,m.vision.pz-0.5f,m.vision.pw,(n) -> {
 		//			

@@ -322,6 +322,7 @@ public class Offboard3Manager {
 				
 				// Already within the target acceptance radius 
 				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw) && current.vel().norm() < 0.25f) {
+					control.writeLogMessage(new LogMessage("[msp] Target already reached. Perform action.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 					if(reached!=null) {
 						ITargetReached action = reached; reached = null;
 						action.execute(model);
@@ -339,6 +340,15 @@ public class Offboard3Manager {
 				control.writeLogMessage(new LogMessage("[msp] No target. Stopped.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				stopAndLoiter();
 				return;
+			}
+			
+			if(acceptance_radius > RADIUS_ACCEPT && MSP3DUtils.distance3D(current.pos(), current_target.pos())< acceptance_radius) {
+				if(reached!=null) {
+					ITargetReached action = reached; reached = null;
+					action.execute(model);
+					if(reached != null)
+					  return;
+				} 
 			}
 			
 
@@ -659,7 +669,7 @@ public class Offboard3Manager {
 			xyzExecutor.reset();
 			yawControl.reset();
 
-			acceptance_radius = RADIUS_ACCEPT;
+			//acceptance_radius = RADIUS_ACCEPT;
 			acceptance_yaw    = YAW_ACCEPT;
 			t_timeout         = DEFAULT_TIMEOUT;
 			t_section_elapsed_last    = 0;

@@ -148,7 +148,7 @@ public class TestActionFactory {
 						
 				});
 			} else {
-				worker2 = wq.addCyclicTask("LP", 10000, () -> {
+				worker2 = wq.addCyclicTask("LP", 5000, () -> {
 						offboard.moveTo((float)Math.random()*6f-3f, (float)Math.random()*6f-3f, 
 								(float)Math.random()*3-3f-0.5f, Float.NaN);
 				});

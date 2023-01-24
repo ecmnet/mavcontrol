@@ -330,6 +330,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			OffboardActionFactory.turn_to(MSPMathUtils.toRad(param));
 			break;
 		case MSP_AUTOCONTROL_ACTION.LAND:
+			if(control.isSimulation())
+				TestActionFactory.continuous_planning(control.getCurrentModel(),false);
 			precisionLand(enable);
 			break;
 		case MSP_AUTOCONTROL_MODE.OBSTACLE_STOP:
