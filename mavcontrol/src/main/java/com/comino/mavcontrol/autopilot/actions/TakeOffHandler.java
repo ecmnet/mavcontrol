@@ -94,6 +94,11 @@ public class TakeOffHandler {
 		this.logger    = MSPLogger.getInstance();
 		this.completed = completedAction;
 	}
+	
+	public void setTakeoffAltitude(float altitude_m) {
+		final PX4Parameters params = PX4Parameters.getInstance();
+		params.sendParameter("MIS_TAKEOFF_ALT", altitude_m);
+	}
 
 	public void initiateTakeoff(int count_down_secs) {
 
