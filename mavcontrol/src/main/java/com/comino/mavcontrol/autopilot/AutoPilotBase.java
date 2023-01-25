@@ -58,6 +58,7 @@ import com.comino.mavcontrol.autopilot.actions.TestActionFactory;
 import com.comino.mavcontrol.autopilot.safety.SafetyCheckHandler;
 import com.comino.mavcontrol.ekf2utils.EKF2ResetCheck;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
+import com.comino.mavcontrol.scenario.ScenarioManager;
 import com.comino.mavmap.map.map3D.Map3DSpacialInfo;
 import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
 import com.comino.mavmap.map.map3D.store.LocaMap3DStorage;
@@ -88,6 +89,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected IMAVController                control  = null;
 	protected LocalMap3D				    map      = null;
 	protected PX4Parameters                 params   = null;
+	protected ScenarioManager     scenario_manager   = null;
+	protected Offboard3Manager    offboard_manager   = null;
 
 
 	protected TakeOffHandler         takeoff_handler = null;
@@ -104,6 +107,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	//	private Future<?> future;
 	private int future;
+
 
 
 	public static AutoPilotBase getInstance(String clazz, IMAVController control,MSPConfig config) {
@@ -129,12 +133,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		System.out.println(instanceName+" instantiated");
 
-		Offboard3Manager.getInstance(control);
-
-		this.control   = control;
-		this.model     = control.getCurrentModel();
-		this.logger    = MSPLogger.getInstance();
-		this.params    = PX4Parameters.getInstance();
+		this.offboard_manager = Offboard3Manager.getInstance(control);
+		this.scenario_manager = ScenarioManager.getInstance(control);
+		this.control          = control;
+		this.model            = control.getCurrentModel();
+		this.logger           = MSPLogger.getInstance();
+		this.params           = PX4Parameters.getInstance();
 
 		this.ekf2_reset_check = new EKF2ResetCheck(control);
 
@@ -402,7 +406,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	 */
 	public void abort() {
 
-		Offboard3Manager.getInstance().abort();
+		offboard_manager.abort();
+		scenario_manager.abort();
 	}
 
 	/**

@@ -124,6 +124,9 @@ public class ScenarioReader {
 						case "position_local":
 							parsePositionLocal(param, moveto);
 							break;
+						case "position_random":
+							parsePositionRandom(param, moveto, false);
+							break;
 						case "acceptance_radius":
 							moveto.setAcceptanceRadius(parseFloatAttribute(param,"r"));
 							break;
@@ -186,6 +189,9 @@ public class ScenarioReader {
 						case "position_local":
 							parsePositionLocal(param, fiducial);
 							break;
+						case "position_random":
+							parsePositionRandom(param, fiducial, true);
+							break;
 						}
 					}
 				}
@@ -205,6 +211,24 @@ public class ScenarioReader {
 				parseFloatAttribute(p,"z"),
 				parseFloatAttribute(p,"w")
 				);
+	}
+
+	private void parsePositionRandom(Node p, AbstractScenarioItem item, boolean random_yaw ) {
+		float scale = parseFloatAttribute(p,"s");
+		if(random_yaw)
+			item.setPositionLocal(
+					(float)(Math.random()-0.5)*scale,
+					(float)(Math.random()-0.5)*scale,
+					(float)(Math.random()-0.5)*scale,
+					(float)(Math.random()*2*Math.PI)	
+					);	
+		else
+			item.setPositionLocal(
+					(float)(Math.random()-0.5)*scale,
+					(float)(Math.random()-0.5)*scale,
+					(float)(Math.random()-0.5)*scale,
+					Float.NaN		
+					);
 	}
 
 	private float parseFloatAttribute(Node p, String attributeName) {

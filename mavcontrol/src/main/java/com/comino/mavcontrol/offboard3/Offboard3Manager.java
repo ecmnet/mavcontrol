@@ -320,6 +320,11 @@ public class Offboard3Manager {
 				current_target = planNextSectionExecution(current);	
 				t_section_elapsed = 0;
 				
+				if(current_target==null) {
+					stopAndLoiter();
+					return;
+				}
+				
 				// Already within the target acceptance radius 
 				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw) && current.vel().norm() < 0.25f) {
 					control.writeLogMessage(new LogMessage("[msp] Target already reached. Perform action.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));

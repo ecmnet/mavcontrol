@@ -13,6 +13,8 @@ import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 public class ScenarioManager {
 
 	private final LinkedList<AbstractScenarioItem> itemList = new LinkedList<AbstractScenarioItem>();
+	
+	private static ScenarioManager instance;
 
 	private final  ScenarioWorker scenarioWorker         = new ScenarioWorker();
 	private final  IMAVController control;
@@ -20,9 +22,14 @@ public class ScenarioManager {
 	private final  Status         status;
 
 	private boolean isRunning = false;
+	
+	public static ScenarioManager getInstance(IMAVController control) {
+		if(instance == null)
+			instance = new ScenarioManager(control);
+		return instance;
+	}
 
-
-	public ScenarioManager(IMAVController control) {
+	private ScenarioManager(IMAVController control) {
 		this.control = control;
 		this.status  = control.getCurrentModel().sys;
 	}
@@ -87,8 +94,6 @@ public class ScenarioManager {
 
 			isRunning = true;
 
-
-			this.abort_request = false;
 			this.step_counter  = 0;
 
 			while(itemList.size()>0 && !abort_request) {
@@ -102,35 +107,35 @@ public class ScenarioManager {
 
 					try {
 						tms = System.currentTimeMillis()+currentItem.getTimeout_ms();
-						while(!currentItem.isCompleted() && System.currentTimeMillis() < tms && !currentItem.isAborted()) {
+						while(!currentItem.isCompleted() && System.currentTimeMillis() < tms && !currentItem.isAborted() && !abort_request) {
 							wait(currentItem.getTimeout_ms());
 						}
 
-						if(currentItem.isAborted()) {
-							itemList.clear();
+						if(currentItem.isAborted() || abort_request) {
 							control.writeLogMessage(new LogMessage("[msp] Scenario aborted in step "+step_counter,
 									MAV_SEVERITY.MAV_SEVERITY_ERROR));
-							return;
+							break;
 						}
 
 						if(!currentItem.isCompleted()) {
-							itemList.clear();
 							control.writeLogMessage(new LogMessage("[msp] Scenario Timeout occurred in step "+step_counter,
 									MAV_SEVERITY.MAV_SEVERITY_ERROR));
-							return;
+							break;
 						}
 
 					} catch (InterruptedException e) { }
 
 				}
 			}
+			
 
-
-
+			isRunning     = false;
+			abort_request = false;
+			
+			if(itemList.isEmpty())
+			   control.writeLogMessage(new LogMessage("[msp] Scenario execution completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			
 			itemList.clear();
-
-			isRunning = false;
-			control.writeLogMessage(new LogMessage("[msp] Scenario execution completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 			control.getCurrentModel().slam.wpcount = 0;
 		}
 

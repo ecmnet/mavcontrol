@@ -98,7 +98,7 @@ public class TestActionFactory {
 		if(!scenario.hasItems() || (scenario.isSITL() && !control.isSimulation()))
 			return;
 
-		ScenarioManager manager = new ScenarioManager(control);
+		ScenarioManager manager = ScenarioManager.getInstance(control);
 
 		manager.addItems(list);
 		manager.start(scenario.getRepeats());
