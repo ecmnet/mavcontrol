@@ -87,8 +87,8 @@ public class Offboard3Manager {
 			return;
 
 		// Do not allow replanning if planner is active
-		if(worker.isPlanned())
-			return;
+//		if(worker.isPlanned())
+//			return;
 
 		worker.setTarget(radians);	
 		worker.start(action,RADIUS_ACCEPT);
@@ -378,7 +378,6 @@ public class Offboard3Manager {
 					}
 
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
-					model.slam.wpcount = 0;
 					model.slam.di = 0;
 					model.slam.ix = Float.NaN;
 					model.slam.iy = Float.NaN;
@@ -566,7 +565,6 @@ public class Offboard3Manager {
 			}
 
 			Offboard3AbstractTarget new_target = current_plan.poll();
-			model.slam.wpcount = new_target.getIndex();
 
 			return planSectionExecution(new_target, current_state);
 		}

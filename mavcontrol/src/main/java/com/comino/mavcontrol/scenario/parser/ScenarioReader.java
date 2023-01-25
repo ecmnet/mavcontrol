@@ -13,6 +13,7 @@ import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.control.impl.MAVSimController;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
+import com.comino.mavcontrol.scenario.items.ArmingItem;
 import com.comino.mavcontrol.scenario.items.FiducialItem;
 import com.comino.mavcontrol.scenario.items.MoveToItem;
 import com.comino.mavcontrol.scenario.items.ObstacleItem;
@@ -29,8 +30,10 @@ public class ScenarioReader {
 	}
 
 
-	public LinkedList<AbstractScenarioItem> readScenario(String filename) {
+	public Scenario readScenario(String filename) {
 
+		Scenario scenario = new Scenario();
+		
 		DocumentBuilder dBuilder;
 		try {
 			dBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
@@ -38,9 +41,11 @@ public class ScenarioReader {
 			if (!doc.hasChildNodes())
 				return null;
 			NodeList scenarios = doc.getElementsByTagName("scenario");
-			if(scenarios!=null && scenarios.getLength()>0)
-				return parseScenario(scenarios.item(0).getChildNodes());	
-			return null;
+			if(scenarios!=null && scenarios.getLength()>0) {
+			    parseScenario(scenarios.item(0).getChildNodes(),scenario);	
+			    return scenario;
+			}
+			return scenario;
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -48,30 +53,24 @@ public class ScenarioReader {
 		return null;
 	}
 
-	private LinkedList<AbstractScenarioItem> parseScenario(NodeList scenario_childs) {
-		
-		boolean sitl_only = false;
+	private void parseScenario(NodeList scenario_childs, Scenario s) {
 
 		for(int i=0; i<scenario_childs.getLength();i++) {
 			Node scenario_child = scenario_childs.item(i);
 			switch(scenario_child.getNodeName().toLowerCase()) {
 			case "steps":
-				if(sitl_only && !control.isSimulation()) 
-					return null;
-				return parseSteps(scenario_child.getChildNodes()); 
+				s.setList(parseSteps(scenario_child.getChildNodes())); 
 			case "name":
-				System.out.println("Scenario: "+scenario_child.getTextContent().trim());
+				s.setName(scenario_child.getTextContent().trim());
 				break;
 			case "description":
-				System.out.println(scenario_child.getTextContent().trim());
 				break;
 			case "type":
 				if(scenario_child.getTextContent().toLowerCase().contains("sitl"))
-					sitl_only = true;
+					s.setType(Scenario.TYPE_SITL);
 
 			}
 		}
-		return null;
 	}
 
 	private LinkedList<AbstractScenarioItem> parseSteps(NodeList steps) {
@@ -81,7 +80,11 @@ public class ScenarioReader {
 		for(int i=0; i<steps.getLength();i++) {
 			Node step = steps.item(i);
 			switch(step.getNodeName().toLowerCase()) {
-			case "takeoff":
+			case "arm":
+				ArmingItem arming = new ArmingItem(control);
+				list.add(arming);
+			    break;			
+	       case "takeoff":
 				TakeOffItem takeoff = new TakeOffItem(control);
 				if(step.hasChildNodes()) {
 					NodeList params = step.getChildNodes();
@@ -206,18 +209,6 @@ public class ScenarioReader {
 	//				);
 	//	}
 
-	public static void main(String[] args) {
-		MSPConfig.getInstance("", "");
-		ScenarioReader r = new ScenarioReader(new MAVSimController());
-		LinkedList<AbstractScenarioItem> list = r.readScenario("test.xml");
-		if(list==null)
-			return;
-		for(AbstractScenarioItem item : list ) {
-			System.out.println(item);
-		}
 
-
-
-	}
 
 }

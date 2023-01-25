@@ -19,7 +19,7 @@ public class RotateItem extends AbstractScenarioItem {
 
 	@Override
 	public long getTimeout_ms() {
-		return 3_000L;
+		return 10_000L;
 	}
 
 	@Override

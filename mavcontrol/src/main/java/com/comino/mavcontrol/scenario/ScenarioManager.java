@@ -39,12 +39,6 @@ public class ScenarioManager {
 
 	public void start() {
 		
-		if(!status.isStatus(Status.MSP_ARMED)) {
-			control.writeLogMessage(new LogMessage("[msp] Scenario not executed. Not armed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-			itemList.clear();
-			return;
-		}
-		
 		if(isRunning) {
 			control.writeLogMessage(new LogMessage("[msp] Scenario already in progress.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 			itemList.clear();
@@ -99,12 +93,6 @@ public class ScenarioManager {
 						while(!currentItem.isCompleted() && System.currentTimeMillis() < tms && !currentItem.isAborted()) {
 							wait(currentItem.getTimeout_ms());
 						}
-						if(!currentItem.isCompleted()) {
-							itemList.clear();
-							control.writeLogMessage(new LogMessage("[msp] Scenario Timeout occurred in step "+step_counter,
-									MAV_SEVERITY.MAV_SEVERITY_ERROR));
-							return;
-						}
 						
 						if(currentItem.isAborted()) {
 							itemList.clear();
@@ -112,6 +100,14 @@ public class ScenarioManager {
 									MAV_SEVERITY.MAV_SEVERITY_ERROR));
 							return;
 						}
+						
+						if(!currentItem.isCompleted()) {
+							itemList.clear();
+							control.writeLogMessage(new LogMessage("[msp] Scenario Timeout occurred in step "+step_counter,
+									MAV_SEVERITY.MAV_SEVERITY_ERROR));
+							return;
+						}
+						
 					} catch (InterruptedException e) { }
 
 				}

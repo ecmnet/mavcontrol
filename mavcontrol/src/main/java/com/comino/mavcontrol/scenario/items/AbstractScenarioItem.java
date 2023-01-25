@@ -6,6 +6,7 @@ import com.comino.mavcontrol.offboard3.Offboard3Manager;
 
 public abstract class AbstractScenarioItem {
 
+	public static final int  TYPE_ARM  		    = 1;
 	public static final int  TYPE_TAKEOFF  		= 100;
 	public static final int  TYPE_MOVETO   		= 101;
 	public static final int  TYPE_ROTATE   		= 102;

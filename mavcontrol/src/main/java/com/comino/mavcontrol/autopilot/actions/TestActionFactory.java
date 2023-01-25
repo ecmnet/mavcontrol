@@ -20,6 +20,7 @@ import com.comino.mavcontrol.scenario.items.MoveToItem;
 import com.comino.mavcontrol.scenario.items.ObstacleItem;
 import com.comino.mavcontrol.scenario.items.PrecisionLandItem;
 import com.comino.mavcontrol.scenario.items.TakeOffItem;
+import com.comino.mavcontrol.scenario.parser.Scenario;
 import com.comino.mavcontrol.scenario.parser.ScenarioReader;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
@@ -88,14 +89,14 @@ public class TestActionFactory {
 		
 		ScenarioReader reader = new ScenarioReader(control);
 		
-		LinkedList<AbstractScenarioItem> list = reader.readScenario("test.xml");
+		Scenario scenario = reader.readScenario("test.xml");
 		
-		if(list==null)
+		System.out.println(scenario);
+		
+		LinkedList<AbstractScenarioItem> list = scenario.getList();
+		
+		if(!scenario.hasItems() || (scenario.isSITL() && !control.isSimulation()))
 			return;
-		int i=0;
-		for(AbstractScenarioItem item : list ) {
-			System.out.println("STEP "+(++i)+" : "+item);
-		}
 		
 		ScenarioManager manager = new ScenarioManager(control);
 		manager.addItems(list);
