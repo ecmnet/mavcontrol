@@ -61,10 +61,20 @@ public class ScenarioReader {
 			switch(scenario_child.getNodeName().toLowerCase()) {
 			case "steps":
 				s.setList(parseSteps(scenario_child.getChildNodes())); 
+				break;
 			case "name":
 				s.setName(scenario_child.getTextContent().trim());
 				break;
 			case "description":
+				break;
+			case "max_speed":
+				s.setMaxSpeed(Float.parseFloat(scenario_child.getTextContent()));
+				break;
+			case "time_factor":
+				s.setTimeFactor(Float.parseFloat(scenario_child.getTextContent()));
+				break;
+			case "repeats":
+				s.setRepeats((int)Float.parseFloat(scenario_child.getTextContent()));
 				break;
 			case "type":
 				if(scenario_child.getTextContent().toLowerCase().contains("sitl"))

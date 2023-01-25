@@ -33,108 +33,76 @@ public class TestActionFactory {
 
 	public static void simulateFiducial(IMAVController control, float radius) {
 
-//		final DataModel model = control.getCurrentModel();
-//
-//		if(model.sys.isStatus(Status.MSP_LANDED)) {
-//			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
-//			msg.px    =  Float.NaN;
-//			msg.py    =  Float.NaN;
-//			msg.pz    =  Float.NaN;
-//			msg.pw    =  Float.NaN;
-//			msg.flags =  model.vision.flags;
-//			control.sendMAVLinkMessage(msg);
-//			return;
-//		}
-//
-//		if(model.hud.ar > 2.5f) {
-//			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
-//			msg.px    =  Float.NaN;
-//			msg.py    =  Float.NaN;
-//			msg.pz    =  Float.NaN;
-//			msg.pw    =  Float.NaN;
-//			msg.flags =  model.vision.flags;
-//			control.sendMAVLinkMessage(msg);
-//			return;
-//		}
-//
-//		if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED) && model.sys.isStatus(Status.MSP_LPOS_VALID) && 
-//				!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_TAKEOFF) ) {
-//
-//			//			if(control.isSimulation())	
-//			//				TestActionFactory.setRandomObstacle();
-//
-//			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
-//			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, true);
-//
-//			model.vision.px = model.state.l_x + ((float)Math.random()-0.5f)*radius;
-//			model.vision.py = model.state.l_y + ((float)Math.random()-0.5f)*radius;
-//			model.vision.pz = 0f;	
-//			model.vision.pw = ((float)Math.random()-0.5f)*12f;
-//
-//			//model.vision.pw = MSPMathUtils.toRad(135);
-//
-//			System.out.println("Simulated fiducial rotation: "+MSPMathUtils.fromRad(model.vision.pw));
-//
-//			msg.px    =  model.vision.px;
-//			msg.py    =  model.vision.py;
-//			msg.pz    =  model.vision.pz;
-//			msg.pw    =  model.vision.pw;
-//			msg.flags =  model.vision.flags;
-//			control.sendMAVLinkMessage(msg);
-//		} 
+		//		final DataModel model = control.getCurrentModel();
+		//
+		//		if(model.sys.isStatus(Status.MSP_LANDED)) {
+		//			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
+		//			msg.px    =  Float.NaN;
+		//			msg.py    =  Float.NaN;
+		//			msg.pz    =  Float.NaN;
+		//			msg.pw    =  Float.NaN;
+		//			msg.flags =  model.vision.flags;
+		//			control.sendMAVLinkMessage(msg);
+		//			return;
+		//		}
+		//
+		//		if(model.hud.ar > 2.5f) {
+		//			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
+		//			msg.px    =  Float.NaN;
+		//			msg.py    =  Float.NaN;
+		//			msg.pz    =  Float.NaN;
+		//			msg.pw    =  Float.NaN;
+		//			msg.flags =  model.vision.flags;
+		//			control.sendMAVLinkMessage(msg);
+		//			return;
+		//		}
+		//
+		//		if(!model.vision.isStatus(Vision.FIDUCIAL_LOCKED) && model.sys.isStatus(Status.MSP_LPOS_VALID) && 
+		//				!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_TAKEOFF) ) {
+		//
+		//			//			if(control.isSimulation())	
+		//			//				TestActionFactory.setRandomObstacle();
+		//
+		//			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, true);
+		//			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, true);
+		//
+		//			model.vision.px = model.state.l_x + ((float)Math.random()-0.5f)*radius;
+		//			model.vision.py = model.state.l_y + ((float)Math.random()-0.5f)*radius;
+		//			model.vision.pz = 0f;	
+		//			model.vision.pw = ((float)Math.random()-0.5f)*12f;
+		//
+		//			//model.vision.pw = MSPMathUtils.toRad(135);
+		//
+		//			System.out.println("Simulated fiducial rotation: "+MSPMathUtils.fromRad(model.vision.pw));
+		//
+		//			msg.px    =  model.vision.px;
+		//			msg.py    =  model.vision.py;
+		//			msg.pz    =  model.vision.pz;
+		//			msg.pw    =  model.vision.pw;
+		//			msg.flags =  model.vision.flags;
+		//			control.sendMAVLinkMessage(msg);
+		//		} 
 
 	}
-	
+
 	public static void test_scenario(IMAVController control,boolean enable) {
-		
+
 		ScenarioReader reader = new ScenarioReader(control);
-		
+
 		Scenario scenario = reader.readScenario("test.xml");
-		
+
 		System.out.println(scenario);
-		
+
 		LinkedList<AbstractScenarioItem> list = scenario.getList();
-		
+
 		if(!scenario.hasItems() || (scenario.isSITL() && !control.isSimulation()))
 			return;
-		
+
 		ScenarioManager manager = new ScenarioManager(control);
+
 		manager.addItems(list);
-		
-		
-//		TakeOffItem takeoff = new TakeOffItem(control);
-//		takeoff.setTakeoffAltitude(5.5f);
-//		manager.addItem(takeoff);
-//		
-//		MoveToItem moveto1 = new MoveToItem(control);
-//		moveto1.setPositionLocal(0, 4, Float.NaN, Float.NaN);
-//		moveto1.setAcceptanceRadius(0.2f);
-//		manager.addItem(moveto1);
-//		
-//		MoveToItem moveto2 = new MoveToItem(control);
-//		moveto2.setPositionLocal(4, 4, -2, Float.NaN);
-//		moveto2.setAcceptanceRadius(1.0f);
-//		manager.addItem(moveto2);
-//		
-////		ObstacleItem obstacle = new ObstacleItem(control);
-////		obstacle.setPositionLocal(4, 0, Float.NaN, Float.NaN);
-////		obstacle.setSize(1f);
-////		manager.addItem(obstacle);
-//		
-//		MoveToItem moveto3 = new MoveToItem(control);
-//		moveto3.setPositionLocal(4, -4f, Float.NaN, Float.NaN);
-//		manager.addItem(moveto3);
-//		
-//		MoveToItem moveto4 = new MoveToItem(control);
-//		moveto4.setPositionLocal(0.75f, 0.75f, Float.NaN, Float.NaN);
-//		moveto4.setAcceptanceRadius(0.5f);
-//		manager.addItem(moveto4);
-//		
-////		manager.addItem(new ObstacleItem(control));
-//		manager.addItem(new PrecisionLandItem(control));
-		
-		manager.start();
-		
+		manager.start(scenario.getRepeats());
+
 	}
 
 	static int worker = 0; static float sign = 1.0f;
@@ -202,23 +170,23 @@ public class TestActionFactory {
 
 			if(Float.isFinite(model.slam.ox)) {
 				worker2 = wq.addCyclicTask("LP", 10000, () -> {
-					
-					   // Obstacle 
-					   offboard.moveTo((float)(Math.random()*2f-1f+0.8f)*skip + model.slam.ox, model.slam.oy,
-								(float)Math.random()*0.5f-1.5f, Float.NaN);
-					   skip = skip * -1;
-						
+
+					// Obstacle 
+					offboard.moveTo((float)(Math.random()*2f-1f+0.8f)*skip + model.slam.ox, model.slam.oy,
+							(float)Math.random()*0.5f-1.5f, Float.NaN);
+					skip = skip * -1;
+
 				});
 			} else {
 				worker2 = wq.addCyclicTask("LP", 5000, () -> {
-						offboard.moveTo((float)Math.random()*6f-3f, (float)Math.random()*6f-3f, 
-								(float)Math.random()*3-3f-0.5f, Float.NaN);
+					offboard.moveTo((float)Math.random()*6f-3f, (float)Math.random()*6f-3f, 
+							(float)Math.random()*3-3f-0.5f, Float.NaN);
 				});
 
 			}
 
 		} else {
-			
+
 			wq.removeTask("LP", worker2);
 		}
 	}
