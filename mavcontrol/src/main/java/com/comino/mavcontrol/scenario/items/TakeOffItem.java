@@ -9,16 +9,16 @@ import com.comino.mavcontrol.autopilot.actions.TakeOffHandler;
 import com.comino.mavcontrol.scenario.ScenarioManager;
 
 public class TakeOffItem extends AbstractScenarioItem {
-	
+
 	private final TakeOffHandler takeoff_handler;
-	
+
 	private float altitude_m = Float.NaN;
 
 	public TakeOffItem(IMAVController control) {
-	  super(AbstractScenarioItem.TYPE_TAKEOFF,control);
-	  this.takeoff_handler = new TakeOffHandler(control,() -> completed());
+		super(control);
+		this.takeoff_handler = new TakeOffHandler(control,() -> completed());
 	}
-	
+
 	public void setTakeoffAltitude(float altitude_m) {
 		this.altitude_m  = altitude_m;
 	}
@@ -26,10 +26,10 @@ public class TakeOffItem extends AbstractScenarioItem {
 	@Override
 	public void execute() {
 		if(model.sys.isStatus(Status.MSP_LANDED))
-		  takeoff_handler.initiateTakeoff(2);
+			takeoff_handler.initiateTakeoff(2);
 		else {
-		 control.writeLogMessage(new LogMessage("[msp] Takeoff skipped. Already in air.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-		  completed();
+			control.writeLogMessage(new LogMessage("[msp] Takeoff skipped. Already in air.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			completed();
 		}
 	}
 

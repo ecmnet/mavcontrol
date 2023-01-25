@@ -8,7 +8,7 @@ public class RotateItem extends AbstractScenarioItem {
 	private float yaw_rad = Float.NaN;
 
 	public RotateItem(IMAVController control) {
-		super(AbstractScenarioItem.TYPE_ROTATE,control);
+		super(control);
 	}
 	
 	public void setYaw(float yaw_degree) {

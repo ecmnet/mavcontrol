@@ -16,7 +16,7 @@ public class FiducialItem extends AbstractScenarioItem {
 	private final static msg_msp_vision msg = new msg_msp_vision(2,1);
 
 	public FiducialItem(IMAVController control) {
-		super(AbstractScenarioItem.TYPE_FIDUCIAL,control);
+		super(control);
 		fiducial_position.setTo(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 	}
 

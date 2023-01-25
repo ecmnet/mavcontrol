@@ -9,7 +9,6 @@ import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
-import com.comino.mavcontrol.scenario.items.TestItem;
 
 public class ScenarioManager {
 
@@ -123,20 +122,4 @@ public class ScenarioManager {
 			this.notify();
 		}
 	}
-
-
-	public static void main(String[] args) {
-
-		ScenarioManager s = new ScenarioManager(null);
-
-		s.addItem(new TestItem(1));
-		s.addItem(new TestItem(2));
-		s.addItem(new TestItem(3));
-		s.addItem(new TestItem(4));
-
-		s.start();
-
-	}
-
-
 }

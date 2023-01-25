@@ -12,7 +12,7 @@ public class MoveToItem extends AbstractScenarioItem {
 	private float acceptance_radius_m = Float.NaN;
 
 	public MoveToItem(IMAVController control) {
-		super(AbstractScenarioItem.TYPE_MOVETO,control);
+		super(control);
 	}
 
 	public void setPositionLocal(float x, float y, float z, float w_deg) {

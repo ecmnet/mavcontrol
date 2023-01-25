@@ -8,7 +8,7 @@ public class PrecisionLandItem extends AbstractScenarioItem {
 
 
 	public PrecisionLandItem(IMAVController control) {
-		super(AbstractScenarioItem.TYPE_PRECLAND,control);
+		super(control);
 	}
 
 

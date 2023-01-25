@@ -14,6 +14,7 @@ import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.control.impl.MAVSimController;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 import com.comino.mavcontrol.scenario.items.ArmingItem;
+import com.comino.mavcontrol.scenario.items.DisarmingItem;
 import com.comino.mavcontrol.scenario.items.FiducialItem;
 import com.comino.mavcontrol.scenario.items.MoveToItem;
 import com.comino.mavcontrol.scenario.items.ObstacleItem;
@@ -33,7 +34,7 @@ public class ScenarioReader {
 	public Scenario readScenario(String filename) {
 
 		Scenario scenario = new Scenario();
-		
+
 		DocumentBuilder dBuilder;
 		try {
 			dBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
@@ -42,8 +43,8 @@ public class ScenarioReader {
 				return null;
 			NodeList scenarios = doc.getElementsByTagName("scenario");
 			if(scenarios!=null && scenarios.getLength()>0) {
-			    parseScenario(scenarios.item(0).getChildNodes(),scenario);	
-			    return scenario;
+				parseScenario(scenarios.item(0).getChildNodes(),scenario);	
+				return scenario;
 			}
 			return scenario;
 
@@ -83,8 +84,12 @@ public class ScenarioReader {
 			case "arm":
 				ArmingItem arming = new ArmingItem(control);
 				list.add(arming);
-			    break;			
-	       case "takeoff":
+				break;	
+			case "disarm":
+				DisarmingItem disarming = new DisarmingItem(control);
+				list.add(disarming);
+				break;			
+			case "takeoff":
 				TakeOffItem takeoff = new TakeOffItem(control);
 				if(step.hasChildNodes()) {
 					NodeList params = step.getChildNodes();

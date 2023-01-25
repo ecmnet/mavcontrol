@@ -16,7 +16,7 @@ public class ObstacleItem extends AbstractScenarioItem {
 	private int   obstacle_type;
 
 	public ObstacleItem(IMAVController control) {
-		super(AbstractScenarioItem.TYPE_OBSTACLE,control);
+		super(control);
 	}
 
 	public void setPositionLocal(float x, float y, float z, float w_deg) {

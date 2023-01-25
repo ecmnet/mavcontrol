@@ -10,28 +10,28 @@ import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcontrol.autopilot.actions.TakeOffHandler;
 import com.comino.mavcontrol.scenario.ScenarioManager;
 
-public class ArmingItem extends AbstractScenarioItem {
+public class DisarmingItem extends AbstractScenarioItem {
 
 
-	public ArmingItem(IMAVController control) {
+	public DisarmingItem(IMAVController control) {
 		super(control);
 	}
 
 	@Override
 	public void execute() {
-		if(!model.sys.isStatus(Status.MSP_ARMED)) {
+		if(model.sys.isStatus(Status.MSP_ARMED)) {
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,( cmd,result) -> { 
 				if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) {
 					abort();
 				}
 				else {
-					wait(1000);
+					wait(100);
 					completed();
 				}
-			},1 );
+			},0 );
 		}
 		else {
-			control.writeLogMessage(new LogMessage("[msp] Already armed. Item skipped.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			control.writeLogMessage(new LogMessage("[msp] Already disarmed. Item skipped.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 			completed();
 		}
 	}
