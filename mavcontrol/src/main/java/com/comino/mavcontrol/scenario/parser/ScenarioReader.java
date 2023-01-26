@@ -47,7 +47,6 @@ public class ScenarioReader {
 			NodeList scenarios = doc.getElementsByTagName("scenario");
 			if(scenarios!=null && scenarios.getLength()>0) {
 				parseScenario(scenarios.item(0).getChildNodes(),scenario);	
-				System.out.println(scenario.itemListToString());
 				return scenario;
 			}
 			return scenario;
@@ -154,6 +153,8 @@ public class ScenarioReader {
 					case "altitude":
 						takeoff.setTakeoffAltitude(parseFloatAttribute(param,"a"));
 						break;
+					case "delay":
+						takeoff.setDelay((int)parseFloatAttribute(param,"d"));
 					}
 				}
 			}
@@ -168,9 +169,11 @@ public class ScenarioReader {
 					switch(param.getNodeName().toLowerCase()) {
 					case "position_local":
 						parsePositionLocal(param, moveto);
+						moveto.setType(MoveToItem.TYPE_ABSOLUTE);
 						break;
-					case "position_random":
-						parsePositionRandom(param, moveto, false);
+					case "position_relative":
+						parsePositionLocal(param, moveto);
+						moveto.setType(MoveToItem.TYPE_RELATIVE);
 						break;
 					case "acceptance_radius":
 						moveto.setAcceptanceRadius(parseFloatAttribute(param,"r"));
@@ -249,9 +252,6 @@ public class ScenarioReader {
 					case "position_local":
 						parsePositionLocal(param, fiducial);
 						break;
-					case "position_random":
-						parsePositionRandom(param, fiducial, true);
-						break;
 					}
 				}
 			}
@@ -274,23 +274,6 @@ public class ScenarioReader {
 				);
 	}
 
-	private void parsePositionRandom(Node p, AbstractScenarioItem item, boolean random_yaw ) {
-		float scale = parseFloatAttribute(p,"s");
-		if(random_yaw)
-			item.setPositionLocal(
-					(float)(Math.random()-0.5)*scale,
-					(float)(Math.random()-0.5)*scale,
-					(float)(Math.random()-0.5)*scale,
-					(float)(Math.random()*2*Math.PI)	
-					);	
-		else
-			item.setPositionLocal(
-					(float)(Math.random()-0.5)*scale,
-					(float)(Math.random()-0.5)*scale,
-					(float)(Math.random()-0.5)*scale,
-					Float.NaN		
-					);
-	}
 
 	private float parseFloatAttribute(Node p, String attributeName) {
 		try {
