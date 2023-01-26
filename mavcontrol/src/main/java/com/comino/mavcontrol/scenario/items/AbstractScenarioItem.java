@@ -1,7 +1,10 @@
 package com.comino.mavcontrol.scenario.items;
 
+import org.mavlink.messages.MAV_SEVERITY;
+
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
+import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 
 public abstract class AbstractScenarioItem {
@@ -10,7 +13,7 @@ public abstract class AbstractScenarioItem {
 	protected final DataModel          model;
 	protected final Offboard3Manager   offboard;
 	
-	private       int     delay_secs = 0;
+	private       int     delay_ms = 0;
 	
 	private       boolean isCompleted;
 	private       boolean isAborted;
@@ -34,7 +37,10 @@ public abstract class AbstractScenarioItem {
 		this.isAborted   = false;
 	}
 
-	public abstract void execute();
+	public void execute() {
+		control.writeLogMessage(new LogMessage("[msp] ScenarioItem not implemented.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+		completed();
+	};
 
 	public void setPositionLocal(float x, float y, float z, float w) {
 
@@ -44,12 +50,12 @@ public abstract class AbstractScenarioItem {
 		// TODO convert to local position and call setPositionLocal
 	}
 	
-	public void setDelay(int secs) {
-		this.delay_secs = secs;
+	public void setDelay(int delay_ms) {
+		this.delay_ms = delay_ms;
 	}
 
 	public long getTimeout_ms() {
-		return 30_000L;
+		return delay_ms+30_000L;
 	}
 
 	public boolean isCompleted() {
@@ -66,8 +72,8 @@ public abstract class AbstractScenarioItem {
 
 	protected void completed() {
 		synchronized(owner) {
-			if(delay_secs > 0)
-				wait(delay_secs*1_000);
+			if(delay_ms > 0)
+				wait(delay_ms);
 			this.isCompleted= true;
 			owner.notify();
 		}

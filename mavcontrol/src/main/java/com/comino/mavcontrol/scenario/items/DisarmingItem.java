@@ -25,7 +25,9 @@ public class DisarmingItem extends AbstractScenarioItem {
 					abort();
 				}
 				else {
-					wait(100);
+					while(model.sys.isStatus(Status.MSP_ARMED))
+					  wait(100);
+					wait(1000);
 					completed();
 				}
 			},0 );

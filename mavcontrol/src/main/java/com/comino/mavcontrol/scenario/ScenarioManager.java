@@ -44,18 +44,12 @@ public class ScenarioManager {
 	}
 
 	public void start() {
-		start(1);	
-	}
-
-	public void start(int repeats) {
 
 		if(isRunning) {
 			control.writeLogMessage(new LogMessage("[msp] Scenario already in progress.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 			itemList.clear();
 			return;
 		}
-
-		scenarioWorker.setRepeats(repeats);
 
 		if(itemList.size() > 0) {
 
@@ -78,14 +72,8 @@ public class ScenarioManager {
 	private class ScenarioWorker implements Runnable {
 
 		private AbstractScenarioItem currentItem;
-		private boolean              abort_request;
+		private boolean              abortRequest;
 		private int                  step_counter;
-
-		private int                  repeats = 1;
-
-		public void setRepeats(int repeats) {
-			this.repeats = repeats;
-		}
 
 		@Override
 		public void run() {
@@ -96,7 +84,7 @@ public class ScenarioManager {
 
 			this.step_counter  = 0;
 
-			while(itemList.size()>0 && !abort_request) {
+			while(itemList.size()>0 && !abortRequest) {
 
 				synchronized(this) {
 
@@ -107,11 +95,11 @@ public class ScenarioManager {
 
 					try {
 						tms = System.currentTimeMillis()+currentItem.getTimeout_ms();
-						while(!currentItem.isCompleted() && System.currentTimeMillis() < tms && !currentItem.isAborted() && !abort_request) {
+						while(!currentItem.isCompleted() && System.currentTimeMillis() < tms && !currentItem.isAborted() && !abortRequest) {
 							wait(currentItem.getTimeout_ms());
 						}
 
-						if(currentItem.isAborted() || abort_request) {
+						if(currentItem.isAborted() || abortRequest) {
 							control.writeLogMessage(new LogMessage("[msp] Scenario aborted in step "+step_counter,
 									MAV_SEVERITY.MAV_SEVERITY_ERROR));
 							break;
@@ -124,13 +112,12 @@ public class ScenarioManager {
 						}
 
 					} catch (InterruptedException e) { }
-
 				}
 			}
 			
 
 			isRunning     = false;
-			abort_request = false;
+			abortRequest = false;
 			
 			if(itemList.isEmpty())
 			   control.writeLogMessage(new LogMessage("[msp] Scenario execution completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
@@ -140,7 +127,7 @@ public class ScenarioManager {
 		}
 
 		public synchronized void abortRequest() {
-			this.abort_request= true;
+			this.abortRequest= true;
 			this.notify();
 		}
 	}

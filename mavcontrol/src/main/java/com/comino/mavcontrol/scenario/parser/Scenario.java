@@ -15,7 +15,6 @@ public class Scenario {
 	
 	private float   time_factor = 1;
 	private float   max_speed   = 1;
-	private int     repeats     = 1;
 
 
 	public Scenario() {
@@ -36,14 +35,6 @@ public class Scenario {
 
 	public String getName() {
 		return name;
-	}
-
-	public int getRepeats() {
-		return repeats;
-	}
-
-	public void setRepeats(int repeats) {
-		this.repeats = repeats;
 	}
 
 	public void setName(String name) {
@@ -73,12 +64,23 @@ public class Scenario {
 	public LinkedList<AbstractScenarioItem> getList() {
 		return list;
 	}
+	
+	public String itemListToString() {
+		StringBuilder b = new StringBuilder();
+		int i=0;
+		for( var item : list) {
+			b.append(++i); b.append(". : ");
+			b.append(item.getClass().getSimpleName());
+			b.append("\n");
+		}
+		return b.toString();
+	}
 
 	public String toString() {
 		if(isSITL())
-			return repeats+"x "+name+" with "+list.size()+" items (SITL)";
+			return name+" with "+list.size()+" items (SITL)";
 		else
-			return repeats+"x "+name+" with "+list.size()+" items";
+			return name+" with "+list.size()+" items";
 	}
 
 }

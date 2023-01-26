@@ -101,7 +101,7 @@ public class TestActionFactory {
 		ScenarioManager manager = ScenarioManager.getInstance(control);
 
 		manager.addItems(list);
-		manager.start(scenario.getRepeats());
+		manager.start();
 
 	}
 

@@ -16,7 +16,7 @@ public class PrecisionLandItem extends AbstractScenarioItem {
 	public void execute() {
 		OffboardActionFactory.precision_landing_rotate();
 		while(!model.sys.isStatus(Status.MSP_LANDED)) {
-			wait(200);
+			wait(100);
 			completed();
 		}
 	}
