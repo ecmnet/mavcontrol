@@ -23,6 +23,7 @@ import com.comino.mavutils.MSPStringUtils;
 
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F64;
+import georegression.struct.point.Vector4D_F32;
 
 public class Offboard3Planner {
 
@@ -103,6 +104,45 @@ public class Offboard3Planner {
 		
 		return new_plan;
 	}
+	
+	
+	public Offboard3Plan planCircle(GeoTuple4D_F32<?> center, float radius, float angle_rad) {
+		
+		// TODO: Works a bit wobbly, exit not good, rotation 
+		//       Velocity control not within a single segment but e.g. across 2 segments
+		
+	    final int circle_segments = (int)(8.0f*radius+0.5);
+		
+		current.update();
+		
+		Offboard3Plan new_plan = new Offboard3Plan();
+		
+		GeoTuple4D_F32<?> point = new Vector4D_F32();
+		
+		final int planning_segments = (int)(circle_segments * angle_rad / (2.0*Math.PI));
+		float total_time = (float)( 2.0*radius*Math.PI / max_xyz_velocity * 2) ;
+		if(planning_segments < circle_segments) total_time = total_time * (float)planning_segments/(float)circle_segments;
+		
+		for(int seg = 0; seg < planning_segments; seg++) {
+			float a = (float)(2.0*Math.PI/circle_segments * seg);
+			point.setTo((float)(Math.cos(a)*radius),(float)(Math.sin(a)*radius),center.z,a);
+			point.plusIP(center);
+			new_plan.add(new Offboard3VelTarget(point,max_xyz_velocity / 2,total_time/circle_segments));
+		}
+		
+		new_plan.add(new Offboard3PosTarget(center));
+		
+		this.acceptance_radius = (float)( 2.0*radius*Math.PI) / (circle_segments * 2.0f);
+		
+		Offboard3Collision collision = planPath(new_plan, current);
+		if(collision != null) {
+			control.writeLogMessage(new LogMessage("[msp] Obstacle in circle. Not executed.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+			return null;
+		}
+		
+		return new_plan;	
+	}
+	
 
 	public Offboard3Plan planDirectPath(GeoTuple4D_F32<?> pos_target) {
 		return planDirectPath(pos_target,false);

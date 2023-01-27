@@ -14,8 +14,6 @@ public class RotateItem extends AbstractScenarioItem {
 	public void setYaw(float yaw_degree) {
 	      this.yaw_rad = MSPMathUtils.toRad(yaw_degree);
 		}
-	
-	
 
 	@Override
 	public long getTimeout_ms() {
