@@ -14,6 +14,7 @@ import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.control.impl.MAVSimController;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 import com.comino.mavcontrol.scenario.items.ArmingItem;
+import com.comino.mavcontrol.scenario.items.CircleItem;
 import com.comino.mavcontrol.scenario.items.DisarmingItem;
 import com.comino.mavcontrol.scenario.items.FiducialItem;
 import com.comino.mavcontrol.scenario.items.LogMessageItem;
@@ -159,6 +160,26 @@ public class ScenarioReader {
 				}
 			}
 			item = takeoff;
+			break;
+		case "circle":
+			CircleItem circle = new CircleItem(control);
+			if(step.hasChildNodes()) {
+				NodeList params = step.getChildNodes();
+				for(int j=0;j<params.getLength();j++) {
+					Node param = params.item(j);
+					switch(param.getNodeName().toLowerCase()) {
+					case "center":
+						parsePositionLocal(param, circle);
+						circle.setCircleParams(parseFloatAttribute(param,"r"),
+								               parseFloatAttribute(param,"a") );
+						break;
+					case "delay":
+						circle.setDelay((int)parseFloatAttribute(param,"d"));
+						break;
+					}
+				}
+				item = circle;
+			}
 			break;
 		case "moveto":
 			MoveToItem moveto = new MoveToItem(control);
