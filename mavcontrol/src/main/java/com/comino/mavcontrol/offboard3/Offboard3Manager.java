@@ -63,7 +63,12 @@ public class Offboard3Manager {
 
 
 	private final Offboard3Worker   worker;
+	private final Offboard3Planner  planner;
 	private final DataModel         model;
+	
+	private float acceptance_radius = RADIUS_ACCEPT;
+	private float acceptance_yaw    = YAW_ACCEPT;
+	private float max_xyz_vel       = MAX_XYZ_VEL;
 
 	public static Offboard3Manager getInstance(IMAVController control) {
 		if(instance==null) 
@@ -78,6 +83,15 @@ public class Offboard3Manager {
 	private Offboard3Manager(IMAVController control) {
 		this.model   = control.getCurrentModel();
 		this.worker  = new Offboard3Worker(control);	
+		
+		MSPConfig config	= MSPConfig.getInstance();
+
+		max_xyz_vel = config.getFloatProperty(MSPParams.AUTOPILOT_MAX_XYZ_VEL, String.valueOf(MAX_XYZ_VEL));
+		System.out.println("Maximum planning velocity: "+max_xyz_vel+" m/s");
+		acceptance_radius = config.getFloatProperty(MSPParams.AUTOPILOT_RADIUS_ACCEPT, String.valueOf(RADIUS_ACCEPT));
+		System.out.println("Acceptance radius: "+acceptance_radius+" m");
+
+		this.planner        = new Offboard3Planner(control, acceptance_radius, max_xyz_vel);
 	}
 
 
@@ -90,8 +104,8 @@ public class Offboard3Manager {
 //		if(worker.isPlanned())
 //			return;
 
-		worker.setTarget(radians);	
-		worker.start(action,RADIUS_ACCEPT);
+		worker.planRotation(radians);	
+		worker.start(action);
 
 	}
 
@@ -102,7 +116,8 @@ public class Offboard3Manager {
 
 		float target = MSPMathUtils.normAngle(model.attitude.y+radians);
 
-		worker.setTarget(target);	
+		this.acceptance_radius = RADIUS_ACCEPT;
+		worker.planRotation(target);	
 		worker.start();
 
 	}
@@ -113,7 +128,7 @@ public class Offboard3Manager {
 			return;
 		
 		worker.setPlan(plan);
-		worker.start(action,RADIUS_ACCEPT);
+		worker.start(action);
 		
 	}
 	
@@ -127,9 +142,10 @@ public class Offboard3Manager {
 			return;
 
 		Point4D_F32 p = new Point4D_F32(x,y,z,w);
+		this.acceptance_radius = acceptance_radius_m;
 
-		worker.setTarget(p);	
-		worker.start(action,acceptance_radius_m);
+		worker.planMovement(p);	
+		worker.start(action);
 	}
 
 	public void moveTo(float x, float y, float z, float w) {
@@ -140,6 +156,10 @@ public class Offboard3Manager {
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
 			return;
 		worker.stopAndLoiter();
+	}
+	
+	public boolean isPlanned() {
+		return worker.isPlanned();
 	}
 
 
@@ -152,11 +172,6 @@ public class Offboard3Manager {
 
 		private final WorkQueue wq = WorkQueue.getInstance();
 
-
-		private float acceptance_radius = RADIUS_ACCEPT;
-		private float acceptance_yaw    = YAW_ACCEPT;
-
-		private float max_xyz_vel       = MAX_XYZ_VEL;
 
 		private int     offboard_worker = 0;
 		private boolean isRunning       = false;
@@ -171,9 +186,6 @@ public class Offboard3Manager {
 
 		// current state
 		private final Offboard3Current current;
-
-		// Planner
-		private final Offboard3Planner          planner;
 
 		// Collsion check
 		private final Offboard3CollisionCheck   collisionCheck;
@@ -201,29 +213,20 @@ public class Offboard3Manager {
 			this.control = control;
 			this.model   = control.getCurrentModel();
 			this.current = new Offboard3Current(model);
-
-			MSPConfig config	= MSPConfig.getInstance();
-
-			max_xyz_vel = config.getFloatProperty(MSPParams.AUTOPILOT_MAX_XYZ_VEL, String.valueOf(MAX_XYZ_VEL));
-			System.out.println("Maximum planning velocity: "+max_xyz_vel+" m/s");
-			acceptance_radius = config.getFloatProperty(MSPParams.AUTOPILOT_RADIUS_ACCEPT, String.valueOf(RADIUS_ACCEPT));
-			System.out.println("Acceptance radius: "+acceptance_radius+" m");
-
-			this.planner        = new Offboard3Planner(control, acceptance_radius, max_xyz_vel);
 			this.collisionCheck = new Offboard3CollisionCheck();
 
 		}
 
 		public void start() {
-			start((model) -> stopAndLoiter(), RADIUS_ACCEPT);
+			start((model) -> stopAndLoiter());
 		}
 
-		public void start(ITargetReached reached, float acceptance_radius_m) {
-			start(reached,null, acceptance_radius_m);
+		public void start(ITargetReached reached) {
+			start(reached,null);
 		}
 		
 
-		public void start(ITargetReached reached_action, ITimeout timeout_action, float acceptance_radius_m) {
+		public void start(ITargetReached reached_action, ITimeout timeout_action) {
 
 			if(model.sys.isStatus(Status.MSP_LANDED)) {
 				reset();
@@ -238,8 +241,6 @@ public class Offboard3Manager {
 			this.timeout     = timeout_action;
 			this.t_section_elapsed   = 0;
 			
-			this.acceptance_radius = acceptance_radius_m;
-
 			if(isRunning)
 				return;
 
@@ -271,11 +272,11 @@ public class Offboard3Manager {
 			return;
 		}
 
-		public void setTarget(final float yaw) {
+		public void planRotation(final float yaw) {
 			setPlan(planner.planDirectYaw(yaw));		
 		}
 
-		public void setTarget(GeoTuple4D_F32<?> pos_target) {
+		public void planMovement(GeoTuple4D_F32<?> pos_target) {
 
 			final GeoTuple4D_F32<?> _target = pos_target.copy();
 			setPlan(planner.planDirectPath(_target));
