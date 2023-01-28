@@ -8,6 +8,7 @@ import org.mavlink.messages.MAV_SEVERITY;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 
 public class ScenarioManager {
@@ -16,10 +17,11 @@ public class ScenarioManager {
 
 	private static ScenarioManager instance;
 
-	private final  ScenarioWorker scenarioWorker         = new ScenarioWorker();
-	private final  IMAVController control;
-	private        Thread         scenarioWorkerThread;
-	private final  Status         status;
+	private final  ScenarioWorker    	scenarioWorker         = new ScenarioWorker();
+	private final  IMAVController 		control;
+	private final  Offboard3Manager   	offboard;
+	private        Thread         		scenarioWorkerThread;
+	private final  Status         		status;
 
 	private boolean isRunning = false;
 
@@ -32,6 +34,12 @@ public class ScenarioManager {
 	private ScenarioManager(IMAVController control) {
 		this.control = control;
 		this.status  = control.getCurrentModel().sys;
+		
+		this.offboard = Offboard3Manager.getInstance(control);
+		this.offboard.setTimeoutAction(() -> {
+			System.err.println("Timeout");
+			abort();
+		});
 	}
 
 	public void addItem(AbstractScenarioItem item) {

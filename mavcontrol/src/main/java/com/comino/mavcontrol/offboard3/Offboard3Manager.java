@@ -2,7 +2,6 @@ package com.comino.mavcontrol.offboard3;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.locks.LockSupport;
 
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_FRAME;
@@ -22,11 +21,10 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.model.segment.Status;
-import com.comino.mavcom.model.segment.Vision;
-import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavcontrol.offboard3.action.ITargetReached;
+import com.comino.mavcontrol.offboard3.action.ITimeout;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
 import com.comino.mavcontrol.offboard3.states.Offboard3Collision;
 import com.comino.mavcontrol.offboard3.states.Offboard3Current;
@@ -39,7 +37,6 @@ import com.comino.mavutils.MSPStringUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 import georegression.struct.GeoTuple4D_F32;
-import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Point4D_F32;
 
@@ -49,7 +46,7 @@ public class Offboard3Manager {
 	private static Offboard3Manager instance;
 
 	private static final int   UPDATE_RATE                 	    = 33;					    // Offboard update rate in [ms]
-	private static final float DEFAULT_TIMEOUT                	= 5.0f;					    // Default timeout 1s
+	private static final float DEFAULT_TIMEOUT                	= 5.0f;				        // Default timeout 1s
 
 	private static final float RADIUS_ACCEPT                    = 0.1f;                     // Acceptance radius in [m]
 	private static final float YAW_ACCEPT                	    = MSPMathUtils.toRad(1);    // Acceptance alignmnet yaw in [rad]
@@ -104,10 +101,10 @@ public class Offboard3Manager {
 
 		this.acceptance_radius = RADIUS_ACCEPT;
 		Offboard3Plan plan = planner.planDirectYaw(radians);
-		
+
 		worker.setPlan(plan);	
 		worker.start(action);
-		
+
 
 	}
 
@@ -120,7 +117,7 @@ public class Offboard3Manager {
 
 		this.acceptance_radius = RADIUS_ACCEPT;
 		Offboard3Plan plan = planner.planDirectYaw(target);
-		
+
 		worker.setPlan(plan);	
 		worker.start(action);
 
@@ -135,6 +132,10 @@ public class Offboard3Manager {
 		worker.start(action);
 
 	}
+	
+	public void setTimeoutAction(ITimeout timeout) {
+		worker.setTimeoutAction(timeout);
+	}
 
 	public void circle(float x, float y, float z, float w, float r, float a, ITargetReached action) {
 
@@ -148,13 +149,13 @@ public class Offboard3Manager {
 
 		Point4D_F32 p = new Point4D_F32(x,y,z,w);
 		Offboard3Plan plan = planner.planCircle(p, r, a);
-		
+
 		worker.setPlan(plan);
 		worker.start(action);
 	}
 
 	public void moveTo(float x, float y, float z, float w, ITargetReached action) {
-		 moveTo(x,y,z,w,action,RADIUS_ACCEPT);
+		moveTo(x,y,z,w,action,RADIUS_ACCEPT);
 	}
 
 	public void moveTo(float x, float y, float z, float w, ITargetReached action, float acceptance_radius_m) {
@@ -170,7 +171,7 @@ public class Offboard3Manager {
 
 		worker.setPlan(plan);
 		worker.start(action);
-		
+
 		return;
 	}
 
@@ -179,11 +180,11 @@ public class Offboard3Manager {
 	}
 
 	public void abort() {
-		
+
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
 			return;
 		worker.stopAndLoiter();
-		
+
 	}
 
 	public boolean isPlanned() {
@@ -249,12 +250,8 @@ public class Offboard3Manager {
 			start((model) -> stopAndLoiter());
 		}
 
-		public void start(ITargetReached reached) {
-			start(reached,null);
-		}
 
-
-		public void start(ITargetReached reached_action, ITimeout timeout_action) {
+		public void start(ITargetReached reached_action) {
 
 			if(model.sys.isStatus(Status.MSP_LANDED)) {
 				reset();
@@ -266,7 +263,6 @@ public class Offboard3Manager {
 				return;
 
 			this.reached     = reached_action;
-			this.timeout     = timeout_action;
 			this.t_section_elapsed   = 0;
 
 			if(isRunning)
@@ -320,6 +316,10 @@ public class Offboard3Manager {
 		public boolean isPlanned() {
 			return yawExecutor.isPlanned() || xyzExecutor.isPlanned();
 		}
+		
+		public void setTimeoutAction(ITimeout timeout) {
+			this.timeout = timeout;
+		}
 
 		@Override
 		public void run() {
@@ -356,9 +356,9 @@ public class Offboard3Manager {
 				}
 
 				// Already within the target acceptance radius 
-				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw) && current.vel().norm() < 0.25f) {
+				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {
 					control.writeLogMessage(new LogMessage("[msp] Target already reached. Perform action.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-					if(reached!=null) {
+					if(reached!=null && planQueue.isEmpty()) {
 						ITargetReached action = reached; reached = null;
 						action.execute(model);
 						if(reached == null)
@@ -378,12 +378,13 @@ public class Offboard3Manager {
 			}
 
 			if(acceptance_radius > RADIUS_ACCEPT && MSP3DUtils.distance3D(current.pos(), current_target.pos())< acceptance_radius) {
-				if(reached!=null) {
+				if(reached!=null && planQueue.isEmpty()) {
 					ITargetReached action = reached; reached = null;
 					action.execute(model);
 					if(reached != null)
 						return;
-				} 
+				}
+				return;
 			}
 
 
@@ -401,28 +402,28 @@ public class Offboard3Manager {
 				cmd.coordinate_frame = MAV_FRAME.MAV_FRAME_LOCAL_NED;
 				control.sendMAVLinkMessage(cmd);
 
-				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw) && current.vel().norm() < 0.25f) {
+				//	if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {
 
-					if(reached!=null) {
-						ITargetReached action = reached; reached = null;
-						action.execute(model);
-						if(reached == null)
-							stop();
-					} else {		
-						stopAndLoiter();
-					}
+				if(reached!=null && planQueue.isEmpty()) {
+					ITargetReached action = reached; reached = null;
+					action.execute(model);
+					if(reached == null)
+						stop();
+				} else {		
+					stopAndLoiter();
+				}
 
-					model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
-					model.slam.di = 0;
-					model.slam.ix = Float.NaN;
-					model.slam.iy = Float.NaN;
-					model.slam.iz = Float.NaN;
+				model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
+				model.slam.di = 0;
+				model.slam.ix = Float.NaN;
+				model.slam.iy = Float.NaN;
+				model.slam.iz = Float.NaN;
 
-					model.traj.clear();
-					control.sendMAVLinkMessage(new msg_msp_trajectory(2,1));
-					return;
-				} 
+				model.traj.clear();
+				control.sendMAVLinkMessage(new msg_msp_trajectory(2,1));
 				return;
+				//	} 
+				//	return;
 			}
 
 
@@ -464,7 +465,12 @@ public class Offboard3Manager {
 				model.slam.setFlag(Slam.OFFBOARD_FLAG_TIMEOUT, true);
 				stopAndLoiter();
 				if(timeout!=null)
-					timeout.action();
+					timeout.execute();
+				
+				System.err.println("Time elapsed: "+t_section_elapsed);
+				System.err.println("Current: "+current);
+				System.err.println("Current target: "+current_target);
+				
 				updateTrajectoryModel(t_section_elapsed);
 				control.writeLogMessage(new LogMessage("[msp] Offboard timeout. Switched to HOLD.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				return;
@@ -782,12 +788,4 @@ public class Offboard3Manager {
 
 		}
 	}
-
-
-	private interface ITimeout {
-		public void action();
-	}
-
-
-
 }
