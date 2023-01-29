@@ -132,7 +132,7 @@ public class Offboard3Manager {
 		worker.start(action);
 
 	}
-	
+
 	public void setTimeoutAction(ITimeout timeout) {
 		worker.setTimeoutAction(timeout);
 	}
@@ -316,7 +316,7 @@ public class Offboard3Manager {
 		public boolean isPlanned() {
 			return yawExecutor.isPlanned() || xyzExecutor.isPlanned();
 		}
-		
+
 		public void setTimeoutAction(ITimeout timeout) {
 			this.timeout = timeout;
 		}
@@ -377,14 +377,13 @@ public class Offboard3Manager {
 				return;
 			}
 
-			if(acceptance_radius > RADIUS_ACCEPT && MSP3DUtils.distance3D(current.pos(), current_target.pos())< acceptance_radius) {
+			if(MSP3DUtils.distance3D(current.pos(), current_target.pos())< acceptance_radius) {
 				if(reached!=null && planQueue.isEmpty()) {
 					ITargetReached action = reached; reached = null;
 					action.execute(model);
 					if(reached != null)
 						return;
 				}
-				return;
 			}
 
 
@@ -396,6 +395,7 @@ public class Offboard3Manager {
 			if((yawExecutor.isPlanned() || xyzExecutor.isPlanned()) && current_plan.isEmpty() &&
 					t_section_elapsed > current_plan.getTotalTime()) {
 
+				System.err.println("checkpoint");
 				// Resend last offboard command until target is hit => avoid instability when switching to HOLD
 				cmd.time_boot_ms = model.sys.t_boot_ms;
 				cmd.isValid  = true;
@@ -464,15 +464,12 @@ public class Offboard3Manager {
 			if(t_timeout > 0 && t_section_elapsed > t_timeout) {
 				model.slam.setFlag(Slam.OFFBOARD_FLAG_TIMEOUT, true);
 				stopAndLoiter();
+				control.writeLogMessage(new LogMessage("[msp] Offboard timeout. Switched to HOLD.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+
 				if(timeout!=null)
 					timeout.execute();
-				
-				System.err.println("Time elapsed: "+t_section_elapsed);
-				System.err.println("Current: "+current);
-				System.err.println("Current target: "+current_target);
-				
+
 				updateTrajectoryModel(t_section_elapsed);
-				control.writeLogMessage(new LogMessage("[msp] Offboard timeout. Switched to HOLD.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 				return;
 			}
 

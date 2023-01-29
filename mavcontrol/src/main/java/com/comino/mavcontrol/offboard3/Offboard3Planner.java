@@ -115,24 +115,34 @@ public class Offboard3Planner {
 		
 		current.update();
 		
+		if(MSP3DUtils.distance3D(center, current.pos()) > radius) {
+			control.writeLogMessage(new LogMessage("[msp] Position not within circle.Skiped.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+			return null;
+		}
+		
+		float velocity = radius/2.0f > max_xyz_velocity ? max_xyz_velocity : radius / 2.0f;
+		
 		Offboard3Plan new_plan = new Offboard3Plan();
 		
 		GeoTuple4D_F32<?> point = new Vector4D_F32();
 		
 		final int planning_segments = (int)(circle_segments * angle_rad / (2.0*Math.PI));
-		float total_time = (float)( 2.0*radius*Math.PI / max_xyz_velocity * 2) ;
+		float total_time = (float)( 2.0*radius*Math.PI / velocity) ;
 		if(planning_segments < circle_segments) total_time = total_time * (float)planning_segments/(float)circle_segments;
 		
-		for(int seg = 0; seg < planning_segments; seg++) {
+		for(int seg = 1; seg <= planning_segments; seg++) {
 			float a = (float)(2.0*Math.PI/circle_segments * seg);
 			point.setTo((float)(Math.cos(a)*radius),(float)(Math.sin(a)*radius),center.z,a);
 			point.plusIP(center);
-			new_plan.add(new Offboard3VelTarget(point,max_xyz_velocity / 2,total_time/circle_segments));
+			new_plan.add(new Offboard3VelTarget(point, velocity ,total_time/(circle_segments-1)));
 		}
 		
-		new_plan.add(new Offboard3PosTarget(center));
+		float a = (float)(2.0*Math.PI/circle_segments * planning_segments);
+		point.setTo((float)(Math.cos(a)*radius),(float)(Math.sin(a)*radius),center.z,a);
+		point.plusIP(center);
+		new_plan.add(new Offboard3PosTarget(point));
 		
-		this.acceptance_radius = (float)( 2.0*radius*Math.PI) / (circle_segments * 2.0f);
+		this.acceptance_radius = (float)( 2.0*radius*Math.PI) / (circle_segments);
 		
 		Offboard3Collision collision = planPath(new_plan, current);
 		if(collision != null) {

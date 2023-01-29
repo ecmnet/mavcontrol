@@ -37,7 +37,6 @@ public class ScenarioManager {
 		
 		this.offboard = Offboard3Manager.getInstance(control);
 		this.offboard.setTimeoutAction(() -> {
-			System.err.println("Timeout");
 			abort();
 		});
 	}
@@ -100,7 +99,6 @@ public class ScenarioManager {
 					control.getCurrentModel().slam.wpcount = ++step_counter;
 					currentItem = itemList.poll();
 					currentItem.setOwner(this);
-					System.out.println(currentItem);
 
 					currentItem.execute();
 
@@ -126,8 +124,6 @@ public class ScenarioManager {
 						isRunning  = false;
 						break;
 					}
-
-
 				}
 			}
 
