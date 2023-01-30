@@ -143,7 +143,7 @@ public class Offboard3Planner {
 		point.plusIP(center);
 		new_plan.add(new Offboard3PosTarget(point));
 		
-		this.acceptance_radius = (float)( 2.0*radius*Math.PI) / (circle_segments);
+		this.acceptance_radius = (float)( 2.0*radius*Math.PI) / (2.0f*circle_segments);
 		
 		Offboard3Collision collision = planPath(new_plan, current);
 		if(collision != null) {

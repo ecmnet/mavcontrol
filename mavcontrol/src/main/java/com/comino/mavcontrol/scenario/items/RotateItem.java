@@ -10,10 +10,10 @@ public class RotateItem extends AbstractScenarioItem {
 	public RotateItem(IMAVController control) {
 		super(control);
 	}
-	
+
 	public void setYaw(float yaw_degree) {
-	      this.yaw_rad = MSPMathUtils.toRad(yaw_degree);
-		}
+		this.yaw_rad = MSPMathUtils.toRad(yaw_degree);
+	}
 
 	@Override
 	public long getTimeout_ms() {
@@ -22,10 +22,14 @@ public class RotateItem extends AbstractScenarioItem {
 
 	@Override
 	public void execute() {
-		if(Float.isFinite(yaw_rad))
-		  offboard.rotate(yaw_rad, (m) -> completed());
+		if(Float.isFinite(yaw_rad)) {
+			if(this.isRelative())
+				offboard.rotateBy(yaw_rad, (m) -> completed());
+			else
+				offboard.rotate(yaw_rad, (m) -> completed());
+		}
 		else
-		  completed();
+			completed();
 	}
 
 }
