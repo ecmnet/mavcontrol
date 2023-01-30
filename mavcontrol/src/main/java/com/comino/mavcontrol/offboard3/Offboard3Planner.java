@@ -121,6 +121,7 @@ public class Offboard3Planner {
 		}
 		
 		float velocity = radius/2.0f > max_xyz_velocity ? max_xyz_velocity : radius / 2.0f;
+	//	float heading  = model.state.h;
 		
 		Offboard3Plan new_plan = new Offboard3Plan();
 		

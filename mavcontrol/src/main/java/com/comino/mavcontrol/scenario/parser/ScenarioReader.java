@@ -9,9 +9,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
-import com.comino.mavcom.control.impl.MAVSimController;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 import com.comino.mavcontrol.scenario.items.ArmingItem;
 import com.comino.mavcontrol.scenario.items.CircleItem;
@@ -64,7 +62,7 @@ public class ScenarioReader {
 			Node scenario_child = scenario_childs.item(i);
 			switch(scenario_child.getNodeName().toLowerCase()) {
 			case "steps":
-				s.setList(parseSteps(scenario_child.getChildNodes())); 
+				s.setList(parseSteps(scenario_child.getChildNodes(),false)); 
 				break;
 			case "name":
 				s.setName(scenario_child.getTextContent().trim());
@@ -85,7 +83,7 @@ public class ScenarioReader {
 		}
 	}
 
-	private LinkedList<AbstractScenarioItem> parseSteps(NodeList steps) {
+	private LinkedList<AbstractScenarioItem> parseSteps(NodeList steps, boolean relative) {
 
 		LinkedList<AbstractScenarioItem> list = new LinkedList<AbstractScenarioItem>();
 
@@ -98,10 +96,18 @@ public class ScenarioReader {
 				if(count > 0) {
 					NodeList loop_steps = step.getChildNodes();
 					for(int j = 0; j < count; j++) {
-						LinkedList<AbstractScenarioItem> loop_list = parseSteps(loop_steps);
+						LinkedList<AbstractScenarioItem> loop_list = parseSteps(loop_steps, relative);
 						list.addAll(loop_list);
 					}
 				}
+				break;
+			case "absolute":
+				LinkedList<AbstractScenarioItem> absolute_list = parseSteps(step.getChildNodes(), false);
+				list.addAll(absolute_list);
+				break;
+			case "relative":
+				LinkedList<AbstractScenarioItem> relative_list = parseSteps(step.getChildNodes(), true);
+				list.addAll(relative_list);
 				break;
 			case "include":
 				Scenario include = readScenario(step.getAttributes().getNamedItem("f").getNodeValue());
@@ -110,9 +116,9 @@ public class ScenarioReader {
 				}
 				break;
 			default:
-				AbstractScenarioItem item = parseStep(step);
+				AbstractScenarioItem item = parseStep(step, relative);
 				if(item!=null)
-					list.add(parseStep(step));
+					list.add(parseStep(step, relative));
 			}
 
 		}
@@ -121,7 +127,7 @@ public class ScenarioReader {
 	}
 
 
-	private AbstractScenarioItem parseStep(Node step) {
+	private AbstractScenarioItem parseStep(Node step, boolean relative) {
 
 		AbstractScenarioItem item = null;
 
@@ -169,9 +175,9 @@ public class ScenarioReader {
 					Node param = params.item(j);
 					switch(param.getNodeName().toLowerCase()) {
 					case "center":
-						parsePositionLocal(param, circle);
+						parsePositionLocal(param, circle,relative);
 						circle.setCircleParams(parseFloatAttribute(param,"r"),
-								               parseFloatAttribute(param,"a") );
+								parseFloatAttribute(param,"a") );
 						break;
 					case "delay":
 						circle.setDelay((int)parseFloatAttribute(param,"d"));
@@ -189,12 +195,7 @@ public class ScenarioReader {
 					Node param = params.item(j);
 					switch(param.getNodeName().toLowerCase()) {
 					case "position_local":
-						parsePositionLocal(param, moveto);
-						moveto.setType(MoveToItem.TYPE_ABSOLUTE);
-						break;
-					case "position_relative":
-						parsePositionLocal(param, moveto);
-						moveto.setType(MoveToItem.TYPE_RELATIVE);
+						parsePositionLocal(param, moveto, relative);
 						break;
 					case "acceptance_radius":
 						moveto.setAcceptanceRadius(parseFloatAttribute(param,"r"));
@@ -253,7 +254,7 @@ public class ScenarioReader {
 					Node param = params.item(j);
 					switch(param.getNodeName().toLowerCase()) {
 					case "position_local":
-						parsePositionLocal(param, obstacle);
+						parsePositionLocal(param, obstacle,relative);
 						break;
 					case "size":
 						obstacle.setSize(parseFloatAttribute(param,"s"));
@@ -271,7 +272,7 @@ public class ScenarioReader {
 					Node param = params.item(j);
 					switch(param.getNodeName().toLowerCase()) {
 					case "position_local":
-						parsePositionLocal(param, fiducial);
+						parsePositionLocal(param, fiducial,relative);
 						break;
 					}
 				}
@@ -285,7 +286,7 @@ public class ScenarioReader {
 	}
 
 
-	private void parsePositionLocal(Node p, AbstractScenarioItem item ) {
+	private void parsePositionLocal(Node p, AbstractScenarioItem item, boolean relative ) {
 
 		item.setPositionLocal(
 				parseFloatAttribute(p,"x"),
@@ -293,6 +294,9 @@ public class ScenarioReader {
 				parseFloatAttribute(p,"z"),
 				parseFloatAttribute(p,"w")
 				);
+		if(relative) 
+			item.setPositionType(AbstractScenarioItem.POS_TYPE_RELATIVE);
+
 	}
 
 

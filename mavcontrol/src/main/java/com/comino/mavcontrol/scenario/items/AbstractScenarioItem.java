@@ -7,6 +7,8 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 
+import georegression.struct.GeoTuple4D_F32;
+
 public abstract class AbstractScenarioItem {
 	
 	public final static int  POS_TYPE_ABSOLUTE = 0;
@@ -17,10 +19,11 @@ public abstract class AbstractScenarioItem {
 	protected final Offboard3Manager   offboard;
 	
 	private       int     delay_ms = 0;
-	private       int     pos_type = POS_TYPE_ABSOLUTE;
+	protected     int     pos_type = POS_TYPE_ABSOLUTE;
 	
 	private       boolean isCompleted;
 	private       boolean isAborted;
+	
 	private       Object  owner;
 
 	public AbstractScenarioItem(IMAVController control) {
@@ -77,6 +80,19 @@ public abstract class AbstractScenarioItem {
 	
 	public void setOwner(Object owner) {
 		this.owner = owner;
+	}
+	
+	public void setPositionType(int type) {
+		this.pos_type = type;
+	}
+	
+	protected GeoTuple4D_F32<?> toAbsolutePosition(GeoTuple4D_F32<?> pos) {
+		if(pos_type == POS_TYPE_RELATIVE) {
+			pos.x = pos.x + model.state.l_x;
+			pos.y = pos.y + model.state.l_y;
+			pos.z = pos.z + model.state.l_z;
+		}
+		return pos;
 	}
 
 	protected void completed() {

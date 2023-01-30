@@ -394,24 +394,12 @@ public class Offboard3Manager {
 			// check current state and perform action 
 			if((yawExecutor.isPlanned() || xyzExecutor.isPlanned()) && current_plan.isEmpty() &&
 					t_section_elapsed > current_plan.getTotalTime()) {
-
-				System.err.println("checkpoint");
+				
 				// Resend last offboard command until target is hit => avoid instability when switching to HOLD
 				cmd.time_boot_ms = model.sys.t_boot_ms;
 				cmd.isValid  = true;
 				cmd.coordinate_frame = MAV_FRAME.MAV_FRAME_LOCAL_NED;
 				control.sendMAVLinkMessage(cmd);
-
-				//	if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {
-
-				if(reached!=null && planQueue.isEmpty()) {
-					ITargetReached action = reached; reached = null;
-					action.execute(model);
-					if(reached == null)
-						stop();
-				} else {		
-					stopAndLoiter();
-				}
 
 				model.slam.setFlag(Slam.OFFBOARD_FLAG_REACHED, true);
 				model.slam.di = 0;
@@ -422,8 +410,7 @@ public class Offboard3Manager {
 				model.traj.clear();
 				control.sendMAVLinkMessage(new msg_msp_trajectory(2,1));
 				return;
-				//	} 
-				//	return;
+
 			}
 
 
