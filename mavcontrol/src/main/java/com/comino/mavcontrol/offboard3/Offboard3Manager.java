@@ -30,6 +30,7 @@ import com.comino.mavcontrol.offboard3.states.Offboard3Collision;
 import com.comino.mavcontrol.offboard3.states.Offboard3Current;
 import com.comino.mavcontrol.offboard3.states.Offboard3State;
 import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
+
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
 import com.comino.mavutils.MSPMathUtils;
@@ -246,10 +247,6 @@ public class Offboard3Manager {
 
 		}
 
-		public void start() {
-			start((model) -> stopAndLoiter());
-		}
-
 
 		public void start(ITargetReached reached_action) {
 
@@ -350,7 +347,8 @@ public class Offboard3Manager {
 				current_target = planNextSectionExecution(current);	
 				t_section_elapsed = 0;
 
-				if(current_target==null) {
+				if(current_target == null) {
+					control.writeLogMessage(new LogMessage("[msp] No target. Stopped.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 					stopAndLoiter();
 					return;
 				}
@@ -371,11 +369,7 @@ public class Offboard3Manager {
 
 			}
 
-			if(current_target == null) {
-				control.writeLogMessage(new LogMessage("[msp] No target. Stopped.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-				stopAndLoiter();
-				return;
-			}
+
 
 			if(MSP3DUtils.distance3D(current.pos(), current_target.pos())< acceptance_radius) {
 				if(reached!=null && planQueue.isEmpty()) {
@@ -394,7 +388,7 @@ public class Offboard3Manager {
 			// check current state and perform action 
 			if((yawExecutor.isPlanned() || xyzExecutor.isPlanned()) && current_plan.isEmpty() &&
 					t_section_elapsed > current_plan.getTotalTime()) {
-				
+
 				// Resend last offboard command until target is hit => avoid instability when switching to HOLD
 				cmd.time_boot_ms = model.sys.t_boot_ms;
 				cmd.isValid  = true;
@@ -412,7 +406,6 @@ public class Offboard3Manager {
 				return;
 
 			}
-
 
 			// Plan next target if required
 			if(!current_plan.isEmpty() && xyzExecutor.isPlanned() && t_section_elapsed >= xyzExecutor.getTotalTime()) {
@@ -447,6 +440,7 @@ public class Offboard3Manager {
 				}
 			}
 
+
 			// check timeout
 			if(t_timeout > 0 && t_section_elapsed > t_timeout) {
 				model.slam.setFlag(Slam.OFFBOARD_FLAG_TIMEOUT, true);
@@ -469,18 +463,21 @@ public class Offboard3Manager {
 
 				model.slam.clearFlags();
 
+
 				if(xyzExecutor.isPlanned() && t_section_elapsed <= xyzExecutor.getTotalTime()) {
 					model.slam.setFlag(Slam.OFFBOARD_FLAG_XYZ_PLANNER, true);
 					cmd.x       = (float)xyzExecutor.getPosition(t_section_elapsed,0);
 					cmd.y       = (float)xyzExecutor.getPosition(t_section_elapsed,1);
 					cmd.z       = (float)xyzExecutor.getPosition(t_section_elapsed,2);
 				} else {
-					if(!current_target.isTargetSetpoint()) 
-						model.slam.setFlag(Slam.OFFBOARD_FLAG_XYZ_DIRECT, true);
-					cmd.type_mask    = MAV_MASK.MASK_LOITER_SETPOINT_TYPE;
-					cmd.x       = current_target.pos().x;
-					cmd.y       = current_target.pos().y;
-					cmd.z       = current_target.pos().z;
+
+						if(!current_target.isTargetSetpoint()) 
+							model.slam.setFlag(Slam.OFFBOARD_FLAG_XYZ_DIRECT, true);
+						cmd.type_mask    = MAV_MASK.MASK_LOITER_SETPOINT_TYPE;
+						cmd.x       = current_target.pos().x;
+						cmd.y       = current_target.pos().y;
+						cmd.z       = current_target.pos().z;
+					
 				}
 
 				if(xyzExecutor.isPlanned() && t_section_elapsed <= xyzExecutor.getTotalTime()) {
@@ -502,9 +499,6 @@ public class Offboard3Manager {
 					cmd.afy      = Float.NaN;
 					cmd.afz      = Float.NaN;
 				}
-
-				model.debug.y = cmd.vx;
-				model.debug.z = cmd.afx;
 
 
 				if(current_target.isAutoYaw()) {	
@@ -559,6 +553,7 @@ public class Offboard3Manager {
 					}
 
 				}
+				
 
 				if(isRunning) {
 					cmd.time_boot_ms = model.sys.t_boot_ms;
@@ -598,39 +593,44 @@ public class Offboard3Manager {
 
 			float estimated_yaw_duration = 0;
 
-			target.replaceNaNPositionBy(current_state.pos());
 
 			xyzExecutor.reset(); t_planned_xyz = 0;
-			if((isFinite(target.pos()) || isValid(target.vel())) &&	!target.isPosReached(current_state.pos(),acceptance_radius,Float.NaN)) {
 
-				xyzExecutor.setInitialState(current_state.pos(),current_state.vel(),current_state.acc());
-				//		xyzExecutor.setInitialState(current_state.sep(),current_state.sev(),current_state.sea());
+			xyzExecutor.setInitialState(current_state.pos(),current_state.vel(),current_state.acc());
+			//		xyzExecutor.setInitialState(current_state.sep(),current_state.sev(),current_state.sea());
 
-				switch(target.getType()) {
-				case Offboard3AbstractTarget.TYPE_POS:
+			switch(target.getType()) {
+			case Offboard3AbstractTarget.TYPE_POS:
+				target.replaceNaNPositionBy(current_state.pos());
+				if(isFinite(target.pos()) &&	!target.isPosReached(current_state.pos(),acceptance_radius,Float.NaN)) {
 					xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
 					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
 					//					MSPStringUtils.getInstance().err("XYZ POS    (Execution): "+target);
-					break;
-				case Offboard3AbstractTarget.TYPE_POS_VEL:
+				}
+				break;
+			case Offboard3AbstractTarget.TYPE_POS_VEL:
+				target.replaceNaNPositionBy(current_state.pos());
+				if(isFinite(target.pos()) && !target.isPosReached(current_state.pos(),acceptance_radius,Float.NaN)) {
 					target.determineTargetVelocity(current_state.pos());
 					xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
 					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
 					//					MSPStringUtils.getInstance().out("XYZ POSVEL (Execution): "+target);
-					break;
-				case Offboard3AbstractTarget.TYPE_VEL:
+				}
+				break;
+			case Offboard3AbstractTarget.TYPE_VEL:
+				target.replaceNaNPositionBy(current_state.pos());
+				if(isValid(target.vel()) && !target.isPosReached(current_state.pos(),acceptance_radius,Float.NaN)) {
 					target.determineTargetVelocity(current_state.pos());
 					xyzExecutor.setGoal(null, target.vel(), target.acc());
 					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
 					//					MSPStringUtils.getInstance().out("XYZ VEL    (Execution): "+target);
-					break;
-				default:
-					System.err.println("Wrong target type:"+target.getType());
-					xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
-					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
-					//					MSPStringUtils.getInstance().out("XYZ OTHER  (Execution): "+target);
-					break;
 				}
+				break;
+			default:
+				System.err.println("Wrong target type:"+target.getType());
+				xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
+				t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
+				break;
 			}
 
 

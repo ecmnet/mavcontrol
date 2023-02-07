@@ -18,8 +18,9 @@ public abstract class AbstractScenarioItem {
 	protected final DataModel          model;
 	protected final Offboard3Manager   offboard;
 	
-	private       int     delay_ms = 0;
+	protected     int     delay_ms = 0;
 	protected     int     pos_type = POS_TYPE_ABSOLUTE;
+	protected     float   max_xyz_velocity = 1.0f;
 	
 	private       boolean isCompleted;
 	private       boolean isAborted;

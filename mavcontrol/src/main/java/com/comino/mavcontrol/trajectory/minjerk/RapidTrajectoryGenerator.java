@@ -188,8 +188,9 @@ public class RapidTrajectoryGenerator {
 	}
 
 	public void reset() {
-		for(int i=0;i<3;i++)
-			_axis[i].reset();
+		for(int i=0;i<3;i++) {
+			if(_axis[i]!=null) _axis[i].reset();
+		}
 		_tf = 0;
 	}
 

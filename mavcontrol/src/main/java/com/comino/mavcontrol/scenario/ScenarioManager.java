@@ -5,6 +5,7 @@ import java.util.LinkedList;
 
 import org.mavlink.messages.MAV_SEVERITY;
 
+import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
@@ -34,11 +35,12 @@ public class ScenarioManager {
 	private ScenarioManager(IMAVController control) {
 		this.control = control;
 		this.status  = control.getCurrentModel().sys;
-		
+
 		this.offboard = Offboard3Manager.getInstance(control);
 		this.offboard.setTimeoutAction(() -> {
 			abort();
 		});
+		
 	}
 
 	public void addItem(AbstractScenarioItem item) {
@@ -94,13 +96,15 @@ public class ScenarioManager {
 
 			while(itemList.size()>0 && isRunning) {
 
+
+
+				control.getCurrentModel().slam.wpcount = ++step_counter;
+				currentItem = itemList.poll();
+				currentItem.setOwner(this);
+
+				currentItem.execute();
+
 				synchronized(this) {
-
-					control.getCurrentModel().slam.wpcount = ++step_counter;
-					currentItem = itemList.poll();
-					currentItem.setOwner(this);
-
-					currentItem.execute();
 
 					try {
 
@@ -111,19 +115,20 @@ public class ScenarioManager {
 
 					} catch (InterruptedException e) { }
 
-					if(currentItem.isAborted() || abortRequest) {
-						control.writeLogMessage(new LogMessage("[msp] Scenario aborted in step "+step_counter,
-								MAV_SEVERITY.MAV_SEVERITY_ERROR));
-						isRunning = false;
-						break;
-					}
+				}
 
-					if(!currentItem.isCompleted()) {
-						control.writeLogMessage(new LogMessage("[msp] Scenario Timeout occurred in step "+step_counter,
-								MAV_SEVERITY.MAV_SEVERITY_ERROR));
-						isRunning  = false;
-						break;
-					}
+				if(currentItem.isAborted() || abortRequest) {
+					control.writeLogMessage(new LogMessage("[msp] Scenario aborted in step "+step_counter,
+							MAV_SEVERITY.MAV_SEVERITY_ERROR));
+					isRunning = false;
+					break;
+				}
+
+				if(!currentItem.isCompleted()) {
+					control.writeLogMessage(new LogMessage("[msp] Scenario Timeout occurred in step "+step_counter,
+							MAV_SEVERITY.MAV_SEVERITY_ERROR));
+					isRunning  = false;
+					break;
 				}
 			}
 

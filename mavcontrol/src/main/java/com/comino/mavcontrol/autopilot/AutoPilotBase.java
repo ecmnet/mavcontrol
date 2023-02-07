@@ -374,7 +374,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		case MSP_AUTOCONTROL_ACTION.SITL_ACTION2:
 			if(control.isSimulation())
-
+				TestActionFactory.test_circle(control,true);
 			break;
 		}
 

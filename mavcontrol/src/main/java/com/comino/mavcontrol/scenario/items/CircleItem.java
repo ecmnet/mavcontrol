@@ -29,7 +29,7 @@ public class CircleItem extends AbstractScenarioItem {
 	}
 
 	public long getTimeout_ms() {
-		return (long)(2*Math.PI*radius*1000.0)+30_000L;
+		return (long)(Math.PI*radius*5000/max_xyz_velocity)+super.getTimeout_ms();
 	}
 
 	@Override

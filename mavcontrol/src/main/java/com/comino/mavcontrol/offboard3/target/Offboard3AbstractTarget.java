@@ -30,6 +30,11 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	public Offboard3AbstractTarget(int type, float x, float y, float z, float w, float d_sec) {
 		this(type,x,y,z,w,d_sec,Float.isNaN(w));
 	}
+	
+	public Offboard3AbstractTarget(int type, float duration) {
+		this.duration = duration;
+		this.type     = type;	
+	}
 
 	public Offboard3AbstractTarget(int type, float x, float y, float z, float w, float d_sec, boolean auto_yaw) {
 		this(type,x,y,z,w,0,d_sec,auto_yaw);

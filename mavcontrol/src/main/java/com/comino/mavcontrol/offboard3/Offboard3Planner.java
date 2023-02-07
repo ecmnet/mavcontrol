@@ -106,12 +106,13 @@ public class Offboard3Planner {
 	}
 	
 	
+	
 	public Offboard3Plan planCircle(GeoTuple4D_F32<?> center, float radius, float angle_rad) {
 		
 		// TODO: Works a bit wobbly, exit not good, rotation 
 		//       Velocity control not within a single segment but e.g. across 2 segments
 		
-	    final int circle_segments = (int)(8.0f*radius+0.5);
+	    final int circle_segments = 4;// (int)(8.0f*radius+0.5);
 		
 		current.update();
 		
@@ -121,7 +122,7 @@ public class Offboard3Planner {
 		}
 		
 		float velocity = radius/2.0f > max_xyz_velocity ? max_xyz_velocity : radius / 2.0f;
-	//	float heading  = model.state.h;
+		float heading  = Float.isFinite(model.hud.h) ? model.hud.h : 0;
 		
 		Offboard3Plan new_plan = new Offboard3Plan();
 		
@@ -132,13 +133,13 @@ public class Offboard3Planner {
 		if(planning_segments < circle_segments) total_time = total_time * (float)planning_segments/(float)circle_segments;
 		
 		for(int seg = 1; seg <= planning_segments; seg++) {
-			float a = (float)(2.0*Math.PI/circle_segments * seg);
+			float a = (float)(2.0*Math.PI/circle_segments * seg)+heading;
 			point.setTo((float)(Math.cos(a)*radius),(float)(Math.sin(a)*radius),center.z,a);
 			point.plusIP(center);
 			new_plan.add(new Offboard3VelTarget(point, velocity ,total_time/(circle_segments-1)));
 		}
 		
-		float a = (float)(2.0*Math.PI/circle_segments * planning_segments);
+		float a = (float)(2.0*Math.PI/circle_segments * planning_segments)+heading;
 		point.setTo((float)(Math.cos(a)*radius),(float)(Math.sin(a)*radius),center.z,a);
 		point.plusIP(center);
 		new_plan.add(new Offboard3PosTarget(point));
@@ -252,6 +253,19 @@ public class Offboard3Planner {
 		target.replaceNaNPositionBy(current_state.pos());
 		
 		// XYZ planning
+		
+		if(target.getDuration() < 0) {
+			estimated_xyz_duration = MSP3DUtils.distance3D(target.pos(), current_state.pos()) * 2.0f / max_xyz_velocity;
+
+			if(estimated_xyz_duration < MIN_XYZ_ESTIMATED_TIME)
+				estimated_xyz_duration = MIN_XYZ_ESTIMATED_TIME;
+
+			if(estimated_xyz_duration < estimated_yaw_duration)
+				estimated_xyz_duration = estimated_yaw_duration;
+
+		}
+		else
+			estimated_xyz_duration = target.getDuration();
 
 		xyzPlanner.reset();
 		if(target.isPositionFinite() || isValid(target.vel()) && 
@@ -272,19 +286,6 @@ public class Offboard3Planner {
 				xyzPlanner.setGoal(null, target.vel(), target.acc());
 				break;
 			}
-
-			if(target.getDuration() < 0) {
-				estimated_xyz_duration = MSP3DUtils.distance3D(target.pos(), current_state.pos()) * 2.0f / max_xyz_velocity;
-
-				if(estimated_xyz_duration < MIN_XYZ_ESTIMATED_TIME)
-					estimated_xyz_duration = MIN_XYZ_ESTIMATED_TIME;
-
-				if(estimated_xyz_duration < estimated_yaw_duration)
-					estimated_xyz_duration = estimated_yaw_duration;
-
-			}
-			else
-				estimated_xyz_duration = target.getDuration();
 
 			if(isValid(target.vel())) {
 				planned_xyz_duration = xyzPlanner.generate(estimated_xyz_duration);

@@ -51,15 +51,21 @@ public class demo {
 	public static void main(String[] args) {
 
 		//Define the trajectory starting state:
-		Point3D_F64 pos0 = new Point3D_F64(0 ,  0 , 2 );
+		Point3D_F64 pos0 = new Point3D_F64(0,0,0);
 		Point3D_F64 vel0 = new Point3D_F64(0,0,0);
 		Point3D_F64 acc0 = new Point3D_F64(0,0,0);
 
+		//Define how gravity lies in our coordinate system
+		Point3D_F64 gravity = new Point3D_F64(0,0,-9.81);
+
+
+		RapidTrajectoryGenerator traj = new RapidTrajectoryGenerator(pos0, vel0, acc0, gravity);
+
 		//define the goal state:
-		Point3D_F64 posf = new Point3D_F64(1,0,1 );
+		Point3D_F64 posf = new Point3D_F64(0,0,0 );
 		Point3D_F64 velf = new Point3D_F64(0,0,0);
-		Point3D_F64 accf = new Point3D_F64(0,0,0);
-		
+		Point3D_F64 accf = new Point3D_F64(1,1,0);
+
 		Point3D_F64 tmp = new Point3D_F64(0,0,0);
 
 		//define the duration:
@@ -71,39 +77,36 @@ public class demo {
 
 		double minTimeSec = 0.05;    //[s]
 
-		//Define how gravity lies in our coordinate system
-		Point3D_F64 gravity = new Point3D_F64(0,0,-9.81);
 
 		//Define the state constraints. We'll only check that we don't fly into the floor:
 		Point3D_F64 floorPos    = new Point3D_F64(0,0,0);   //any point on the boundary
 		Point3D_F64 floorNormal = new Point3D_F64(0,0,1);   //we want to be in this direction of the boundary
 
-		RapidTrajectoryGenerator traj = new RapidTrajectoryGenerator(pos0, vel0, acc0, gravity);
-		traj.setGoalPosition(posf);
-		traj.setGoalVelocity(velf);
+//		traj.setGoalPosition(posf);
+//		traj.setGoalVelocity(velf);
 		traj.setGoalAcceleration(accf);
-		
+
 		traj.generate(Tf);
-		
+
 		for(int i = 0; i < 3; i++) {
 			System.out.println(" Axis: "+i);
-		    System.out.println("\talpha = "+traj.getAxisParamAlpha(i));
-		    System.out.println("\tbeta  = "+traj.getAxisParamBeta(i));
-		    System.out.println("\tgamma = "+traj.getAxisParamGamma(i));
-		    System.out.println();
-		  }
-		
+			System.out.println("\talpha = "+traj.getAxisParamAlpha(i));
+			System.out.println("\tbeta  = "+traj.getAxisParamBeta(i));
+			System.out.println("\tgamma = "+traj.getAxisParamGamma(i));
+			System.out.println();
+		}
+
 		System.out.println("Total cost = "+traj.getCost());
 		System.out.println("Input feasible: "+ traj.checkInputFeasibility(fmin,fmax,wmax,minTimeSec));
 		System.out.println("Position feasible: "+traj.checkPositionFeasibility(floorPos, floorNormal));
-		
-		 System.out.println(); int i=0;
-		 for(double time_s =0; time_s < 1; time_s = time_s + Tf/100) {
-			 
-			 traj.getBodyRates(time_s, 1e-3 , tmp);
-			 System.out.println((++i)+": "+tmp.norm());
-			 
-		 } 
+
+		System.out.println(); int i=0;
+		for(double time_s =0; time_s < 1; time_s = time_s + Tf/100) {
+			traj.getPosition(time_s, tmp);
+			traj.getAcceleration(time_s, tmp);
+			System.out.println((++i)+": "+tmp);
+
+		} 
 
 	}
 

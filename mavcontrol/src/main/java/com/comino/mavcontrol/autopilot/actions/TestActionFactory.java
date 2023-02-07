@@ -2,12 +2,14 @@ package com.comino.mavcontrol.autopilot.actions;
 
 import java.util.LinkedList;
 
+import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.lquac.msg_msp_vision;
 
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.messaging.MessageBus;
 import com.comino.mavcom.messaging.msgs.msp_msg_nn_object;
 import com.comino.mavcom.model.DataModel;
+import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.model.segment.Vision;
 import com.comino.mavcom.utils.MSP3DUtils;
@@ -26,6 +28,7 @@ import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 import georegression.struct.point.Point3D_F32;
+import georegression.struct.point.Vector4D_F32;
 
 public class TestActionFactory {
 
@@ -84,8 +87,26 @@ public class TestActionFactory {
 		//		} 
 
 	}
+	
+	
+	public static void test_circle(IMAVController control,boolean enable) {
+		final Offboard3Manager offboard = Offboard3Manager.getInstance();
+		offboard.circle(1, 1, Float.NaN, Float.NaN, 2.0f, MSPMathUtils.toRad(90), null);
+			
+	}
 
 	public static void test_scenario(IMAVController control,boolean enable) {
+		
+		DataModel m = control.getCurrentModel();
+		if(m.sys.isStatus(Status.MSP_ARMED) &&
+		  (m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_TAKEOFF) ||
+		   m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_PRECLAND) ||
+		   m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_RTL) ||
+		   m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LAND) ||
+		   m.sys.isNavState(Status.NAVIGATION_STATE_MANUAL))) {
+			control.writeLogMessage(new LogMessage("Mode does not allow scenario execution", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+			return;
+		}
 
 		ScenarioReader reader = new ScenarioReader(control);
 
