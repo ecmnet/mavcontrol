@@ -1,5 +1,6 @@
 package com.comino.mavcontrol.scenario.parser;
 
+import java.io.FileInputStream;
 import java.util.LinkedList;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -9,6 +10,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 import com.comino.mavcontrol.scenario.items.ArmingItem;
@@ -34,13 +36,17 @@ public class ScenarioReader {
 
 
 	public Scenario readScenario(String filename) {
+		
+		System.out.println("Base path: "+MSPConfig.getInstance().getBasePath());
+		
 
 		Scenario scenario = new Scenario();
 
 		DocumentBuilder dBuilder;
 		try {
+			FileInputStream in = new FileInputStream(MSPConfig.getInstance().getBasePath()+filename);
 			dBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-			Document doc = dBuilder.parse(getClass().getResourceAsStream("/" + filename));
+			Document doc = dBuilder.parse(in);
 			if (!doc.hasChildNodes())
 				return null;
 			NodeList scenarios = doc.getElementsByTagName("scenario");
