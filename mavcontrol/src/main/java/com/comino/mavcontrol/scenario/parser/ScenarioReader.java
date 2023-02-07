@@ -6,12 +6,14 @@ import java.util.LinkedList;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import org.mavlink.messages.MAV_SEVERITY;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 import com.comino.mavcontrol.scenario.items.ArmingItem;
 import com.comino.mavcontrol.scenario.items.CircleItem;
@@ -37,7 +39,7 @@ public class ScenarioReader {
 
 	public Scenario readScenario(String filename) {
 		
-		System.out.println("Base path: "+MSPConfig.getInstance().getBasePath());
+		System.out.println("Scenario read from : "+MSPConfig.getInstance().getBasePath());
 		
 
 		Scenario scenario = new Scenario();
@@ -57,7 +59,7 @@ public class ScenarioReader {
 			return scenario;
 
 		} catch (Exception e) {
-			e.printStackTrace();
+			control.writeLogMessage(new LogMessage("Scenario "+filename+" could not be parsed", MAV_SEVERITY.MAV_SEVERITY_CRITICAL));
 		}
 		return null;
 	}

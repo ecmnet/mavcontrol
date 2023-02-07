@@ -37,6 +37,7 @@ package com.comino.mavcontrol.commander;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.concurrent.TimeUnit;
 
 import org.mavlink.messages.IMAVLinkMessageID;
@@ -66,6 +67,10 @@ import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavcontrol.autopilot.actions.OffboardActionFactory;
+import com.comino.mavcontrol.scenario.ScenarioManager;
+import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
+import com.comino.mavcontrol.scenario.parser.Scenario;
+import com.comino.mavcontrol.scenario.parser.ScenarioReader;
 import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
 import com.comino.mavutils.legacy.ExecutorService;
 import com.comino.mavutils.workqueue.WorkQueue;
@@ -226,6 +231,9 @@ public class MSPCommander  {
 					case MSP_CMD.MSP_CMD_AUTOMODE:
 						autopilot.setMode((int)(cmd.param1)==MSP_COMPONENT_CTRL.ENABLE,(int)(cmd.param2),cmd.param3);
 						break;
+					case MSP_CMD.MSP_CMD_EXECUTE_SCENARIO:
+                        executeScenario("scenario.xml");
+						break;
 					case MSP_CMD.MSP_CMD_OFFBOARD_SETLOCALVEL:
 
 						break;
@@ -335,6 +343,33 @@ public class MSPCommander  {
 
 		OffboardActionFactory.move_to(cmd.param1, cmd.param2, Float.NaN);
 
+	}
+	
+	private void executeScenario(String filename) {
+		DataModel m = control.getCurrentModel();
+		
+		if(m.sys.isStatus(Status.MSP_ARMED) &&
+		  (m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_TAKEOFF) ||
+		   m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_PRECLAND) ||
+		   m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_RTL) ||
+		   m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LAND) ||
+		   m.sys.isNavState(Status.NAVIGATION_STATE_MANUAL))) {
+			control.writeLogMessage(new LogMessage("Mode does not allow scenario execution", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+			return;
+		}
+
+		ScenarioReader reader = new ScenarioReader(control);
+		Scenario scenario = reader.readScenario(filename);
+
+		LinkedList<AbstractScenarioItem> list = scenario.getList();
+
+		if(!scenario.hasItems() || (scenario.isSITL() && !control.isSimulation()))
+			return;
+
+		ScenarioManager manager = ScenarioManager.getInstance(control);
+		manager.addItems(list);
+		manager.start();
+		
 	}
 
 

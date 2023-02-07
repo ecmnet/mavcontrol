@@ -325,7 +325,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			loadMap2D();
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE1:
-			TestActionFactory.test_scenario(control, enable);
+			
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
 			control.writeLogMessage(new LogMessage("[msp] Build virtual wall.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
