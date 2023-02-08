@@ -31,7 +31,7 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	public Offboard3AbstractTarget(int type, float x, float y, float z, float w, float d_sec) {
 		this(type,x,y,z,w,d_sec,Float.isNaN(w));
 	}
-	
+
 	public Offboard3AbstractTarget(int type, float duration) {
 		this.duration = duration;
 		this.type     = type;	
@@ -40,7 +40,7 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	public Offboard3AbstractTarget(int type, float x, float y, float z, float w, float d_sec, boolean auto_yaw) {
 		this(type,x,y,z,w,0,d_sec,auto_yaw);
 	}
-	
+
 	public Offboard3AbstractTarget(int type, float x, float y, float z, float w, float v, float d_sec, boolean auto_yaw) {
 		this.pos.setTo(x,y,z,w);
 		this.vel.setTo(0,0,0,Float.NaN);
@@ -51,18 +51,20 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 		this.type     = type;	
 		this.auto_yaw = auto_yaw;
 	}
-	
+
 	public Offboard3AbstractTarget(int type, GeoTuple4D_F32<?> p, float v, float d_sec) {
 		this(type,p,v,d_sec,Float.isNaN(p.w));
 	}
-	
+
 	public Offboard3AbstractTarget(int type, GeoTuple4D_F32<?> v, GeoTuple4D_F32<?> a, float d_sec) {
 
 		this.pos.setTo(Float.NaN, Float.NaN, Float.NaN,Float.NaN);
 		if(v!=null)
-		  this.vel.setTo(v.x,v.y,v.z,Float.NaN);
+			this.vel.setTo(v.x,v.y,v.z,Float.NaN);
+		else
+			this.vel.setTo(Float.NaN, Float.NaN, Float.NaN,Float.NaN);
 		this.acc.setTo(a.x,a.y,a.z);
-		
+
 		if(Float.isNaN(acc.x)) acc.x = 0;
 		if(Float.isNaN(acc.y)) acc.y = 0;
 		if(Float.isNaN(acc.z)) acc.z = 0;
@@ -86,17 +88,17 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 	public float getDuration() {
 		return duration;
 	}
-	
+
 	public void setDuration( float d) {
 		this.duration = d;
 	}
-	
+
 	public boolean isAutoYaw() {
 		return auto_yaw;
 	}
-	
+
 	public void setAutoYaw(boolean auto_yaw) {
-		 this.auto_yaw = auto_yaw;
+		this.auto_yaw = auto_yaw;
 	}
 
 	public int getType() {
@@ -136,7 +138,7 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 		vel.z = vel.z * max_velocity / n;
 
 	}
-	
+
 	public boolean isVelReached(GeoTuple4D_F32<?> c, float max) {
 
 		if(isVelocityFinite() && Float.isFinite(max)) {
@@ -150,7 +152,7 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 			}
 			return true;
 		}
-		
+
 		return false;
 	}
 
