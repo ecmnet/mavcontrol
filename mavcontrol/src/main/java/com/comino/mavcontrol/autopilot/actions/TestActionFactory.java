@@ -16,6 +16,8 @@ import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavcontrol.offboard2.Offboard2Manager;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
+import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
+import com.comino.mavcontrol.offboard3.target.Offboard3VelAccTarget;
 import com.comino.mavcontrol.scenario.ScenarioManager;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 import com.comino.mavcontrol.scenario.items.MoveToItem;
@@ -95,36 +97,6 @@ public class TestActionFactory {
 			
 	}
 
-	public static void test_scenario(IMAVController control,boolean enable) {
-		
-		DataModel m = control.getCurrentModel();
-		if(m.sys.isStatus(Status.MSP_ARMED) &&
-		  (m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_TAKEOFF) ||
-		   m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_PRECLAND) ||
-		   m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_RTL) ||
-		   m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LAND) ||
-		   m.sys.isNavState(Status.NAVIGATION_STATE_MANUAL))) {
-			control.writeLogMessage(new LogMessage("Mode does not allow scenario execution", MAV_SEVERITY.MAV_SEVERITY_WARNING));
-			return;
-		}
-
-		ScenarioReader reader = new ScenarioReader(control);
-
-		Scenario scenario = reader.readScenario("test.xml");
-
-		System.out.println(scenario);
-
-		LinkedList<AbstractScenarioItem> list = scenario.getList();
-
-		if(!scenario.hasItems() || (scenario.isSITL() && !control.isSimulation()))
-			return;
-
-		ScenarioManager manager = ScenarioManager.getInstance(control);
-
-		manager.addItems(list);
-		manager.start();
-
-	}
 
 	static int worker = 0; static float sign = 1.0f;
 	static msp_msg_nn_object person = new msp_msg_nn_object();
@@ -168,6 +140,25 @@ public class TestActionFactory {
 			offboard.rotate((float)(Math.random()*2*Math.PI),null);
 		}
 	}
+	
+	public static void accTest() {
+		
+		final Offboard3Manager offboard = Offboard3Manager.getInstance();
+		
+		final Vector4D_F32 v = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
+		final Vector4D_F32 a = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
+		
+		float time = 1;
+		a.x = 1;
+		
+		
+		
+		Offboard3Plan plan = new Offboard3Plan();
+		plan.add(new Offboard3VelAccTarget(a,time));	
+		offboard.executePlan(plan, null);
+		
+	}
+
 
 
 	public static void setRandomObstacle() {

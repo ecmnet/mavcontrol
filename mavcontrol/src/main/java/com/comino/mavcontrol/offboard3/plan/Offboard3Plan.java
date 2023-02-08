@@ -19,6 +19,7 @@ public class Offboard3Plan extends LinkedList<Offboard3AbstractTarget> implement
 
 	@Override
 	public boolean add(final Offboard3AbstractTarget e) {
+		total_time += e.getPlannedSectionTime();
 		return super.add(e);
 	}
 
@@ -51,6 +52,11 @@ public class Offboard3Plan extends LinkedList<Offboard3AbstractTarget> implement
 
 	public void setEstimatedTime(float t) {
 		estimated_time = t;
+	}
+	
+	public void clearCostAndTime() {
+		total_time     = 0;
+		total_costs    = 0;
 	}
 
 	public void addCostsAndTime(float costs, float time) {

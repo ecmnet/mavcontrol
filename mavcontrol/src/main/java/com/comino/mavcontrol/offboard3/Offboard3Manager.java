@@ -50,6 +50,7 @@ public class Offboard3Manager {
 	private static final float DEFAULT_TIMEOUT                	= 5.0f;				        // Default timeout 1s
 
 	private static final float RADIUS_ACCEPT                    = 0.1f;                     // Acceptance radius in [m]
+	private static final float RADIUS_ACCEPT_VEL                = 0.1f;                     // Acceptance radius in [m/s]
 	private static final float YAW_ACCEPT                	    = MSPMathUtils.toRad(1);    // Acceptance alignmnet yaw in [rad]
 
 	private static final float MAX_YAW_VEL                      = MSPMathUtils.toRad(100);  // Maxumum speed in [rad/s]
@@ -65,9 +66,10 @@ public class Offboard3Manager {
 	private final DataModel         model;
 	private final IMAVController    control;
 
-	private float acceptance_radius = RADIUS_ACCEPT;
-	private float acceptance_yaw    = YAW_ACCEPT;
-	private float max_xyz_vel       = MAX_XYZ_VEL;
+	private float acceptance_radius     = RADIUS_ACCEPT;
+	private float acceptance_radius_vel = RADIUS_ACCEPT_VEL;
+	private float acceptance_yaw        = YAW_ACCEPT;
+	private float max_xyz_vel           = MAX_XYZ_VEL;
 
 	public static Offboard3Manager getInstance(IMAVController control) {
 		if(instance==null) 
@@ -354,7 +356,8 @@ public class Offboard3Manager {
 				}
 
 				// Already within the target acceptance radius 
-				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw)) {
+				if(current_target.isPosReached(current.pos(), acceptance_radius, acceptance_yaw) && 
+						current_target.isVelReached(current.vel(), acceptance_radius_vel)) {
 					control.writeLogMessage(new LogMessage("[msp] Target already reached. Perform action.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 					if(reached!=null && planQueue.isEmpty()) {
 						ITargetReached action = reached; reached = null;
@@ -371,7 +374,7 @@ public class Offboard3Manager {
 
 
 
-			if(MSP3DUtils.distance3D(current.pos(), current_target.pos())< acceptance_radius) {
+			if(current_target.isPositionFinite() && MSP3DUtils.distance3D(current.pos(), current_target.pos())< acceptance_radius) {
 				if(reached!=null && planQueue.isEmpty()) {
 					ITargetReached action = reached; reached = null;
 					action.execute(model);
@@ -380,6 +383,8 @@ public class Offboard3Manager {
 				}
 			}
 
+
+			//System.out.println("T1 "+t_section_elapsed+":"+xyzExecutor.isPlanned()+":"+current_plan.getTotalTime());
 
 			// timing
 			t_section_elapsed_last = t_section_elapsed;
@@ -406,6 +411,8 @@ public class Offboard3Manager {
 				return;
 
 			}
+
+			//System.out.println("T2");
 
 			// Plan next target if required
 			if(!current_plan.isEmpty() && xyzExecutor.isPlanned() && t_section_elapsed >= xyzExecutor.getTotalTime()) {
@@ -454,6 +461,8 @@ public class Offboard3Manager {
 				return;
 			}
 
+			//System.out.println("T3");
+
 			// Calculate and send command
 			synchronized(this) {
 
@@ -471,13 +480,13 @@ public class Offboard3Manager {
 					cmd.z       = (float)xyzExecutor.getPosition(t_section_elapsed,2);
 				} else {
 
-						if(!current_target.isTargetSetpoint()) 
-							model.slam.setFlag(Slam.OFFBOARD_FLAG_XYZ_DIRECT, true);
-						cmd.type_mask    = MAV_MASK.MASK_LOITER_SETPOINT_TYPE;
-						cmd.x       = current_target.pos().x;
-						cmd.y       = current_target.pos().y;
-						cmd.z       = current_target.pos().z;
-					
+					if(!current_target.isTargetSetpoint()) 
+						model.slam.setFlag(Slam.OFFBOARD_FLAG_XYZ_DIRECT, true);
+					cmd.type_mask    = MAV_MASK.MASK_LOITER_SETPOINT_TYPE;
+					cmd.x       = current_target.pos().x;
+					cmd.y       = current_target.pos().y;
+					cmd.z       = current_target.pos().z;
+
 				}
 
 				if(xyzExecutor.isPlanned() && t_section_elapsed <= xyzExecutor.getTotalTime()) {
@@ -553,7 +562,8 @@ public class Offboard3Manager {
 					}
 
 				}
-				
+
+
 
 				if(isRunning) {
 					cmd.time_boot_ms = model.sys.t_boot_ms;
@@ -624,6 +634,16 @@ public class Offboard3Manager {
 					xyzExecutor.setGoal(null, target.vel(), target.acc());
 					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
 					//					MSPStringUtils.getInstance().out("XYZ VEL    (Execution): "+target);
+				}
+				break;
+			case Offboard3AbstractTarget.TYPE_VEL_ACC:
+				if(isValid(target.vel()) && !target.isVelReached(current_state.vel(),acceptance_radius_vel)) {
+					if(target.isVelocityFinite())
+						xyzExecutor.setGoal(null, target.vel(), target.acc());
+					else
+						xyzExecutor.setGoal(null, null, target.acc());
+					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
+					MSPStringUtils.getInstance().out("XYZ VELACC    (Execution): "+target);
 				}
 				break;
 			default:
