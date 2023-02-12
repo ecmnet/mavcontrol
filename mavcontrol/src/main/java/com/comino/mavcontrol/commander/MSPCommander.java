@@ -367,6 +367,7 @@ public class MSPCommander  {
 			return;
 
 		ScenarioManager manager = ScenarioManager.getInstance(control);
+		manager.setMaxVelocity(scenario.getMaxSpeed());
 		manager.addItems(list);
 		manager.start();
 		

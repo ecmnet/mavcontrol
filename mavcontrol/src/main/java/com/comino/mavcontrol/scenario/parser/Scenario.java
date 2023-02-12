@@ -13,8 +13,8 @@ public class Scenario {
 	private String  name = "Default";
 	private int     type = TYPE_DEFAULT;
 	
-	private float   time_factor = 1;
-	private float   max_speed   = 1;
+	private float   time_factor       = 1;
+	private float   max_velocity_ms   = 1;
 
 
 	public Scenario() {
@@ -54,11 +54,11 @@ public class Scenario {
 	}
 
 	public float getMaxSpeed() {
-		return max_speed;
+		return max_velocity_ms;
 	}
 
 	public void setMaxSpeed(float max_speed) {
-		this.max_speed = max_speed;
+		this.max_velocity_ms = max_speed;
 	}
 
 	public LinkedList<AbstractScenarioItem> getList() {

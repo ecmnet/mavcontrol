@@ -93,7 +93,7 @@ public class Offboard3Manager {
 		acceptance_radius = config.getFloatProperty(MSPParams.AUTOPILOT_RADIUS_ACCEPT, String.valueOf(RADIUS_ACCEPT));
 		System.out.println("Acceptance radius: "+acceptance_radius+" m");
 
-		this.planner        = new Offboard3Planner(control, acceptance_radius, max_xyz_vel);
+		this.planner = new Offboard3Planner(control, acceptance_radius, max_xyz_vel);
 	}
 
 
@@ -134,6 +134,12 @@ public class Offboard3Manager {
 		worker.setPlan(plan);
 		worker.start(action);
 
+	}
+	
+	public void setMaxVelocity(float velocity_max_ms) {
+		this.max_xyz_vel = velocity_max_ms;
+		this.planner.setMaxVelocity(velocity_max_ms);
+		control.writeLogMessage(new LogMessage("[msp] Set maximum velocity to "+max_xyz_vel+" m/s", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 	}
 
 	public void setTimeoutAction(ITimeout timeout) {

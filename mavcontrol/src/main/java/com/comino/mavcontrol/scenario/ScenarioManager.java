@@ -40,7 +40,10 @@ public class ScenarioManager {
 		this.offboard.setTimeoutAction(() -> {
 			abort();
 		});
-		
+	}
+	
+	public void setMaxVelocity(float max_velocity_ms) {
+		this.offboard.setMaxVelocity(max_velocity_ms);
 	}
 
 	public void addItem(AbstractScenarioItem item) {

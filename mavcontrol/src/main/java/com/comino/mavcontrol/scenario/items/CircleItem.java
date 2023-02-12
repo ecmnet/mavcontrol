@@ -35,6 +35,9 @@ public class CircleItem extends AbstractScenarioItem {
 	@Override
 	public void execute() {
 		
+		if(!control.isSimulation())
+			completed();
+		
 		if(radius < 0.95f) {
 			control.writeLogMessage(new LogMessage("[msp] Radius < 1m. Item skipped.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 			completed();

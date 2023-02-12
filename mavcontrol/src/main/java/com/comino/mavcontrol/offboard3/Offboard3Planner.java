@@ -75,6 +75,11 @@ public class Offboard3Planner {
 		this.avoidancePlanGenerator = new Offboard3SphereTrajectoryGenerator(max_xyz_velocity);
 
 	}
+	
+	
+	public void setMaxVelocity(float velocity_max_ms) {
+		this.max_xyz_velocity = velocity_max_ms;
+	}
 
 	public int getPlannedSectionCount() {
 		return plannedSectionCount;
