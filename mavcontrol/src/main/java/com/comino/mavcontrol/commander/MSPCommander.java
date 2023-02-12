@@ -153,24 +153,24 @@ public class MSPCommander  {
     				params.sendParameter("COM_RCL_EXCEPT", 7);
 					params.sendParameter("MPC_XY_VEL_P_ACC", 4.5f);
      				params.sendParameter("MIS_TAKEOFF_ALT", 1.5f);
-  			}
-//
-//					// Autotune params
-//					params.sendParameter("MC_ROLL_P", 5.92f);
-//					params.sendParameter("MC_ROLLRATE_P", 0.170f);
-//					params.sendParameter("MC_ROLLRATE_I", 0.217f);
-//					params.sendParameter("MC_ROLLRATE_D", 0.0036f);
-//
-//					params.sendParameter("MC_PITCH_P", 5.72f);
-//					params.sendParameter("MC_PITCHRATE_P", 0.162f);
-//					params.sendParameter("MC_PITCHRATE_I", 0.228f);
-//					params.sendParameter("MC_PITCHRATE_D", 0.0037f);
-//
-//					params.sendParameter("MC_YAW_P", 5.0f);
-//					params.sendParameter("MC_YAWRATE_P", 0.17f);
-//					params.sendParameter("MC_YAWRATE_I", 0.17f);
-//
-//				}
+  		//	}
+
+					// Autotune params
+					params.sendParameter("MC_ROLL_P", 5.92f);
+					params.sendParameter("MC_ROLLRATE_P", 0.170f);
+					params.sendParameter("MC_ROLLRATE_I", 0.217f);
+					params.sendParameter("MC_ROLLRATE_D", 0.0036f);
+
+					params.sendParameter("MC_PITCH_P", 5.72f);
+					params.sendParameter("MC_PITCHRATE_P", 0.162f);
+					params.sendParameter("MC_PITCHRATE_I", 0.228f);
+					params.sendParameter("MC_PITCHRATE_D", 0.0037f);
+
+					params.sendParameter("MC_YAW_P", 5.0f);
+					params.sendParameter("MC_YAWRATE_P", 0.17f);
+					params.sendParameter("MC_YAWRATE_I", 0.17f);
+
+				}
 
 				// Simple check for tethered mode; needs to be better
 				if(model.battery.b0 > 14.1 && model.battery.b0  < 14.4) {

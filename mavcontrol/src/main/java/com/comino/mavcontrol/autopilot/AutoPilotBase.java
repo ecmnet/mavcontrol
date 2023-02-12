@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2017,2022 Eike Mansfeld ecm@gmx.de. All rights reserved.
+ *   Copyright (c) 2017,2023 Eike Mansfeld ecm@gmx.de. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,8 +33,6 @@
 
 package com.comino.mavcontrol.autopilot;
 
-import org.mavlink.messages.MAV_CMD;
-import org.mavlink.messages.MAV_MODE_FLAG;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
@@ -44,7 +42,6 @@ import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.config.MSPParams;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.log.MSPLogger;
-import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
@@ -164,9 +161,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 		if(config.getBoolProperty(MSPParams.AUTOPILOT_TAKEOFF_OFFBOARD, "false"))
-			this.takeoff_handler = new TakeOffHandler(control, () -> takeoffCompletedAction());
+			this.takeoff_handler = new TakeOffHandler(control, () -> takeoffCompletedAction(),null);
 		else
-			this.takeoff_handler = new TakeOffHandler(control, null);
+			this.takeoff_handler = new TakeOffHandler(control, null,null);
 
 		this.safetycheck_handler = new SafetyCheckHandler(control);
 

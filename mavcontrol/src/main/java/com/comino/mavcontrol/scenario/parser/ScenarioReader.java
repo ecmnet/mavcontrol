@@ -46,7 +46,7 @@ public class ScenarioReader {
 
 		DocumentBuilder dBuilder;
 		try {
-			FileInputStream in = new FileInputStream(MSPConfig.getInstance().getBasePath()+filename);
+			FileInputStream in = new FileInputStream(MSPConfig.getInstance().getBasePath()+"/"+filename);
 			dBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
 			Document doc = dBuilder.parse(in);
 			if (!doc.hasChildNodes())

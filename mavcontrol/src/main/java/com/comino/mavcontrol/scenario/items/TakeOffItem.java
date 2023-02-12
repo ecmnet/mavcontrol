@@ -16,7 +16,7 @@ public class TakeOffItem extends AbstractScenarioItem {
 
 	public TakeOffItem(IMAVController control) {
 		super(control);
-		this.takeoff_handler = new TakeOffHandler(control,() -> completed());
+		this.takeoff_handler = new TakeOffHandler(control,() -> completed(), () -> abort());
 	}
 
 	public void setTakeoffAltitude(float altitude_m) {
@@ -31,6 +31,10 @@ public class TakeOffItem extends AbstractScenarioItem {
 			control.writeLogMessage(new LogMessage("[msp] Takeoff skipped. Already in air.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 			completed();
 		}
+	}
+	
+	public long getTimeout_ms() {
+		return 20_000L;
 	}
 
 	@Override

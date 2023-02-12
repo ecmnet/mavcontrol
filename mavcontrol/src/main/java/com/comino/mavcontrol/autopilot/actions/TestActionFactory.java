@@ -144,17 +144,22 @@ public class TestActionFactory {
 	public static void accTest() {
 		
 		final Offboard3Manager offboard = Offboard3Manager.getInstance();
+		final Offboard3Plan plan = new Offboard3Plan();
 		
-		final Vector4D_F32 v = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
+		//final Vector4D_F32 v = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 		final Vector4D_F32 a = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 		
-		float time = 1;
-		a.x = 1;
+		float v = 1; float r = 1.5f;
+		float o = (float)(Math.PI * 2) / 12f;
+		float time = 0.5f;
 		
+		for(int i = 0; i <= 24; i++) {
+			a.x = (o*i*(float)Math.sin(o*i) - (float)Math.cos(o*i)) ;
+			a.y = (o*i*(float)Math.cos(o*i) + (float)Math.sin(o*i)) ;
+			
+			plan.add(new Offboard3VelAccTarget(a,time));	
+		}
 		
-		
-		Offboard3Plan plan = new Offboard3Plan();
-		plan.add(new Offboard3VelAccTarget(a,time));	
 		offboard.executePlan(plan, null);
 		
 	}

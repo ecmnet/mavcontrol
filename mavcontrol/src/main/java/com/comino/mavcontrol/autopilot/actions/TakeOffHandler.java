@@ -77,6 +77,7 @@ public class TakeOffHandler {
 	private DataModel       model;
 	private MSPLogger       logger;
 	private Runnable        completed;
+	private Runnable        aborted;
 
 	private ParameterAttributes takeoff_alt_param;
 	private ParameterAttributes takeoff_speed_param;
@@ -85,14 +86,15 @@ public class TakeOffHandler {
 	protected long       tms_takeoff_plan = 0;
 
 	public TakeOffHandler(IMAVController control) {
-		this(control,null);
+		this(control,null,null);
 	}
 
-	public TakeOffHandler(IMAVController control, Runnable completedAction) {
+	public TakeOffHandler(IMAVController control, Runnable completedAction, Runnable abortedAction) {
 		this.control   = control;
 		this.model     = control.getCurrentModel();
 		this.logger    = MSPLogger.getInstance();
 		this.completed = completedAction;
+		this.aborted   = abortedAction;
 	}
 	
 	public void setTakeoffAltitude(float altitude_m) {
@@ -177,8 +179,10 @@ public class TakeOffHandler {
 				wq.removeTask("LP", task);
 				break;
 			case STATE_INITIATED:
-				if(!initialChecks())
+				if(!initialChecks()) {
 					state = STATE_IDLE;
+					if(aborted!=null) aborted.run();
+				}
 				else {
 					tms_takeoff_plan = System.currentTimeMillis() + count_down_ms;
 					visx = model.vision.x;
@@ -198,6 +202,7 @@ public class TakeOffHandler {
 						logger.writeLocalMsg("[msp] CountDown aborted. LIDAR not available",
 								MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 						state = STATE_IDLE;
+						if(aborted!=null) aborted.run();
 					}
 
 					// Check EKF reports relative position
@@ -206,6 +211,7 @@ public class TakeOffHandler {
 						logger.writeLocalMsg("[msp] CountDown aborted. EKF reports fault.",
 								MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 						state = STATE_IDLE;
+						if(aborted!=null) aborted.run();
 					}
 
 					// Check stability of CV
@@ -214,6 +220,7 @@ public class TakeOffHandler {
 						logger.writeLocalMsg("[msp] CountDown aborted. Odometry not stable.",
 								MAV_SEVERITY.MAV_SEVERITY_CRITICAL);
 						state = STATE_IDLE;
+						if(aborted!=null) aborted.run();
 					}
 				} 
 
@@ -225,6 +232,7 @@ public class TakeOffHandler {
 							state = STATE_TAKEOFF;
 						} else {
 							state = STATE_IDLE;
+							if(aborted!=null) aborted.run();
 						}
 						// TODO: WARNING: This leads in SITL to takeoff to LPOS 0,0
 						//       Might be in cases only, where GPOS is not valid
@@ -244,6 +252,7 @@ public class TakeOffHandler {
 					control.writeLogMessage(new LogMessage("[msp] Takeoff (1) did not complete within "+(max_tko_time_ms/1000)+" secs",
 							MAV_SEVERITY.MAV_SEVERITY_WARNING));
 					state = STATE_IDLE;
+					if(aborted!=null) aborted.run();
 				}
 
 				break;
@@ -260,6 +269,7 @@ public class TakeOffHandler {
 					control.writeLogMessage(new LogMessage("[msp] Takeoff (2) did not complete within "+(max_tko_time_ms/1000)+" secs",
 							MAV_SEVERITY.MAV_SEVERITY_WARNING));
 					state = STATE_IDLE;
+					if(aborted!=null) aborted.run();
 					return;
 				}
 
