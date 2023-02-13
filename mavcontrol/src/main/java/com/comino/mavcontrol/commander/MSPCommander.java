@@ -363,8 +363,15 @@ public class MSPCommander  {
 
 		LinkedList<AbstractScenarioItem> list = scenario.getList();
 
-		if(!scenario.hasItems() || (scenario.isSITL() && !control.isSimulation()))
+		if(scenario.isSITL() && !control.isSimulation()) {
+			control.writeLogMessage(new LogMessage("Scenario is SITL only. Not executed.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
 			return;
+		}
+		
+		if(!scenario.hasItems()) {
+			control.writeLogMessage(new LogMessage("Scenario has not items. Not executed.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
+			return;
+		}
 
 		ScenarioManager manager = ScenarioManager.getInstance(control);
 		manager.setMaxVelocity(scenario.getMaxSpeed());
