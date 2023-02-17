@@ -135,7 +135,7 @@ public class Offboard3Manager {
 		worker.start(action);
 
 	}
-	
+
 	public void setMaxVelocity(float velocity_max_ms) {
 		this.max_xyz_vel = velocity_max_ms;
 		this.planner.setMaxVelocity(velocity_max_ms);
@@ -379,9 +379,9 @@ public class Offboard3Manager {
 			}
 
 
-
 			if(current_target.isPositionFinite() && MSP3DUtils.distance3D(current.pos(), current_target.pos())< acceptance_radius) {
-				if(reached!=null && planQueue.isEmpty()) {
+				if(reached!=null && planQueue.isEmpty() && current_plan.isEmpty()) {
+
 					ITargetReached action = reached; reached = null;
 					action.execute(model);
 					if(reached != null)
@@ -452,6 +452,7 @@ public class Offboard3Manager {
 					}
 				}
 			}
+
 
 
 			// check timeout

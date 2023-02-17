@@ -46,6 +46,7 @@ import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_MODE_FLAG;
 import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
+import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import org.mavlink.messages.MSP_CMD;
 import org.mavlink.messages.MSP_COMPONENT_CTRL;
 import org.mavlink.messages.lquac.msg_gps_global_origin;
@@ -111,6 +112,9 @@ public class MSPCommander  {
 		String autopilot_class = config.getProperty(MSPParams.AUTOPILOT_CLASS, "com.comino.mavcontrol.autopilot.SimplePlannerPilot");
 
 		this.autopilot =  AutoPilotBase.getInstance(autopilot_class,control,config);
+		
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
+		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP,true); 
 
 	}
 

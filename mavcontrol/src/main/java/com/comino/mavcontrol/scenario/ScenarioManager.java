@@ -7,7 +7,9 @@ import org.mavlink.messages.MAV_SEVERITY;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
+import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
@@ -22,9 +24,10 @@ public class ScenarioManager {
 	private final  IMAVController 		control;
 	private final  Offboard3Manager   	offboard;
 	private        Thread         		scenarioWorkerThread;
-	private final  Status         		status;
+	private final  DataModel            model;
 
 	private boolean isRunning = false;
+
 
 	public static ScenarioManager getInstance(IMAVController control) {
 		if(instance == null)
@@ -34,7 +37,7 @@ public class ScenarioManager {
 
 	private ScenarioManager(IMAVController control) {
 		this.control = control;
-		this.status  = control.getCurrentModel().sys;
+		this.model   = control.getCurrentModel();
 
 		this.offboard = Offboard3Manager.getInstance(control);
 		this.offboard.setTimeoutAction(() -> {
@@ -95,13 +98,14 @@ public class ScenarioManager {
 
 			isRunning = true;
 
-			this.step_counter  = 0;
+			step_counter = 0;
+			model.slam.clearFlags();
 
 			while(itemList.size()>0 && isRunning) {
 
-
-
-				control.getCurrentModel().slam.wpcount = ++step_counter;
+				
+                model.slam.setFlag(Slam.OFFBOARD_FLAG_EXEC_SCENARIO, true);
+				model.slam.wpcount = ++step_counter;
 				currentItem = itemList.poll();
 				currentItem.setOwner(this);
 
@@ -130,6 +134,7 @@ public class ScenarioManager {
 				if(!currentItem.isCompleted()) {
 					control.writeLogMessage(new LogMessage("[msp] Scenario Timeout occurred in step "+step_counter,
 							MAV_SEVERITY.MAV_SEVERITY_ERROR));
+					model.slam.setFlag(Slam.OFFBOARD_FLAG_TIMEOUT, true);
 					isRunning  = false;
 					break;
 				}
@@ -144,7 +149,8 @@ public class ScenarioManager {
 			else
 				itemList.clear();
 
-			control.getCurrentModel().slam.wpcount = 0;
+			model.slam.setFlag(Slam.OFFBOARD_FLAG_EXEC_SCENARIO, false);
+			model.slam.wpcount = 0;
 
 		}
 

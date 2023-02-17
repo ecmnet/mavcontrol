@@ -1,6 +1,7 @@
 package com.comino.mavcontrol.offboard3;
 
 import org.mavlink.messages.MAV_SEVERITY;
+import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
@@ -33,7 +34,7 @@ public class Offboard3Planner {
 	private static final float MIN_AVOIDANCE_DISTANCE           = 0.75f;                    // Distance to obstacle center
 	private static final float FMAX_FEASIBILITY                 = 2.5f;                     // Maximum force applied for a plan
 	private static final float WMAX_FEASIBILITY                 = 5f;                       // Maximimu rotation force for a plan
-	
+
 	private static final float ACCELERATION_PHASE_SECS          = 2.0f;                     // Acceleration phase in seconds
 	private static final float DECELERATION_PHASE_SECS          = 2.0f;                     // Deceleration phase in seconds
 
@@ -75,8 +76,8 @@ public class Offboard3Planner {
 		this.avoidancePlanGenerator = new Offboard3SphereTrajectoryGenerator(max_xyz_velocity);
 
 	}
-	
-	
+
+
 	public void setMaxVelocity(float velocity_max_ms) {
 		this.max_xyz_velocity = velocity_max_ms;
 	}
@@ -98,68 +99,68 @@ public class Offboard3Planner {
 	}
 
 	public Offboard3Plan planDirectYaw(float yaw) {
-		
+
 		reset(); current.update();
-		
+
 		Offboard3Plan new_plan = new Offboard3Plan();
 		new_plan.add(new Offboard3YawTarget(yaw));
 		planPath(new_plan, current);
-		
+
 		MSPStringUtils.getInstance().out(new_plan);
-		
+
 		return new_plan;
 	}
-	
-	
-	
+
+
+
 	public Offboard3Plan planCircle(GeoTuple4D_F32<?> center, float radius, float angle_rad) {
-		
+
 		// TODO: Works a bit wobbly, exit not good, rotation 
 		//       Velocity control not within a single segment but e.g. across 2 segments
-		
-	    final int circle_segments = 4;// (int)(8.0f*radius+0.5);
-		
+
+		final int circle_segments = 4;// (int)(8.0f*radius+0.5);
+
 		current.update();
-		
+
 		if(MSP3DUtils.distance3D(center, current.pos()) > radius) {
 			control.writeLogMessage(new LogMessage("[msp] Position not within circle.Skiped.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 			return null;
 		}
-		
+
 		float velocity = radius/2.0f > max_xyz_velocity ? max_xyz_velocity : radius / 2.0f;
 		float heading  = Float.isFinite(model.hud.h) ? model.hud.h : 0;
-		
+
 		Offboard3Plan new_plan = new Offboard3Plan();
-		
+
 		GeoTuple4D_F32<?> point = new Vector4D_F32();
-		
+
 		final int planning_segments = (int)(circle_segments * angle_rad / (2.0*Math.PI));
 		float total_time = (float)( 2.0*radius*Math.PI / velocity) ;
 		if(planning_segments < circle_segments) total_time = total_time * (float)planning_segments/(float)circle_segments;
-		
+
 		for(int seg = 1; seg <= planning_segments; seg++) {
 			float a = (float)(2.0*Math.PI/circle_segments * seg)+heading;
 			point.setTo((float)(Math.cos(a)*radius),(float)(Math.sin(a)*radius),center.z,a);
 			point.plusIP(center);
 			new_plan.add(new Offboard3VelTarget(point, velocity ,total_time/(circle_segments-1)));
 		}
-		
+
 		float a = (float)(2.0*Math.PI/circle_segments * planning_segments)+heading;
 		point.setTo((float)(Math.cos(a)*radius),(float)(Math.sin(a)*radius),center.z,a);
 		point.plusIP(center);
 		new_plan.add(new Offboard3PosTarget(point));
-		
+
 		this.acceptance_radius = (float)( 2.0*radius*Math.PI) / (2.0f*circle_segments);
-		
+
 		Offboard3Collision collision = planPath(new_plan, current);
 		if(collision != null) {
 			control.writeLogMessage(new LogMessage("[msp] Obstacle in circle. Not executed.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 			return null;
 		}
-		
+
 		return new_plan;	
 	}
-	
+
 
 	public Offboard3Plan planDirectPath(GeoTuple4D_F32<?> pos_target) {
 		return planDirectPath(pos_target,false);
@@ -178,7 +179,7 @@ public class Offboard3Planner {
 		Offboard3Plan new_plan = new Offboard3Plan();
 
 		new_plan.setEstimatedTime(MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_velocity);
-		
+
 		float max_speed_time = new_plan.getEstimatedTime() - ACCELERATION_PHASE_SECS - DECELERATION_PHASE_SECS;
 
 		if(max_speed_time < 1.0f) {
@@ -189,7 +190,7 @@ public class Offboard3Planner {
 			new_plan.add(new Offboard3VelTarget(pos_target,max_xyz_velocity,max_speed_time));
 			new_plan.add(new Offboard3PosTarget(pos_target));
 		}
-		
+
 		Offboard3Collision collision = planPath(new_plan, current);
 
 		if(collision != null) {
@@ -206,11 +207,11 @@ public class Offboard3Planner {
 
 			MSPStringUtils.getInstance().err("Current state: "+current);
 			MSPStringUtils.getInstance().err(new_plan);
-			
+
 		} else {
-			
+
 			MSPStringUtils.getInstance().out(new_plan);
-			
+
 		}
 
 		return new_plan;
@@ -223,16 +224,16 @@ public class Offboard3Planner {
 		Offboard3Collision collision;
 
 		plannedSectionCount = 0;
-		
+
 		Sphere obstacle = new Sphere(model.slam.ox,model.slam.oy, model.slam.oz, 0.5f);
-		
+
 		plan.clearCostAndTime();
 
 		// Plan sections
 		for(Offboard3AbstractTarget section : plan) {
-			
+
 			section.setIndex(plannedSectionCount++);
-			
+
 			nextPlannedCurrentState = planSection(section, nextPlannedCurrentState);
 			if(nextPlannedCurrentState==null) {
 				control.writeLogMessage(new LogMessage("[msp] Plan not feasible. Aborted.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
@@ -240,13 +241,15 @@ public class Offboard3Planner {
 				return null;
 			}
 			plan.addCostsAndTime((float)xyzPlanner.getCost(), xyzPlanner.getTotalTime());
-			
+
 			if(control!=null && !control.isSimulation()) 
 				return null;
 
-			collision = collisionCheck.check(xyzPlanner, obstacle , 0, initial_state, section.getIndex());
-			if(collision!=null)
-				return collision;
+			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION)) {
+				collision = collisionCheck.check(xyzPlanner, obstacle , 0, initial_state, section.getIndex());
+				if(collision!=null)
+					return collision;
+			}
 		}
 		return null;
 	}
@@ -258,9 +261,9 @@ public class Offboard3Planner {
 
 
 		target.replaceNaNPositionBy(current_state.pos());
-		
+
 		// XYZ planning
-		
+
 		if(target.getDuration() < 0) {
 			estimated_xyz_duration = MSP3DUtils.distance3D(target.pos(), current_state.pos()) * 2.0f / max_xyz_velocity;
 
@@ -302,7 +305,7 @@ public class Offboard3Planner {
 					estimated_xyz_duration = 2f;
 				planned_xyz_duration = xyzPlanner.generate(estimated_xyz_duration);
 			}
-			
+
 			if(!xyzPlanner.checkInputFeasibility(0, FMAX_FEASIBILITY, WMAX_FEASIBILITY, 0.05f)) {
 				return null;
 			}
@@ -348,14 +351,14 @@ public class Offboard3Planner {
 			target.setPlannedSectionTime(planned_xyz_duration > planned_yaw_duration ? planned_xyz_duration : planned_yaw_duration);
 
 			// Update next planned current_state with estimated end state of section
-			
+
 			xyzPlanner.getPosition(target.getPlannedSectionTime(), new_current_state.pos());
 			xyzPlanner.getVelocity(target.getPlannedSectionTime(), new_current_state.vel());
 			xyzPlanner.getAcceleration(target.getPlannedSectionTime(), new_current_state.acc());
-			
-//			xyzPlanner.getGoalPosition(new_current_state.pos());
-//			xyzPlanner.getGoalVelocity(new_current_state.vel());
-//			xyzPlanner.getGoalAcceleration(new_current_state.acc());
+
+			//			xyzPlanner.getGoalPosition(new_current_state.pos());
+			//			xyzPlanner.getGoalVelocity(new_current_state.vel());
+			//			xyzPlanner.getGoalAcceleration(new_current_state.acc());
 
 		}
 
