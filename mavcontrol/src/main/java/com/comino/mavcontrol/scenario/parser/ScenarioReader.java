@@ -20,6 +20,7 @@ import com.comino.mavcontrol.scenario.items.CircleItem;
 import com.comino.mavcontrol.scenario.items.DisarmingItem;
 import com.comino.mavcontrol.scenario.items.FiducialItem;
 import com.comino.mavcontrol.scenario.items.LogMessageItem;
+import com.comino.mavcontrol.scenario.items.MoveHomeItem;
 import com.comino.mavcontrol.scenario.items.MoveToItem;
 import com.comino.mavcontrol.scenario.items.ObstacleItem;
 import com.comino.mavcontrol.scenario.items.PauseItem;
@@ -38,9 +39,9 @@ public class ScenarioReader {
 
 
 	public Scenario readScenario(String filename) {
-		
+
 		System.out.println("Scenario read from : "+MSPConfig.getInstance().getBasePath());
-		
+
 
 		Scenario scenario = new Scenario();
 
@@ -153,6 +154,21 @@ public class ScenarioReader {
 		case "arm":
 			ArmingItem arming = new ArmingItem(control);
 			item = arming;
+			break;	
+		case "movehome":
+			MoveHomeItem home = new MoveHomeItem(control);
+			if(step.hasChildNodes()) {
+				NodeList params = step.getChildNodes();
+				for(int j=0;j<params.getLength();j++) {
+					Node param = params.item(j);
+					switch(param.getNodeName().toLowerCase()) {
+					case "acceptance_radius":
+						home.setAcceptanceRadius(parseFloatAttribute(param,"r"));
+						break;
+					}
+				}
+			}
+			item = home;
 			break;	
 		case "disarm":
 			DisarmingItem disarming = new DisarmingItem(control);

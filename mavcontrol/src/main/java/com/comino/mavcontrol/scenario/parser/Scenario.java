@@ -24,6 +24,12 @@ public class Scenario {
 	public void setList(final LinkedList<AbstractScenarioItem> list) {
 		this.list = list;
 	}
+	
+	public void add(final AbstractScenarioItem item) {
+		if(this.list == null)
+			this.list = new LinkedList<AbstractScenarioItem>();
+		this.list.add(item);
+	}
 
 	public boolean hasItems() {
 		return list.size() > 0;

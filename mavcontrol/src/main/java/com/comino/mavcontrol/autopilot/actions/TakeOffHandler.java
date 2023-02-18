@@ -193,7 +193,7 @@ public class TakeOffHandler {
 				break;
 			case STATE_COUNT_DOWN:
 
-				takeoff.setTo(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
+				takeoff.setTo(Float.NaN,Float.NaN,-(float)takeoff_alt_param.value,Float.NaN);
 
 				if(!control.isSimulation()) {
 
