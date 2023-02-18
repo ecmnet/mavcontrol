@@ -317,9 +317,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		case MSP_AUTOCONTROL_MODE.ABORT:
 			abort();
 			break;
-		case MSP_AUTOCONTROL_ACTION.RTL:
-			OffboardActionFactory.precision_landing_rotate();
-			break;
+//		case MSP_AUTOCONTROL_ACTION.RTL:
+//			OffboardActionFactory.precision_landing_rotate();
+//			break;
 		case MSP_AUTOCONTROL_ACTION.SAVE_MAP2D:
 			saveMap2D();
 			break;

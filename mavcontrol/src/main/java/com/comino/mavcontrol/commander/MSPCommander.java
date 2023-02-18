@@ -70,6 +70,7 @@ import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavcontrol.autopilot.actions.OffboardActionFactory;
 import com.comino.mavcontrol.autopilot.actions.TestActionFactory;
+import com.comino.mavcontrol.scenario.ScenarioFactory;
 import com.comino.mavcontrol.scenario.ScenarioManager;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 import com.comino.mavcontrol.scenario.parser.Scenario;
@@ -267,7 +268,9 @@ public class MSPCommander  {
 
 		switch(mode) {
 		case MSP_AUTOCONTROL_ACTION.RTL:
-			
+			scenarioManager.setMaxVelocity(1.5f);
+			scenarioManager.addItems(ScenarioFactory.createRTLScenario(control).getList());
+			scenarioManager.start();
 			break;
 		case MSP_AUTOCONTROL_ACTION.LAND:
 			if(model.sys.isStatus(Status.MSP_LANDED) || !enable) 
