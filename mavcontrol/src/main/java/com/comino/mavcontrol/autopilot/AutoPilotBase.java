@@ -64,6 +64,7 @@ import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
+import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F64;
 
 
@@ -275,6 +276,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public EKF2ResetCheck getEKF2ResetCheck() {
 		return this.ekf2_reset_check;
 	}
+	
+	public GeoTuple4D_F32<?> getTakoffPosition() {
+		return takeoff_handler.getTakeoffPosition();
+	}
 
 
 	public long getTimeSinceTakeoff() {
@@ -332,11 +337,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		case MSP_AUTOCONTROL_ACTION.ROTATE:
 			OffboardActionFactory.turn_to(MSPMathUtils.toRad(param));
 			break;
-		case MSP_AUTOCONTROL_ACTION.LAND:
-			if(control.isSimulation())
-				TestActionFactory.continuous_planning(control.getCurrentModel(),false);
-			precisionLand(enable);
-			break;
+//		case MSP_AUTOCONTROL_ACTION.LAND:
+//			if(control.isSimulation())
+//				TestActionFactory.continuous_planning(control.getCurrentModel(),false);
+//			precisionLand(enable);
+//			break;
 		case MSP_AUTOCONTROL_MODE.OBSTACLE_STOP:
 			if(enable)
 				control.writeLogMessage(new LogMessage("[msp] Obstacle stop enabled.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -408,17 +413,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		scenario_manager.abort();
 	}
 
-	/**
-	 * AutopilotAction: Execute precision landing
-	 */
-
-	public void precisionLand(boolean enable) {
-
-		if(model.sys.isStatus(Status.MSP_LANDED) || !enable) {
-			return;
-		}
-		OffboardActionFactory.precision_landing_rotate();
-	}
 
 
 

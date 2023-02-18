@@ -46,6 +46,7 @@ import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_MODE_FLAG;
 import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
+import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import org.mavlink.messages.MSP_CMD;
 import org.mavlink.messages.MSP_COMPONENT_CTRL;
@@ -68,6 +69,7 @@ import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavcontrol.autopilot.actions.OffboardActionFactory;
+import com.comino.mavcontrol.autopilot.actions.TestActionFactory;
 import com.comino.mavcontrol.scenario.ScenarioManager;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 import com.comino.mavcontrol.scenario.parser.Scenario;
@@ -79,12 +81,12 @@ import com.comino.mavutils.workqueue.WorkQueue;
 @SuppressWarnings("unused")
 public class MSPCommander  {
 
-	private IMAVMSPController        control 	= null;
-	private AutoPilotBase           autopilot 	= null;
-	private DataModel                  model 	= null;
-	private StatusCheck          status_check   = null;
-
-	private MSPLogger                  logger   = null;
+	private final IMAVMSPController	control ;
+	private final AutoPilotBase     autopilot ;
+	private final DataModel         model ;
+	private final StatusCheck       status_check;
+	private final ScenarioManager 	scenarioManager;
+	private final MSPLogger         logger;
 
 
 
@@ -94,6 +96,7 @@ public class MSPCommander  {
 	public MSPCommander(IMAVMSPController control, MSPConfig config) {
 
 
+		this.scenarioManager = ScenarioManager.getInstance(control);
 		this.control = control;
 		this.model   = control.getCurrentModel();
 		this.logger  = MSPLogger.getInstance();
@@ -112,7 +115,7 @@ public class MSPCommander  {
 		String autopilot_class = config.getProperty(MSPParams.AUTOPILOT_CLASS, "com.comino.mavcontrol.autopilot.SimplePlannerPilot");
 
 		this.autopilot =  AutoPilotBase.getInstance(autopilot_class,control,config);
-		
+
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP,true); 
 
@@ -152,12 +155,12 @@ public class MSPCommander  {
 				params.sendParameter("RTL_RETURN_ALT", 1.0f);
 				params.sendParameter("NAV_MC_ALT_RAD", 0.05f);
 
-  			if(control.isSimulation()) {
+				if(control.isSimulation()) {
 					params.sendParameter("COM_RC_OVERRIDE", 0);
-    				params.sendParameter("COM_RCL_EXCEPT", 7);
+					params.sendParameter("COM_RCL_EXCEPT", 7);
 					params.sendParameter("MPC_XY_VEL_P_ACC", 4.5f);
-     				params.sendParameter("MIS_TAKEOFF_ALT", 1.5f);
-  		//	}
+					params.sendParameter("MIS_TAKEOFF_ALT", 1.5f);
+					//	}
 
 					// Autotune params
 					params.sendParameter("MC_ROLL_P", 5.92f);
@@ -233,10 +236,10 @@ public class MSPCommander  {
 						setOffboardPosition(cmd);
 						break;
 					case MSP_CMD.MSP_CMD_AUTOMODE:
-						autopilot.setMode((int)(cmd.param1)==MSP_COMPONENT_CTRL.ENABLE,(int)(cmd.param2),cmd.param3);
+						setMode((int)(cmd.param1)==MSP_COMPONENT_CTRL.ENABLE,(int)(cmd.param2),cmd.param3);
 						break;
 					case MSP_CMD.MSP_CMD_EXECUTE_SCENARIO:
-                        executeScenario("scenario.xml");
+						executeScenario("scenario.xml");
 						break;
 					case MSP_CMD.MSP_CMD_OFFBOARD_SETLOCALVEL:
 
@@ -258,6 +261,24 @@ public class MSPCommander  {
 				});
 			}
 		});
+	}
+
+	private void setMode(boolean enable, int mode, float param) {
+
+		switch(mode) {
+		case MSP_AUTOCONTROL_ACTION.RTL:
+			
+			break;
+		case MSP_AUTOCONTROL_ACTION.LAND:
+			if(model.sys.isStatus(Status.MSP_LANDED) || !enable) 
+				return;
+			scenarioManager.abort();
+			OffboardActionFactory.precision_landing_rotate();
+			break;
+		default:
+			autopilot.setMode(enable,mode,param);
+			break;
+		}
 	}
 
 
@@ -348,16 +369,16 @@ public class MSPCommander  {
 		OffboardActionFactory.move_to(cmd.param1, cmd.param2, Float.NaN);
 
 	}
-	
+
 	private void executeScenario(String filename) {
 		DataModel m = control.getCurrentModel();
-		
+
 		if(m.sys.isStatus(Status.MSP_ARMED) &&
-		  (m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_TAKEOFF) ||
-		   m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_PRECLAND) ||
-		   m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_RTL) ||
-		   m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LAND) ||
-		   m.sys.isNavState(Status.NAVIGATION_STATE_MANUAL))) {
+				(m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_TAKEOFF) ||
+						m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_PRECLAND) ||
+						m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_RTL) ||
+						m.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LAND) ||
+						m.sys.isNavState(Status.NAVIGATION_STATE_MANUAL))) {
 			control.writeLogMessage(new LogMessage("Mode does not allow scenario execution", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 			return;
 		}
@@ -371,17 +392,16 @@ public class MSPCommander  {
 			control.writeLogMessage(new LogMessage("Scenario is SITL only. Not executed.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
 			return;
 		}
-		
+
 		if(!scenario.hasItems()) {
 			control.writeLogMessage(new LogMessage("Scenario has not items. Not executed.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 			return;
 		}
 
-		ScenarioManager manager = ScenarioManager.getInstance(control);
-		manager.setMaxVelocity(scenario.getMaxSpeed());
-		manager.addItems(list);
-		manager.start();
-		
+		scenarioManager.setMaxVelocity(scenario.getMaxSpeed());
+		scenarioManager.addItems(list);
+		scenarioManager.start();
+
 	}
 
 
