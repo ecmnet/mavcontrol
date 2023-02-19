@@ -103,8 +103,14 @@ public class Offboard3Manager {
 			return;
 
 		this.acceptance_radius = RADIUS_ACCEPT;
+		
 		Offboard3Plan plan = planner.planDirectYaw(radians);
-
+		
+		if(plan.isEmpty() && action!=null) {
+			action.execute(model);
+			return;
+		}
+		
 		worker.setPlan(plan);	
 		worker.start(action);
 
@@ -119,7 +125,13 @@ public class Offboard3Manager {
 		float target = MSPMathUtils.normAngle(model.attitude.y+radians);
 
 		this.acceptance_radius = RADIUS_ACCEPT;
+		
 		Offboard3Plan plan = planner.planDirectYaw(target);
+		
+		if(plan.isEmpty() && action!=null) {
+			action.execute(model);
+			return;
+		}
 
 		worker.setPlan(plan);	
 		worker.start(action);
@@ -130,6 +142,11 @@ public class Offboard3Manager {
 
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && !model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
 			return;
+		
+		if(plan.isEmpty() && action!=null) {
+			action.execute(model);
+			return;
+		}
 
 		worker.setPlan(plan);
 		worker.start(action);
@@ -158,6 +175,11 @@ public class Offboard3Manager {
 
 		Point4D_F32 p = new Point4D_F32(x,y,z,w);
 		Offboard3Plan plan = planner.planCircle(p, r, a);
+		
+		if(plan.isEmpty() && action!=null) {
+			action.execute(model);
+			return;
+		}
 
 		worker.setPlan(plan);
 		worker.start(action);
@@ -177,7 +199,12 @@ public class Offboard3Manager {
 		this.acceptance_radius = acceptance_radius_m;
 
 		Offboard3Plan plan = planner.planDirectPath(p);
-
+		
+		if(plan.isEmpty() && action!=null) {
+			action.execute(model);
+			return;
+		}
+		
 		worker.setPlan(plan);
 		worker.start(action);
 
