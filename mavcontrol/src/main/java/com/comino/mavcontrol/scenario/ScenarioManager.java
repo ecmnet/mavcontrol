@@ -44,7 +44,7 @@ public class ScenarioManager {
 			abort();
 		});
 	}
-	
+
 	public void setMaxVelocity(float max_velocity_ms) {
 		this.offboard.setMaxVelocity(max_velocity_ms);
 	}
@@ -61,14 +61,13 @@ public class ScenarioManager {
 
 	public void start() {
 
-		if(isRunning) {
-			control.writeLogMessage(new LogMessage("[msp] Scenario replaced during execution.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-			model.slam.wpcount = 0;
-			scenarioWorker.executeNextItem();
-			return;
-		}
-
 		if(itemList.size() > 0) {
+
+			if(isRunning) {
+				control.writeLogMessage(new LogMessage("[msp] Scenario replaced during execution.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+				scenarioWorker.replaceScenario();
+				return;
+			}
 
 			control.writeLogMessage(new LogMessage("[msp] Execute scenario with "+itemList.size()+" items.", MAV_SEVERITY.MAV_SEVERITY_INFO));
 
@@ -79,6 +78,8 @@ public class ScenarioManager {
 			scenarioWorkerThread = new Thread(scenarioWorker);
 			scenarioWorkerThread.setName("ScenarioWorker");
 			scenarioWorkerThread.start();
+		} else {
+			control.writeLogMessage(new LogMessage("[msp] Scenario has no items", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 		}
 	}
 
@@ -106,8 +107,8 @@ public class ScenarioManager {
 
 			while(itemList.size()>0 && isRunning) {
 
-				
-                model.slam.setFlag(Slam.OFFBOARD_FLAG_EXEC_SCENARIO, true);
+
+				model.slam.setFlag(Slam.OFFBOARD_FLAG_EXEC_SCENARIO, true);
 				model.slam.wpcount = ++step_counter;
 				currentItem = itemList.poll();
 				currentItem.setOwner(this);
@@ -127,7 +128,7 @@ public class ScenarioManager {
 					} catch (InterruptedException e) { }
 
 				}
-				
+
 				if(replaceRequest) {
 					step_counter = 0;
 					replaceRequest = false;
@@ -162,8 +163,8 @@ public class ScenarioManager {
 			model.slam.wpcount = 0;
 
 		}
-		
-		public synchronized void executeNextItem() {
+
+		public synchronized void replaceScenario() {
 			this.replaceRequest = true;
 			this.notify();
 		}
