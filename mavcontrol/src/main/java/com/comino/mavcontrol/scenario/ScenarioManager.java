@@ -54,6 +54,7 @@ public class ScenarioManager {
 	}
 
 	public void addItems(Collection<AbstractScenarioItem> items) {
+		itemList.clear();
 		if(items!=null)
 			itemList.addAll(items);
 	}
@@ -61,8 +62,9 @@ public class ScenarioManager {
 	public void start() {
 
 		if(isRunning) {
-			control.writeLogMessage(new LogMessage("[msp] Scenario already in progress.", MAV_SEVERITY.MAV_SEVERITY_INFO));
-			itemList.clear();
+			control.writeLogMessage(new LogMessage("[msp] Scenario replaced during execution.", MAV_SEVERITY.MAV_SEVERITY_INFO));
+			model.slam.wpcount = 0;
+			scenarioWorker.executeNextItem();
 			return;
 		}
 
@@ -89,6 +91,7 @@ public class ScenarioManager {
 
 		private AbstractScenarioItem currentItem;
 		private boolean              abortRequest;
+		private boolean              replaceRequest;
 		private int                  step_counter;
 
 		@Override
@@ -116,12 +119,19 @@ public class ScenarioManager {
 					try {
 
 						tms = System.currentTimeMillis()+currentItem.getTimeout_ms();
-						while(!currentItem.isCompleted() && System.currentTimeMillis() < tms && !currentItem.isAborted() && !abortRequest) {
+						while(!currentItem.isCompleted() && System.currentTimeMillis() < tms 
+								&& !currentItem.isAborted() && !abortRequest && !replaceRequest) {
 							wait(currentItem.getTimeout_ms());
 						}
 
 					} catch (InterruptedException e) { }
 
+				}
+				
+				if(replaceRequest) {
+					step_counter = 0;
+					replaceRequest = false;
+					continue;
 				}
 
 				if(currentItem.isAborted() || abortRequest) {
@@ -140,9 +150,8 @@ public class ScenarioManager {
 				}
 			}
 
-
-			abortRequest = false;
-			isRunning    = false;
+			abortRequest   = false;
+			isRunning      = false;
 
 			if(itemList.isEmpty())
 				control.writeLogMessage(new LogMessage("[msp] Scenario execution completed.", MAV_SEVERITY.MAV_SEVERITY_INFO));
@@ -152,6 +161,11 @@ public class ScenarioManager {
 			model.slam.setFlag(Slam.OFFBOARD_FLAG_EXEC_SCENARIO, false);
 			model.slam.wpcount = 0;
 
+		}
+		
+		public synchronized void executeNextItem() {
+			this.replaceRequest = true;
+			this.notify();
 		}
 
 		public synchronized void abortRequest() {
