@@ -276,11 +276,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public EKF2ResetCheck getEKF2ResetCheck() {
 		return this.ekf2_reset_check;
 	}
-	
-	public GeoTuple4D_F32<?> getTakoffPosition() {
-		return takeoff_handler.getTakeoffPosition();
-	}
-
 
 	public long getTimeSinceTakeoff() {
 		long tms = takeoff_handler.getPlannedTakeoffTime();

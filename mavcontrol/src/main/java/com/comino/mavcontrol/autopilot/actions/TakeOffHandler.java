@@ -82,7 +82,6 @@ public class TakeOffHandler {
 	private ParameterAttributes takeoff_alt_param;
 	private ParameterAttributes takeoff_speed_param;
 
-	protected final Vector4D_F32  takeoff = new Vector4D_F32();
 	protected long       tms_takeoff_plan = 0;
 
 	public TakeOffHandler(IMAVController control) {
@@ -108,8 +107,6 @@ public class TakeOffHandler {
 			logger.writeLocalMsg("[msp] Takeoff already initiated. Aborting.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 			return;
 		}
-
-		takeoff.setTo(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 
 		final PX4Parameters params = PX4Parameters.getInstance();
 		takeoff_alt_param   = params.getParam("MIS_TAKEOFF_ALT");
@@ -152,10 +149,6 @@ public class TakeOffHandler {
 		}
 	}
 
-	public Vector4D_F32 getTakeoffPosition() {
-		return takeoff;
-	}
-
 	public long getPlannedTakeoffTime() {
 		return tms_takeoff_plan;
 	}
@@ -192,8 +185,6 @@ public class TakeOffHandler {
 				}
 				break;
 			case STATE_COUNT_DOWN:
-
-				takeoff.setTo(Float.NaN,Float.NaN,-(float)takeoff_alt_param.value,Float.NaN);
 
 				if(!control.isSimulation()) {
 
@@ -280,7 +271,6 @@ public class TakeOffHandler {
 			case STATE_FINALIZED:
 
 				control.writeLogMessage(new LogMessage("[msp] Setting takeoff position.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-				takeoff.setTo(model.state.l_x,model.state.l_y,model.state.l_z, Float.NaN);
 
 			//	if(completed!=null && model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.TAKEOFF_PROCEDURE))
 				if(completed!=null)

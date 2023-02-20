@@ -1,6 +1,8 @@
 package com.comino.mavcontrol.scenario.items;
 
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.param.PX4Parameters;
+import com.comino.mavcom.param.ParameterAttributes;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavutils.MSPMathUtils;
 
@@ -10,10 +12,14 @@ import georegression.struct.point.Vector4D_F32;
 public class MoveHomeItem extends AbstractScenarioItem {
 
 	private float acceptance_radius_m = Float.NaN;
+	private GeoTuple4D_F32<?> position = new Vector4D_F32();
 
 
 	public MoveHomeItem(IMAVController control) {
 		super(control);
+		final PX4Parameters params = PX4Parameters.getInstance();
+		ParameterAttributes takeoff_alt_param   = params.getParam("MIS_TAKEOFF_ALT");
+		position.setTo(0, 0, -(float)takeoff_alt_param.value, Float.NaN );
 	}
 
 	public void setAcceptanceRadius(float acceptance_radius_m) {
@@ -24,20 +30,12 @@ public class MoveHomeItem extends AbstractScenarioItem {
 
 	@Override
 	public long getTimeout_ms() {
-		GeoTuple4D_F32<?> position = AutoPilotBase.getInstance().getTakoffPosition();
 		return (long)(Math.sqrt(position.x*position.x + position.y*position.y)/max_xyz_velocity)*5000L
 		       + super.getTimeout_ms();
 	}
 
 	@Override
 	public void execute() {
-
-		    GeoTuple4D_F32<?> position = AutoPilotBase.getInstance().getTakoffPosition();
-		    
-		    if(position.z> -2.0) {
-		    	System.err.println("Z should be takeoff altitude but is "+position.z);
-		    	position.z = -2.0f;
-		    }
 		    
 			if(Float.isFinite(acceptance_radius_m))
 				offboard.moveTo(position.x, 
