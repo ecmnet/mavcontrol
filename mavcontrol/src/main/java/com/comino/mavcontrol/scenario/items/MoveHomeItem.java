@@ -3,13 +3,13 @@ package com.comino.mavcontrol.scenario.items;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.param.ParameterAttributes;
-import com.comino.mavcontrol.autopilot.AutoPilotBase;
-import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Vector4D_F32;
 
 public class MoveHomeItem extends AbstractScenarioItem {
+	
+	private static float MAX_ALTITUDE_FOR_PRECLAND = - 2.0f;   // As visibility of the fiducial is limited, limit the target altitude of the approach
 
 	private float acceptance_radius_m = Float.NaN;
 	private GeoTuple4D_F32<?> position = new Vector4D_F32();
@@ -18,7 +18,7 @@ public class MoveHomeItem extends AbstractScenarioItem {
 	public MoveHomeItem(IMAVController control) {
 		super(control);
 		final PX4Parameters params = PX4Parameters.getInstance();
-		ParameterAttributes takeoff_alt_param   = params.getParam("MIS_TAKEOFF_ALT");
+		ParameterAttributes takeoff_alt_param = params.getParam("MIS_TAKEOFF_ALT");
 		position.setTo(0, 0, -(float)takeoff_alt_param.value, Float.NaN );
 	}
 
@@ -36,6 +36,9 @@ public class MoveHomeItem extends AbstractScenarioItem {
 
 	@Override
 	public void execute() {
+		
+		    if(position.z < MAX_ALTITUDE_FOR_PRECLAND)
+		    	position.z = MAX_ALTITUDE_FOR_PRECLAND;
 		    
 			if(Float.isFinite(acceptance_radius_m))
 				offboard.moveTo(position.x, 

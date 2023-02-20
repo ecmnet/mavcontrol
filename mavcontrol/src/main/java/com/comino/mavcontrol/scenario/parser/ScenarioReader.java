@@ -60,7 +60,7 @@ public class ScenarioReader {
 			return scenario;
 
 		} catch (Exception e) {
-			control.writeLogMessage(new LogMessage("Scenario "+filename+" could not be parsed", MAV_SEVERITY.MAV_SEVERITY_CRITICAL));
+			control.writeLogMessage(new LogMessage(filename+" could not be parsed", MAV_SEVERITY.MAV_SEVERITY_CRITICAL));
 		}
 		return null;
 	}
@@ -119,10 +119,11 @@ public class ScenarioReader {
 				list.addAll(relative_list);
 				break;
 			case "include":
-				Scenario include = readScenario(step.getAttributes().getNamedItem("f").getNodeValue());
-				if(include!=null) {
-					list.addAll(include.getList());
-				}
+				// Ignore for now
+//				Scenario include = readScenario(step.getAttributes().getNamedItem("f").getNodeValue());
+//				if(include!=null) {
+//					list.addAll(include.getList());
+//				}
 				break;
 			default:
 				AbstractScenarioItem item = parseStep(step, relative);
