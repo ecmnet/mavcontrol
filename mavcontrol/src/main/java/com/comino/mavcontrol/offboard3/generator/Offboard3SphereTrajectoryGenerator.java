@@ -53,7 +53,7 @@ public class Offboard3SphereTrajectoryGenerator {
 			generateRandomPoint(target.pos(),center,tangentPlane,distance);
 
 			candidate.add(target);
-			candidate.add(new Offboard3PosTarget(plan.getFirst().pos()));
+			candidate.add(new Offboard3PosTarget(plan.getLast().pos()));
 
 			if(planner.planPath(candidate, col.getCurrent())!=null) {
 				// Collision detected 
