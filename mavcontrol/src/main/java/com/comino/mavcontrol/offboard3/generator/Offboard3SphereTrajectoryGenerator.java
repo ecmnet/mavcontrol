@@ -77,9 +77,10 @@ public class Offboard3SphereTrajectoryGenerator {
 				no_invalid++;
 				MSPStringUtils.getInstance().out("Fasibility violated.");
 			}
-			else
+			else {
 				// No collision and feasible
 				candidates.add(candidate); no_valid++;
+			}
 
 
 
