@@ -200,7 +200,7 @@ public class Offboard3Manager {
 
 		Offboard3Plan plan = planner.planDirectPath(p);
 		
-		if(plan.isEmpty() && action!=null) {
+		if((plan == null || plan.isEmpty()) && action!=null) {
 			action.execute(model);
 			return;
 		}
