@@ -3,26 +3,19 @@ package com.comino.mavcontrol.offboard3.generator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 
-import com.comino.mavcom.control.impl.MAVProxyController;
 import com.comino.mavcontrol.offboard3.Offboard3Planner;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
 import com.comino.mavcontrol.offboard3.states.Offboard3Collision;
-import com.comino.mavcontrol.offboard3.states.Offboard3Current;
-import com.comino.mavcontrol.offboard3.states.Offboard3State;
 import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
 import com.comino.mavcontrol.offboard3.target.Offboard3PosTarget;
 import com.comino.mavcontrol.offboard3.target.Offboard3PosVelTarget;
-import com.comino.mavcontrol.offboard3.utils.RuntimeAnalysis;
 import com.comino.mavcontrol.trajectory.minjerk.struct.Boundary;
-import com.comino.mavcontrol.trajectory.minjerk.struct.Sphere;
 import com.comino.mavutils.MSPStringUtils;
 
 import georegression.struct.GeoTuple3D_F32;
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Vector3D_F32;
-import georegression.struct.point.Vector4D_F32;
 
 public class Offboard3SphereTrajectoryGenerator {
 
@@ -30,25 +23,18 @@ public class Offboard3SphereTrajectoryGenerator {
 
 	private final Vector3D_F32        tmp   = new Vector3D_F32();
 
-	private final float               max_xyz_velocity;
-
 	private final List<Offboard3Plan> candidates = new ArrayList<Offboard3Plan>(MAX_NUMBER_CANDIDATES);
 
 	private int no_valid, no_invalid;
 
 
-	public Offboard3SphereTrajectoryGenerator(float max_velocity) {
-		this.max_xyz_velocity = max_velocity;
-	}
-
-	public Offboard3Plan getAvoidancePlan(Offboard3Planner planner, Offboard3Plan plan, Offboard3Collision col, float distance) {
+	public Offboard3Plan getAvoidancePlan(Offboard3Planner planner, Offboard3Plan plan, Offboard3Collision col, float distance, float max_velocity ) {
 
 		no_valid = no_invalid = 0;	candidates.clear();
 
-
 		float time     = plan.getTotalTimeUpTo(col.getPlanningSectionIndex()) + col.getExpectedTimeOfCollision();
 		//		float velocity = max_xyz_velocity * (col.getTotalTime() - time) / col.getTotalTime();
-		float velocity = max_xyz_velocity * 2.0f / 3.0f;//MSP3DUtils.norm3D(col.getExpectedStateAtCollision().vel());
+		float velocity = max_velocity * 10.0f / 10.0f;//MSP3DUtils.norm3D(col.getExpectedStateAtCollision().vel());
 
 		tmp.setTo(col.getCurrent().pos().x,col.getCurrent().pos().y,col.getCurrent().pos().z);
 		Boundary tangentPlane = col.getObstacle().getTangentPlane(tmp); 

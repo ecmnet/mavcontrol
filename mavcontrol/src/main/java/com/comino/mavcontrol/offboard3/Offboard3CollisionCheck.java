@@ -17,7 +17,6 @@ import georegression.struct.point.Point3D_F32;
 public class Offboard3CollisionCheck {
 
 	private static final float MIN_DISTANCE_OBSTACLE            = 0.50f;                     // Minimal distance to obstacle
-	private static final float STEP_TIME                        = 0.01f;                     // Time steps to check
   
 	private final RapidCollsionDetection detector = new RapidCollsionDetection();
 
@@ -65,7 +64,7 @@ public class Offboard3CollisionCheck {
 		if(!obstacle.isValid() || time_section_start > xyzPlanner.getTotalTime())
 			return null;
 		
-		float time_of_detection = detector.collisionCheck(xyzPlanner, time_section_start, obstacle, STEP_TIME);
+		float time_of_detection = detector.collisionCheck(xyzPlanner, time_section_start, obstacle, RapidTrajectoryGenerator.TIME_STEP);
 	    if(time_of_detection >= 0) {
 			final Offboard3State state_of_collision = new Offboard3State();
 			xyzPlanner.getState(time_of_detection, state_of_collision);

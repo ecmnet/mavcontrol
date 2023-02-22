@@ -63,11 +63,13 @@ import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector4D_F32;
 
 public class RapidTrajectoryGenerator {
+	
+	public final  static float  TIME_STEP       = 0.02f;
 
-	private final double MIN_ACC		= 0.0;
-	private final double MAX_ACC		= 0.5;
-	private final double MAX_BODY_RATE  = 2;
-	private final double TIME_STEP      = 0.02;
+	private final static double MIN_ACC		= 0.0;
+	private final static double MAX_ACC		= 0.5;
+	private final static double MAX_BODY_RATE  = 2;
+
 
 
 	private final SingleAxisTrajectory _axis[] = new SingleAxisTrajectory[3];

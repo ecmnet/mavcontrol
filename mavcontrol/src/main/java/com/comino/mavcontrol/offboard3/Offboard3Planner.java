@@ -73,7 +73,7 @@ public class Offboard3Planner {
 		this.acceptance_radius = acceptance_radius;
 
 		this.collisionCheck         = new Offboard3CollisionCheck();
-		this.avoidancePlanGenerator = new Offboard3SphereTrajectoryGenerator(max_xyz_velocity);
+		this.avoidancePlanGenerator = new Offboard3SphereTrajectoryGenerator();
 
 	}
 
@@ -306,7 +306,7 @@ public class Offboard3Planner {
 				planned_xyz_duration = xyzPlanner.generate(estimated_xyz_duration);
 			}
 
-			if(!xyzPlanner.checkInputFeasibility(0, FMAX_FEASIBILITY, WMAX_FEASIBILITY, 0.05f)) {
+			if(!xyzPlanner.checkInputFeasibility(0, FMAX_FEASIBILITY, WMAX_FEASIBILITY, RapidTrajectoryGenerator.TIME_STEP)) {
 				return null;
 			}
 
@@ -374,7 +374,7 @@ public class Offboard3Planner {
 			return null;
 
 
-		Offboard3Plan new_plan = avoidancePlanGenerator.getAvoidancePlan(this, plan, col, distance);
+		Offboard3Plan new_plan = avoidancePlanGenerator.getAvoidancePlan(this, plan, col, distance, max_xyz_velocity);
 		if(new_plan!=null)
 			model.slam.setInfoPoint(new_plan.getFirst().pos());
 
