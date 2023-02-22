@@ -129,12 +129,14 @@ public class ScenarioManager {
 
 				}
 
+				// new scenario replaces current one
 				if(replaceRequest) {
 					step_counter = 0;
 					replaceRequest = false;
 					continue;
 				}
 
+				// Abort requested
 				if(currentItem.isAborted() || abortRequest) {
 					control.writeLogMessage(new LogMessage("[msp] Scenario aborted in step "+step_counter,
 							MAV_SEVERITY.MAV_SEVERITY_ERROR));
@@ -142,6 +144,7 @@ public class ScenarioManager {
 					break;
 				}
 
+				// Completed
 				if(!currentItem.isCompleted()) {
 					control.writeLogMessage(new LogMessage("[msp] Scenario Timeout occurred in step "+step_counter,
 							MAV_SEVERITY.MAV_SEVERITY_ERROR));

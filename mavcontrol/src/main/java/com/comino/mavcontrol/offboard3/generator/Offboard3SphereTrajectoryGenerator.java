@@ -26,7 +26,7 @@ import georegression.struct.point.Vector4D_F32;
 
 public class Offboard3SphereTrajectoryGenerator {
 
-	private static final int MAX_NUMBER_CANDIDATES = 20;
+	private static final int MAX_NUMBER_CANDIDATES = 50;
 
 	private final Vector3D_F32        tmp   = new Vector3D_F32();
 
@@ -54,6 +54,8 @@ public class Offboard3SphereTrajectoryGenerator {
 		Boundary tangentPlane = col.getObstacle().getTangentPlane(tmp); 
 
 		GeoTuple3D_F32<?> center = col.getObstacle().getCenter();
+		
+		// Use boofcv concurrency
 
 		long ts = System.nanoTime(); int i =0;
 		do {
@@ -76,7 +78,7 @@ public class Offboard3SphereTrajectoryGenerator {
 				MSPStringUtils.getInstance().out("Fasibility violated.");
 			}
 			else
-				// No collision and not feasible
+				// No collision and feasible
 				candidates.add(candidate); no_valid++;
 
 
