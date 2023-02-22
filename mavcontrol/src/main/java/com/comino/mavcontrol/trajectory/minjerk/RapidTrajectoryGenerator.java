@@ -197,7 +197,7 @@ public class RapidTrajectoryGenerator {
 	}
 
 	public double getCost() {
-		return _axis[0].getCost() + _axis[1].getCost() + _axis[2].getCost();
+		return _axis[0].getCost() + _axis[1].getCost() + _axis[2].getCost() * 10.0f;
 	}
 
 	public boolean isPlanned() {
