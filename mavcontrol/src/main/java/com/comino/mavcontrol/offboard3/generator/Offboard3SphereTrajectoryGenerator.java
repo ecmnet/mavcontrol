@@ -19,7 +19,8 @@ import georegression.struct.point.Vector3D_F32;
 
 public class Offboard3SphereTrajectoryGenerator {
 
-	private static final int MAX_NUMBER_CANDIDATES = 50;
+	private static final int   MAX_NUMBER_CANDIDATES = 50;
+	private static final float SLOWDOWN_PERCENT      = 10;        // Reduce velocity at avoidancepoint by percentage
 
 	private final Vector3D_F32        tmp   = new Vector3D_F32();
 
@@ -34,7 +35,7 @@ public class Offboard3SphereTrajectoryGenerator {
 
 		float time     = plan.getTotalTimeUpTo(col.getPlanningSectionIndex()) + col.getExpectedTimeOfCollision();
 		//		float velocity = max_xyz_velocity * (col.getTotalTime() - time) / col.getTotalTime();
-		float velocity = max_velocity * 10.0f / 10.0f;//MSP3DUtils.norm3D(col.getExpectedStateAtCollision().vel());
+		float velocity = max_velocity * (100.0f - SLOWDOWN_PERCENT ) / 100.0f;//MSP3DUtils.norm3D(col.getExpectedStateAtCollision().vel());
 
 		tmp.setTo(col.getCurrent().pos().x,col.getCurrent().pos().y,col.getCurrent().pos().z);
 		Boundary tangentPlane = col.getObstacle().getTangentPlane(tmp); 
