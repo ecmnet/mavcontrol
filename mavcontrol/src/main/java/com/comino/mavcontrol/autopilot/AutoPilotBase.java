@@ -202,7 +202,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
 
 			takeoff_handler.abort("Disarmed");
-			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
 			wq.removeTask("LP",future);
 		
 

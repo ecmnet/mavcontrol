@@ -148,6 +148,16 @@ public class MSPCommander  {
 					params.requestRefresh(true);
 			}
 		});
+		
+		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
+			
+			model.slam.ox = Float.NaN;
+			model.slam.oy = Float.NaN;
+			model.slam.oz = Float.NaN;
+			
+			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
+
+		});
 
 		control.getStatusManager().addListener(Status.MSP_PARAMS_LOADED, (n) -> {
 			if(n.isStatus(Status.MSP_PARAMS_LOADED) && !model.sys.isStatus(Status.MSP_ARMED)) {
