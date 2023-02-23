@@ -19,7 +19,7 @@ import georegression.struct.point.Vector3D_F32;
 
 public class Offboard3SphereTrajectoryGenerator {
 
-	private static final int   MAX_NUMBER_CANDIDATES = 50;
+	private static final int   MAX_NUMBER_CANDIDATES = 100;
 	private static final float SLOWDOWN_PERCENT      = 10;        // Reduce velocity at avoidancepoint by percentage
 
 	private final Vector3D_F32        tmp   = new Vector3D_F32();
@@ -68,7 +68,7 @@ public class Offboard3SphereTrajectoryGenerator {
 				candidates.add(candidate); no_valid++;
 			}
 
-		} while((System.nanoTime() -ts) < 2500_000 && ++i < MAX_NUMBER_CANDIDATES );
+		} while((System.nanoTime() -ts) < 5000_000 && ++i < MAX_NUMBER_CANDIDATES );
 	
 		
 
