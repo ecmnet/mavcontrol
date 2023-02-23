@@ -670,7 +670,7 @@ public class RapidTrajectoryGenerator {
 
 		RapidTrajectoryGenerator g = new RapidTrajectoryGenerator();
 		g._tf = 5.0; Point3D_F64 p = new Point3D_F64();
-		for(int i = 0; i< 50000; i++) {
+		for(int i = 0; i< 50_000; i++) {
 			g.generate(5.0);
 			g.getBodyRates(2.0, TIME_STEP, p);
 			g.checkInputFeasibility(MIN_ACC, MAX_ACC, MAX_BODY_RATE, TIME_STEP);
