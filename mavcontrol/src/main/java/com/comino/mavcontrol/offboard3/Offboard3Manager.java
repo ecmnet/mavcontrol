@@ -40,6 +40,7 @@ import com.comino.mavutils.workqueue.WorkQueue;
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Point4D_F32;
+import georegression.struct.point.Vector4D_F32;
 
 
 public class Offboard3Manager {
@@ -94,6 +95,7 @@ public class Offboard3Manager {
 		System.out.println("Acceptance radius: "+acceptance_radius+" m");
 
 		this.planner = new Offboard3Planner(control, acceptance_radius, max_xyz_vel);
+		
 	}
 
 

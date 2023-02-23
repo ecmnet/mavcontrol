@@ -77,7 +77,6 @@ public class Offboard3Planner {
 
 	}
 
-
 	public void setMaxVelocity(float velocity_max_ms) {
 		this.max_xyz_velocity = velocity_max_ms;
 	}
@@ -390,4 +389,5 @@ public class Offboard3Planner {
 	private boolean isValid(GeoTuple4D_F32<?> p) {
 		return p.x != 0 || p.y != 0 || p.z != 0;
 	}
+
 }

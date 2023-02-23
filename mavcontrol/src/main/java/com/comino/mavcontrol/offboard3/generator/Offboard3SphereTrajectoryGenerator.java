@@ -42,7 +42,6 @@ public class Offboard3SphereTrajectoryGenerator {
 
 		GeoTuple3D_F32<?> center = col.getObstacle().getCenter();
 		
-		// Use boofcv concurrency
 
 		long ts = System.nanoTime(); int i =0;
 		do {
@@ -69,9 +68,9 @@ public class Offboard3SphereTrajectoryGenerator {
 				candidates.add(candidate); no_valid++;
 			}
 
-
-
 		} while((System.nanoTime() -ts) < 2500_000 && ++i < MAX_NUMBER_CANDIDATES );
+	
+		
 
 		if(candidates.isEmpty())
 			return null;
