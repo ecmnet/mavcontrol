@@ -131,8 +131,8 @@ public class MSPCommander  {
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS, Status.MSP_CONNECTED, StatusManager.EDGE_RISING, (a) -> {
 			if(!model.sys.isStatus(Status.MSP_ARMED)) {
 				System.out.println("Setting up MAVLINK streams and refresh parameters...");
+				
 				// Note: Interval is in us
-
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ACTUATOR_CONTROL_TARGET,-1);	
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_UTM_GLOBAL_POSITION,-1);	
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ESC_STATUS,-1);	

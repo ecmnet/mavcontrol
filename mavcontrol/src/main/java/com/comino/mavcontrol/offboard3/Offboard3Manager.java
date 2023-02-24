@@ -639,16 +639,17 @@ public class Offboard3Manager {
 
 			float estimated_yaw_duration = 0;
 
+//			control.writeLogMessage(new LogMessage("Next plan section",MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+//			System.err.println(current_state);
 
 			xyzExecutor.reset(); t_planned_xyz = 0;
 
 			xyzExecutor.setInitialState(current_state.pos(),current_state.vel(),current_state.acc());
-			//		xyzExecutor.setInitialState(current_state.sep(),current_state.sev(),current_state.sea());
-
+		
 			switch(target.getType()) {
 			case Offboard3AbstractTarget.TYPE_POS:
 				target.replaceNaNPositionBy(current_state.pos());
-				if(isFinite(target.pos()) &&	!target.isPosReached(current_state.pos(),acceptance_radius,Float.NaN)) {
+				if(isFinite(target.pos()) && !target.isPosReached(current_state.pos(),acceptance_radius,Float.NaN)) {
 					xyzExecutor.setGoal(target.pos(), target.vel(), target.acc());
 					t_planned_xyz = xyzExecutor.generate(target.getPlannedSectionTime());
 					//					MSPStringUtils.getInstance().err("XYZ POS    (Execution): "+target);

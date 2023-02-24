@@ -124,8 +124,15 @@ public class RapidTrajectoryGenerator {
 			_axis[i].setInitialState(x0.getIdx(i),v0.getIdx(i),a0.getIdx(i));
 		}
 	}
+	
+	public void setInitialState(GeoTuple4D_F32<?> x0, GeoTuple4D_F32 v0) {
+		reset();
+		for(int i=0;i<3;i++) {
+			_axis[i].setInitialState(x0.getIdx(i),v0.getIdx(i),0);
+		}
+	}
 
-	public void setInitialState(GeoTuple4D_F32<?> x0, GeoTuple4D_F32 v0, GeoTuple3D_F32 a0) {
+	public void setInitialState(GeoTuple4D_F32<?> x0, GeoTuple4D_F32<?> v0, GeoTuple3D_F32<?> a0) {
 		reset();
 		for(int i=0;i<3;i++) {
 			_axis[i].setInitialState(x0.getIdx(i),v0.getIdx(i),a0.getIdx(i));
@@ -134,8 +141,9 @@ public class RapidTrajectoryGenerator {
 
 	public void setGoal(GeoTuple4D_F32<?> p, GeoTuple4D_F32<?> v) {
 		for(int i=0;i<3;i++) {
-			_axis[i].setGoalPosition(p.getIdx(i));
-			_axis[i].setGoalVelocity(v.getIdx(i));
+			if(p!=null) _axis[i].setGoalPosition(p.getIdx(i));
+			if(v!=null) _axis[i].setGoalVelocity(v.getIdx(i));
+			            _axis[i].setGoalAcceleration(0);
 		}	
 	}
 
@@ -154,6 +162,7 @@ public class RapidTrajectoryGenerator {
 			if(a!=null) _axis[i].setGoalAcceleration(a.getIdx(i));
 		}	
 	}
+
 
 
 	public void setGoal(Point3D_F64 p, Point3D_F64 v, Point3D_F64 a) {
