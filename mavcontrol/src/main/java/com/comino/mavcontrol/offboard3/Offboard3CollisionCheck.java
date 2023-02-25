@@ -64,7 +64,7 @@ public class Offboard3CollisionCheck {
 		if(!obstacle.isValid() || time_section_start > xyzPlanner.getTotalTime())
 			return null;
 		
-		float time_of_detection = detector.collisionCheck(xyzPlanner, time_section_start, obstacle, RapidTrajectoryGenerator.TIME_STEP);
+		float time_of_detection = detector.collisionCheck(xyzPlanner, time_section_start, obstacle, RapidTrajectoryGenerator.TIME_STEP*5);
 	    if(time_of_detection >= 0) {
 			final Offboard3State state_of_collision = new Offboard3State();
 			xyzPlanner.getState(time_of_detection, state_of_collision);

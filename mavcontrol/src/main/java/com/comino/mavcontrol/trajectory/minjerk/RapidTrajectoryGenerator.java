@@ -678,8 +678,10 @@ public class RapidTrajectoryGenerator {
 	private static void warmup() {
 
 		RapidTrajectoryGenerator g = new RapidTrajectoryGenerator();
-		g._tf = 5.0; Point3D_F64 p = new Point3D_F64();
+		g._tf = 5.0; Point3D_F64 p = new Point3D_F64(); Vector4D_F32 v = new Vector4D_F32();
 		for(int i = 0; i< 50_000; i++) {
+			v.setTo((float)Math.random(),(float)Math.random(),(float)Math.random(),Float.NaN);
+			g.setInitialState(v, v);
 			g.generate(5.0);
 			g.getBodyRates(2.0, TIME_STEP, p);
 			g.checkInputFeasibility(MIN_ACC, MAX_ACC, MAX_BODY_RATE, TIME_STEP);

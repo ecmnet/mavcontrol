@@ -55,7 +55,7 @@ public class ScenarioReader {
 			NodeList scenarios = doc.getElementsByTagName("scenario");
 			if(scenarios!=null && scenarios.getLength()>0) {
 				parseScenario(scenarios.item(0).getChildNodes(),scenario);	
-				return scenario;
+				return scenario; 
 			}
 			return scenario;
 

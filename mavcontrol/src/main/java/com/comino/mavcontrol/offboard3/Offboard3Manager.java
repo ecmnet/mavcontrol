@@ -309,6 +309,7 @@ public class Offboard3Manager {
 		}
 
 		public void stopAndLoiter() {
+		
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd,result) -> {
 				if(result == MAV_RESULT.MAV_RESULT_ACCEPTED) 
 					stop();	
@@ -380,6 +381,8 @@ public class Offboard3Manager {
 					stopAndLoiter();
 					return;
 				}
+				
+			//	control.writeLogMessage(new LogMessage("[msp] Next plan.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
 				current_target = planNextSectionExecution(current);	
 				t_section_elapsed = 0;
@@ -453,8 +456,10 @@ public class Offboard3Manager {
 			if(!current_plan.isEmpty() && xyzExecutor.isPlanned() && t_section_elapsed >= xyzExecutor.getTotalTime()) {
 
 				// replace current by last planned state of previous section to avoid undefined acceleration
-				if(t_section_elapsed > 0.01f)
-					current.set(xyzExecutor, t_section_elapsed);
+//				if(t_section_elapsed > 0.01f)
+//					current.set(xyzExecutor, t_section_elapsed);
+				
+//				control.writeLogMessage(new LogMessage("[msp] Next section.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
 				current_target = planNextSectionExecution(current);	
 				if(current_target == null) {
@@ -544,7 +549,6 @@ public class Offboard3Manager {
 					cmd.afy      = Float.NaN;
 					cmd.afz      = Float.NaN;
 				}
-
 
 				if(current_target.isAutoYaw()) {	
 

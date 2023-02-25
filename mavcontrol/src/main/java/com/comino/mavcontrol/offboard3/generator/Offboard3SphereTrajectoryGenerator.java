@@ -53,6 +53,7 @@ public class Offboard3SphereTrajectoryGenerator {
 
 			candidate.add(target);
 			candidate.add(new Offboard3PosTarget(plan.getLast().pos()));
+			candidate.setEstimatedTime(plan.getEstimatedTime()*2);
 
 			if(planner.planPath(candidate, col.getCurrent())!=null) {
 				// Collision detected 

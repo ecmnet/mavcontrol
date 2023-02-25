@@ -159,14 +159,14 @@ public class RapidCollsionDetection {
 		testPointsLo.add(midtime);
 		testPointsHi.add(tf);
 
-		for(int i = 1;i < testPointsHi.size(); i++) {
+		for(int i = 1;i < testPointsHi.size();i++) {
 			traj.getPosition(testPointsHi.get(i), pos);
 			pos.setTo(pos.x - tangentPlane.p.x, pos.y - tangentPlane.p.y, pos.z - tangentPlane.p.z);
 			if (pos.dot(tangentPlane.n) <= 0) {
 				if(collisionCheckSection(traj,testPointsHi.get(i-1),tf, obstacle, minTimeSection)<= 0.0) {
 					break;
 				} else {
-					return testPointsHi.get(i);
+					return testPointsHi.get(i-1);
 				}
 			}
 		}

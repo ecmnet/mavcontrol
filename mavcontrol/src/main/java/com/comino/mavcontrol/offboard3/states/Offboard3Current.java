@@ -46,7 +46,7 @@ public class Offboard3Current extends Offboard3State {
 			
 			pos.setTo(model.state.l_x,  model.state.l_y,  model.state.l_z,  model.attitude.y);
 			vel.setTo(model.state.l_vx, model.state.l_vy, model.state.l_vz, model.attitude.yr);
-			acc.setTo(model.state.l_ax, model.state.l_ay, model.state.l_az);
+			acc.setTo(model.target_state.l_ax, model.target_state.l_ay, model.target_state.l_az);
 		
 			current_pos_setpoint.setTo(model.target_state.l_x,  model.target_state.l_y,  model.target_state.l_z,  model.attitude.sy);
 			current_vel_setpoint.setTo(model.target_state.l_vx, model.target_state.l_vy, model.target_state.l_vz, model.attitude.syr);
