@@ -6,6 +6,7 @@ import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
+import com.comino.mavcom.struct.objects.Sphere;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard3.generator.Offboard3SphereTrajectoryGenerator;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
@@ -18,7 +19,6 @@ import com.comino.mavcontrol.offboard3.target.Offboard3VelTarget;
 import com.comino.mavcontrol.offboard3.target.Offboard3YawTarget;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
-import com.comino.mavcontrol.trajectory.minjerk.struct.Sphere;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.MSPStringUtils;
 
@@ -31,7 +31,7 @@ public class Offboard3Planner {
 	private static final float MAX_YAW_VEL                      = MSPMathUtils.toRad(45);   // Maxumum speed in [rad/s]
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
 	private static final float MIN_XYZ_ESTIMATED_TIME           = 5f;                       // Minumum duration the planner ist used in [s]
-	private static final float MIN_AVOIDANCE_DISTANCE           = 0.75f;                    // Distance to obstacle center
+	private static final float MIN_AVOIDANCE_DISTANCE           = 0.75f;                     // Distance to obstacle 
 	private static final float FMAX_FEASIBILITY                 = 2.5f;                     // Maximum force applied for a plan
 	private static final float WMAX_FEASIBILITY                 = 5f;                       // Maximimu rotation force for a plan
 

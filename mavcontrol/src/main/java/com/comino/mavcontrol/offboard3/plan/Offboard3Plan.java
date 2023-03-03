@@ -5,7 +5,6 @@ import java.util.Collection;
 import java.util.LinkedList;
 
 import com.comino.mavcom.model.DataModel;
-import com.comino.mavcontrol.offboard3.states.Offboard3Current;
 import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
 
 public class Offboard3Plan extends LinkedList<Offboard3AbstractTarget> implements Comparable<Offboard3Plan>  {

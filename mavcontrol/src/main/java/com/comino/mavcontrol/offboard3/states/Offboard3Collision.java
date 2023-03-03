@@ -1,7 +1,6 @@
 package com.comino.mavcontrol.offboard3.states;
 
-import com.comino.mavcontrol.trajectory.minjerk.struct.AbstractConvexObject;
-import com.comino.mavcontrol.trajectory.minjerk.struct.Sphere;
+import com.comino.mavcom.struct.objects.AbstractConvexObject;
 
 public class Offboard3Collision extends Exception {
 
