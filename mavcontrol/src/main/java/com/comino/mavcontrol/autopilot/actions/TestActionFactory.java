@@ -1,35 +1,20 @@
 package com.comino.mavcontrol.autopilot.actions;
 
-import java.util.LinkedList;
-
-import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.lquac.msg_msp_vision;
 
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.messaging.MessageBus;
 import com.comino.mavcom.messaging.msgs.msp_msg_nn_object;
 import com.comino.mavcom.model.DataModel;
-import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
-import com.comino.mavcom.model.segment.Vision;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
-import com.comino.mavcontrol.offboard2.Offboard2Manager;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
 import com.comino.mavcontrol.offboard3.target.Offboard3VelAccTarget;
-import com.comino.mavcontrol.scenario.ScenarioManager;
-import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
-import com.comino.mavcontrol.scenario.items.MoveToItem;
-import com.comino.mavcontrol.scenario.items.ObstacleItem;
-import com.comino.mavcontrol.scenario.items.PrecisionLandItem;
-import com.comino.mavcontrol.scenario.items.TakeOffItem;
-import com.comino.mavcontrol.scenario.parser.Scenario;
-import com.comino.mavcontrol.scenario.parser.ScenarioReader;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
-import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Vector4D_F32;
 
 public class TestActionFactory {

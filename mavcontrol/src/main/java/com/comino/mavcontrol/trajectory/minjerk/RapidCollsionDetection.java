@@ -4,10 +4,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import com.comino.mavcom.struct.objects.AbstractConvexObject;
-import com.comino.mavcom.struct.objects.Boundary;
-import com.comino.mavcom.struct.objects.Sphere;
 import com.comino.mavcontrol.trajectory.minjerk.math.Quartic;
+import com.comino.mavcontrol.trajectory.minjerk.struct.AbstractConvexObject;
+import com.comino.mavcontrol.trajectory.minjerk.struct.Boundary;
+import com.comino.mavcontrol.trajectory.minjerk.struct.Sphere;
 
 import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;

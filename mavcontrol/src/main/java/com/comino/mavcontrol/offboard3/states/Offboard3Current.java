@@ -1,13 +1,11 @@
 package com.comino.mavcontrol.offboard3.states;
 
 import com.comino.mavcom.model.DataModel;
-import com.comino.mavcom.utils.MSP3DUtils;
 
 import georegression.struct.GeoTuple3D_F32;
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point4D_F32;
-import georegression.struct.point.Vector4D_F32;
 
 public class Offboard3Current extends Offboard3State {
 

@@ -5,14 +5,14 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-import com.comino.mavcom.struct.objects.AbstractConvexObject;
-import com.comino.mavcom.struct.objects.Boundary;
 import com.comino.mavcontrol.offboard3.Offboard3Planner;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
 import com.comino.mavcontrol.offboard3.states.Offboard3Collision;
 import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
 import com.comino.mavcontrol.offboard3.target.Offboard3PosTarget;
 import com.comino.mavcontrol.offboard3.target.Offboard3PosVelTarget;
+import com.comino.mavcontrol.trajectory.minjerk.struct.AbstractConvexObject;
+import com.comino.mavcontrol.trajectory.minjerk.struct.Boundary;
 import com.comino.mavutils.MSPStringUtils;
 
 import georegression.struct.GeoTuple3D_F32;

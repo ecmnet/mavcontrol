@@ -211,7 +211,7 @@ public class RapidTrajectoryGenerator {
 	}
 
 	public double getCost() {
-		return _axis[0].getCost() + _axis[1].getCost() + _axis[2].getCost() * 10.0f;
+		return _axis[0].getCost() + _axis[1].getCost() + _axis[2].getCost() * 5.0f;
 	}
 
 	public boolean isPlanned() {
@@ -307,11 +307,11 @@ public class RapidTrajectoryGenerator {
 
 		if (t2 - t1 < minTimeSection) return true;
 		if(Math.max(getThrust(t1,_tmp1), getThrust(t2,_tmp2))  > fmaxAllowed) {
-			System.out.println("MaxThrust: "+Math.max(getThrust(t1,_tmp1), getThrust(t2,_tmp2))+" > "+fmaxAllowed);
+		//	System.out.println("MaxThrust: "+Math.max(getThrust(t1,_tmp1), getThrust(t2,_tmp2))+" > "+fmaxAllowed);
 			return false;
 		}
 		if(Math.min(getThrust(t1,_tmp1), getThrust(t2,_tmp2)) < fminAllowed) {
-			System.out.println("MinThrust: "+Math.min(getThrust(t1,_tmp1), getThrust(t2,_tmp2))+" < "+fminAllowed);
+		//	System.out.println("MinThrust: "+Math.min(getThrust(t1,_tmp1), getThrust(t2,_tmp2))+" < "+fminAllowed);
 			return false;
 		}
 

@@ -6,7 +6,6 @@ import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
-import com.comino.mavcom.struct.objects.Sphere;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard3.generator.Offboard3SphereTrajectoryGenerator;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
@@ -19,6 +18,7 @@ import com.comino.mavcontrol.offboard3.target.Offboard3VelTarget;
 import com.comino.mavcontrol.offboard3.target.Offboard3YawTarget;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
+import com.comino.mavcontrol.trajectory.minjerk.struct.Sphere;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.MSPStringUtils;
 

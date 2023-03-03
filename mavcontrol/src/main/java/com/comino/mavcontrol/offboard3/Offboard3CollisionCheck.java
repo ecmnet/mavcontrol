@@ -3,13 +3,13 @@ package com.comino.mavcontrol.offboard3;
 import java.util.LinkedList;
 
 import com.comino.mavcom.model.DataModel;
-import com.comino.mavcom.struct.objects.AbstractConvexObject;
-import com.comino.mavcom.struct.objects.Sphere;
 import com.comino.mavcontrol.offboard3.states.Offboard3Collision;
 import com.comino.mavcontrol.offboard3.states.Offboard3Current;
 import com.comino.mavcontrol.offboard3.states.Offboard3State;
 import com.comino.mavcontrol.trajectory.minjerk.RapidCollsionDetection;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
+import com.comino.mavcontrol.trajectory.minjerk.struct.AbstractConvexObject;
+import com.comino.mavcontrol.trajectory.minjerk.struct.Sphere;
 
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F32;

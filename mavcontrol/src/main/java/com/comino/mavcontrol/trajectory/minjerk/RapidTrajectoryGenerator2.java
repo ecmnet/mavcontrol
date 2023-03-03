@@ -57,7 +57,6 @@ import georegression.geometry.GeometryMath_F64;
 import georegression.struct.GeoTuple3D_F32;
 import georegression.struct.GeoTuple3D_F64;
 import georegression.struct.GeoTuple4D_F32;
-import georegression.struct.GeoTuple4D_F64;
 import georegression.struct.point.Point3D_F32;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Vector4D_F32;

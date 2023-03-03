@@ -5,12 +5,10 @@ import java.util.LinkedList;
 
 import org.mavlink.messages.MAV_SEVERITY;
 
-import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Slam;
-import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 
