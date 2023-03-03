@@ -132,12 +132,14 @@ public class MSPCommander  {
 			if(!model.sys.isStatus(Status.MSP_ARMED)) {
 				System.out.println("Setting up MAVLINK streams and refresh parameters...");
 				
-				// Note: Interval is in us
+				// Streams removed
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ACTUATOR_CONTROL_TARGET,-1);	
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_UTM_GLOBAL_POSITION,-1);	
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ESC_STATUS,-1);	
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ESC_INFO,-1);	
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_SCALED_PRESSURE,-1);	
+				
+				// rate adjusted Note: Interval is in us
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_ESTIMATOR_STATUS,50000);
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_LOCAL_POSITION_NED,16666);
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_SET_MESSAGE_INTERVAL,IMAVLinkMessageID.MAVLINK_MSG_ID_POSITION_TARGET_LOCAL_NED,16666);
@@ -157,6 +159,7 @@ public class MSPCommander  {
 			model.slam.oz = Float.NaN;
 			
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
+			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, false);
 
 		});
 

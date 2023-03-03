@@ -1,8 +1,9 @@
 package com.comino.mavcontrol.offboard3.generator;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import com.comino.mavcontrol.offboard3.Offboard3Planner;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
@@ -17,21 +18,23 @@ import georegression.struct.GeoTuple3D_F32;
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Vector3D_F32;
 
+
+
 public class Offboard3SphereTrajectoryGenerator {
 
 	private static final int   MAX_NUMBER_CANDIDATES = 100;
 	private static final float SLOWDOWN_PERCENT      = 10;        // Reduce velocity at avoidancepoint by percentage
 
-	private final Vector3D_F32        tmp   = new Vector3D_F32();
+	private final Vector3D_F32     tmp   = new Vector3D_F32();
 
 	private final List<Offboard3Plan> candidates = new ArrayList<Offboard3Plan>(MAX_NUMBER_CANDIDATES);
 
 	private int no_valid, no_invalid;
 
-
 	public Offboard3Plan getAvoidancePlan(Offboard3Planner planner, Offboard3Plan plan, Offboard3Collision col, float distance, float max_velocity ) {
 
-		no_valid = no_invalid = 0;	candidates.clear();
+		no_valid = no_invalid = 0;	
+		candidates.clear();
 
 		float time     = plan.getTotalTimeUpTo(col.getPlanningSectionIndex()) + col.getExpectedTimeOfCollision();
 		//		float velocity = max_xyz_velocity * (col.getTotalTime() - time) / col.getTotalTime();
@@ -41,13 +44,12 @@ public class Offboard3SphereTrajectoryGenerator {
 		Boundary tangentPlane = col.getObstacle().getTangentPlane(tmp); 
 
 		GeoTuple3D_F32<?> center = col.getObstacle().getCenter();
-		
 
 		long ts = System.nanoTime(); int i =0;
 		do {
 
 			Offboard3Plan candidate = new Offboard3Plan();
-			Offboard3AbstractTarget target = new Offboard3PosVelTarget(velocity,time);
+			Offboard3AbstractTarget target = new Offboard3PosVelTarget(velocity * (1+(float)((Math.random()-0.5))),time);
 
 			generateRandomPoint(target.pos(),center,tangentPlane,distance);
 
@@ -70,17 +72,24 @@ public class Offboard3SphereTrajectoryGenerator {
 			}
 
 		} while((System.nanoTime() -ts) < 5000_000 && ++i < MAX_NUMBER_CANDIDATES );
-	
-		
+
 
 		if(candidates.isEmpty())
 			return null;
 
-		Collections.sort(candidates); 
+		try {
 
-		MSPStringUtils.getInstance().out("Valid candidates: "+no_valid+" Invalid candidates: "+no_invalid);
+			// get candidate with minimum costs
+			Offboard3Plan minCost_candidate = candidates.stream()
+					.min(Comparator.comparing(Offboard3Plan::getTotalCosts)).orElseThrow(NoSuchElementException::new);
 
-		return candidates.get(0);
+			MSPStringUtils.getInstance().out("Valid candidates: "+no_valid+" Invalid candidates: "+no_invalid+" Time: "+((System.nanoTime() -ts) /1000L)+"us");
+
+			return minCost_candidate;
+
+		} catch(NoSuchElementException ne) {
+			return null;
+		}
 	}
 
 

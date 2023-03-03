@@ -410,10 +410,8 @@ public class Offboard3Manager {
 
 			}
 
-
-			if(current_target.isPositionFinite() && MSP3DUtils.distance3D(current.pos(), current_target.pos())< acceptance_radius) {
+			if(current_target.isPositionFinite() && MSP3DUtils.distance3DSQ(current.pos(), current_target.pos())< acceptance_radius*acceptance_radius) {
 				if(reached!=null && planQueue.isEmpty() && current_plan.isEmpty()) {
-
 					ITargetReached action = reached; reached = null;
 					action.execute(model);
 					if(reached != null)
@@ -730,7 +728,7 @@ public class Offboard3Manager {
 
 				}
 			} 
-			else if(MSP3DUtils.distance3D(target.pos(), current_state.pos()) < MIN_DISTANCE_FOR_YAW_CONTROL) {
+			else if(MSP3DUtils.distance3DSQ(target.pos(), current_state.pos()) < MIN_DISTANCE_FOR_YAW_CONTROL*MIN_DISTANCE_FOR_YAW_CONTROL) {
 				// Do not auto control yaw if too close to the target
 				target.setAutoYaw(false);
 				target.pos().w = current_state.pos().w;

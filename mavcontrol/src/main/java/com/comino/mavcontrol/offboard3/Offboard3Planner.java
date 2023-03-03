@@ -199,7 +199,7 @@ public class Offboard3Planner {
 
 			new_plan = doReplanning(new_plan, collision, MIN_AVOIDANCE_DISTANCE);
 
-			if(new_plan == null) {
+			if(new_plan == null || new_plan.isEmpty()) {
 				control.writeLogMessage(new LogMessage("[msp] Replanning found no solution.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				return null;
 			}
@@ -235,7 +235,6 @@ public class Offboard3Planner {
 
 			nextPlannedCurrentState = planSection(section, nextPlannedCurrentState);
 			if(nextPlannedCurrentState==null) {
-				control.writeLogMessage(new LogMessage("[msp] Plan not feasible. Aborted.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
 				plan.clear();
 				return null;
 			}
@@ -254,13 +253,14 @@ public class Offboard3Planner {
 	}
 
 	private Offboard3State planSection(Offboard3AbstractTarget target, Offboard3State current_state)  {
+		
 
 		float estimated_xyz_duration = 0; float estimated_yaw_duration = 0; 
 		float planned_xyz_duration = 0; float planned_yaw_duration = 0; 
 
 
 		target.replaceNaNPositionBy(current_state.pos());
-
+		
 		// XYZ planning
 
 		if(target.getDuration() < 0) {
@@ -275,6 +275,7 @@ public class Offboard3Planner {
 		}
 		else
 			estimated_xyz_duration = target.getDuration();
+
 
 		xyzPlanner.reset();
 		if(target.isPositionFinite() || isValid(target.vel()) && 
@@ -304,10 +305,12 @@ public class Offboard3Planner {
 					estimated_xyz_duration = 2f;
 				planned_xyz_duration = xyzPlanner.generate(estimated_xyz_duration);
 			}
+			
 
 			if(!xyzPlanner.checkInputFeasibility(0, FMAX_FEASIBILITY, WMAX_FEASIBILITY, RapidTrajectoryGenerator.TIME_STEP)) {
 				return null;
 			}
+			
 
 			// Yaw Planning 
 
@@ -358,6 +361,7 @@ public class Offboard3Planner {
 			//			xyzPlanner.getGoalPosition(new_current_state.pos());
 			//			xyzPlanner.getGoalVelocity(new_current_state.vel());
 			//			xyzPlanner.getGoalAcceleration(new_current_state.acc());
+			
 
 		}
 

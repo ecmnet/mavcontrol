@@ -147,7 +147,7 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 			float dy = vel.y - c.y;
 			float dz = vel.z - c.z;
 
-			if(Math.sqrt(dx*dx+dy*dy+dz*dz) > max) {
+			if((dx*dx+dy*dy+dz*dz) > max*max) {
 				return false;
 			}
 			return true;
@@ -164,7 +164,7 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 			float dy = pos.y - c.y;
 			float dz = pos.z - c.z;
 
-			if(Math.sqrt(dx*dx+dy*dy+dz*dz) > max) {
+			if((dx*dx+dy*dy+dz*dz) > max*max) {
 				return false;
 			}
 		}
