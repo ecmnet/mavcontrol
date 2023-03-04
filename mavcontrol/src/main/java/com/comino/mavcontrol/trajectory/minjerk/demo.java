@@ -62,9 +62,9 @@ public class demo {
 		RapidTrajectoryGenerator traj = new RapidTrajectoryGenerator(pos0, vel0, acc0, gravity);
 
 		//define the goal state:
-		Point3D_F64 posf = new Point3D_F64(0,0,0 );
-		Point3D_F64 velf = new Point3D_F64(0,0,0);
-		Point3D_F64 accf = new Point3D_F64(1,1,0);
+		Point3D_F64 posf = new Point3D_F64(Math.random(),Math.random(),Math.random() );
+		Point3D_F64 velf = new Point3D_F64(Math.random(),Math.random(),0);
+		Point3D_F64 accf = new Point3D_F64(0,0,0);
 
 		Point3D_F64 tmp = new Point3D_F64(0,0,0);
 
@@ -82,11 +82,23 @@ public class demo {
 		Point3D_F64 floorPos    = new Point3D_F64(0,0,0);   //any point on the boundary
 		Point3D_F64 floorNormal = new Point3D_F64(0,0,1);   //we want to be in this direction of the boundary
 
-//		traj.setGoalPosition(posf);
-//		traj.setGoalVelocity(velf);
-		traj.setGoalAcceleration(accf);
+		long tms = System.nanoTime();
+		for(int i=0; i < 100000;i++) {
+			
+			posf.setTo(Math.random(),Math.random(),Math.random() );
+			velf.setTo(Math.random(),Math.random(),0);
+			accf.setTo(0,0,0 );
+			
+			traj.setGoalPosition(posf);
+			traj.setGoalVelocity(velf);
+			traj.setGoalAcceleration(accf);
+			
+			traj.generate(Tf);
+			traj.checkInputFeasibility(fmin,fmax,wmax,minTimeSec);
+			traj.checkPositionFeasibility(floorPos, floorNormal);
+		}
+		System.out.println((System.nanoTime()-tms)/1000);
 
-		traj.generate(Tf);
 
 		for(int i = 0; i < 3; i++) {
 			System.out.println(" Axis: "+i);
@@ -100,13 +112,13 @@ public class demo {
 		System.out.println("Input feasible: "+ traj.checkInputFeasibility(fmin,fmax,wmax,minTimeSec));
 		System.out.println("Position feasible: "+traj.checkPositionFeasibility(floorPos, floorNormal));
 
-		System.out.println(); int i=0;
-		for(double time_s =0; time_s < 1; time_s = time_s + Tf/100) {
-			traj.getPosition(time_s, tmp);
-			traj.getAcceleration(time_s, tmp);
-			System.out.println((++i)+": "+tmp);
-
-		} 
+//		System.out.println(); int i=0;
+//		for(double time_s =0; time_s < 1; time_s = time_s + Tf/100) {
+//			traj.getPosition(time_s, tmp);
+//			traj.getAcceleration(time_s, tmp);
+//			System.out.println((++i)+": "+tmp);
+//
+//		} 
 
 	}
 

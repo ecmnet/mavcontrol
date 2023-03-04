@@ -282,7 +282,11 @@ public class ScenarioReader {
 						parsePositionLocal(param, obstacle,relative);
 						break;
 					case "size":
-						obstacle.setSize(parseFloatAttribute(param,"s"));
+						obstacle.setSize(
+								parseFloatAttribute(param,"sx"),
+								parseFloatAttribute(param,"sy"),
+								parseFloatAttribute(param,"sz")
+								);
 						break;
 					}
 				}

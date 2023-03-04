@@ -155,9 +155,9 @@ public class TestActionFactory {
 
 		final DataModel m  = AutoPilotBase.getInstance().getControl().getCurrentModel();
 
-		m.slam.ox = (float)(Math.random()*3 -1.5);
-		m.slam.oy = (float)(Math.random()*3 -1.5);
-		m.slam.oz = -1.2f;
+		m.obs.x = (float)(Math.random()*3 -1.5);
+		m.obs.y = (float)(Math.random()*3 -1.5);
+		m.obs.z = -1.2f;
 
 	}
 
@@ -170,11 +170,11 @@ public class TestActionFactory {
 
 		if(enable && ( model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) || model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))) {
 
-			if(Float.isFinite(model.slam.ox)) {
+			if(Float.isFinite(model.obs.x)) {
 				worker2 = wq.addCyclicTask("LP", 10000, () -> {
 
 					// Obstacle 
-					offboard.moveTo((float)(Math.random()*2f-1f+0.8f)*skip + model.slam.ox, model.slam.oy,
+					offboard.moveTo((float)(Math.random()*2f-1f+0.8f)*skip + model.obs.x, model.obs.y,
 							(float)Math.random()*0.5f-1.5f, Float.NaN);
 					skip = skip * -1;
 

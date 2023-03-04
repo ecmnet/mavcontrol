@@ -35,24 +35,17 @@
 package com.comino.mavcontrol.commander;
 
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.LinkedList;
-import java.util.concurrent.TimeUnit;
 
 import org.mavlink.messages.IMAVLinkMessageID;
 import org.mavlink.messages.MAV_BATTERY_CHARGE_STATE;
 import org.mavlink.messages.MAV_CMD;
-import org.mavlink.messages.MAV_MODE_FLAG;
-import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import org.mavlink.messages.MSP_CMD;
 import org.mavlink.messages.MSP_COMPONENT_CTRL;
-import org.mavlink.messages.lquac.msg_gps_global_origin;
 import org.mavlink.messages.lquac.msg_msp_command;
-import org.mavlink.messages.lquac.msg_set_gps_global_origin;
 import org.mavlink.messages.lquac.msg_set_home_position;
 
 import com.comino.mavcom.config.MSPConfig;
@@ -60,7 +53,6 @@ import com.comino.mavcom.config.MSPParams;
 import com.comino.mavcom.control.IMAVMSPController;
 import com.comino.mavcom.log.MSPLogger;
 import com.comino.mavcom.mavlink.IMAVLinkListener;
-import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
@@ -69,14 +61,12 @@ import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavcontrol.autopilot.actions.OffboardActionFactory;
-import com.comino.mavcontrol.autopilot.actions.TestActionFactory;
 import com.comino.mavcontrol.scenario.ScenarioFactory;
 import com.comino.mavcontrol.scenario.ScenarioManager;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 import com.comino.mavcontrol.scenario.parser.Scenario;
 import com.comino.mavcontrol.scenario.parser.ScenarioReader;
 import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
-import com.comino.mavutils.legacy.ExecutorService;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 @SuppressWarnings("unused")
@@ -154,9 +144,7 @@ public class MSPCommander  {
 		
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS, Status.MSP_ARMED, StatusManager.EDGE_FALLING, (n) -> {
 			
-			model.slam.ox = Float.NaN;
-			model.slam.oy = Float.NaN;
-			model.slam.oz = Float.NaN;
+			model.obs.clear();
 			
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
 			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, false);

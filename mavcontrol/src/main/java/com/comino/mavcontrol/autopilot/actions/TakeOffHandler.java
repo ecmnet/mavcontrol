@@ -49,8 +49,6 @@ import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.param.ParameterAttributes;
 import com.comino.mavutils.workqueue.WorkQueue;
 
-import georegression.struct.point.Vector4D_F32;
-
 public class TakeOffHandler {
 
 	protected static final float MAX_REL_DELTA         = 0.10f;

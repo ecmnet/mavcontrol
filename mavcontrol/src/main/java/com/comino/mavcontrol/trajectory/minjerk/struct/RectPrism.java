@@ -37,9 +37,9 @@ public class RectPrism extends AbstractConvexObject {
 
 	@Override
 	public boolean isPointInside(GeoTuple3D_F32<?> p) {
-		return (Math.abs(p.x) <= lengths.x / 2)
-		   &&  (Math.abs(p.y) <= lengths.y / 2)
-		   &&  (Math.abs(p.z) <= lengths.z / 2);
+		return (Math.abs(p.x-center.x) <= lengths.x / 2)
+		   &&  (Math.abs(p.y-center.y) <= lengths.y / 2)
+		   &&  (Math.abs(p.z-center.z) <= lengths.z / 2);
 	}
 
 	@Override

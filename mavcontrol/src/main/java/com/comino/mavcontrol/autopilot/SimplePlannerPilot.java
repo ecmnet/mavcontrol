@@ -73,17 +73,11 @@ import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.messaging.MessageBus;
 import com.comino.mavcom.messaging.ModelSubscriber;
 import com.comino.mavcom.messaging.msgs.msp_msg_nn_object;
-import com.comino.mavcom.model.segment.Battery;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcom.utils.SimpleLowPassFilter;
-import com.comino.mavcontrol.autopilot.actions.TestActionFactory;
-import com.comino.mavcontrol.offboard2.Offboard2Manager;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
-import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.point.Point4D_F64;
-import georegression.struct.point.Vector4D_F32;
-import georegression.struct.point.Vector4D_F64;
 
 
 public class SimplePlannerPilot extends AutoPilotBase {
@@ -106,10 +100,7 @@ public class SimplePlannerPilot extends AutoPilotBase {
 			
 
 			if(n.tms == 0) {
-				model.slam.dm = Float.NaN;
-				model.slam.ox = Float.NaN;
-				model.slam.oy = Float.NaN;
-				model.slam.oz = Float.NaN;
+				model.obs.clear();
 				return;
 			}
 			
@@ -135,9 +126,12 @@ public class SimplePlannerPilot extends AutoPilotBase {
 
 			// TODO: Replace the transfer by Message bus:
 			model.slam.dm = distance;
-			model.slam.ox = (float)n.position.x;
-			model.slam.oy = (float)n.position.y;
-			model.slam.oz = (float)n.position.z;
+			model.obs.x = (float)n.position.x;
+			model.obs.y = (float)n.position.y;
+			model.obs.z = (float)n.position.z;
+			model.obs.sx = 0.5f;
+			model.obs.sy = 0.5f;
+			model.obs.sz = 2.0f;
 
 
 		}));

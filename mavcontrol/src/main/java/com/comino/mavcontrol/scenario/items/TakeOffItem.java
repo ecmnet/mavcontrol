@@ -6,7 +6,6 @@ import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcontrol.autopilot.actions.TakeOffHandler;
-import com.comino.mavcontrol.scenario.ScenarioManager;
 
 public class TakeOffItem extends AbstractScenarioItem {
 

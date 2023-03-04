@@ -102,7 +102,7 @@ public class RapidCollsionDetection {
 	{
 
 		float midtime = (ts + tf) / 2;
-		Point3D_F32 midpoint = traj.getPosition(midtime,new Point3D_F32());
+		Vector3D_F32 midpoint = traj.getPosition(midtime,new Vector3D_F32());
 
 		if (obstacle.isPointInside(midpoint)) {
 			return midtime;

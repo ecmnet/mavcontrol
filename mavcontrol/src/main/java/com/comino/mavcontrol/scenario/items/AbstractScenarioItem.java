@@ -54,7 +54,6 @@ public abstract class AbstractScenarioItem {
 
 	}
 
-
 	public void setPositionGlobal(double lat, double lon, double alt, double w) {
 		// TODO convert to local position and call setPositionLocal
 	}

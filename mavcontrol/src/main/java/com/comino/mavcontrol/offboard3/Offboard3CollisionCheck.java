@@ -22,7 +22,7 @@ public class Offboard3CollisionCheck {
 
 	
 	public boolean isTargetFeasible(DataModel model,GeoTuple4D_F32<?> pos) {
-		Sphere obstacle = new Sphere(model.slam.ox,model.slam.oy, model.slam.oz, MIN_DISTANCE_OBSTACLE);
+		Sphere obstacle = new Sphere(model.obs.x,model.obs.y, model.obs.z, MIN_DISTANCE_OBSTACLE);
 		return isTargetFeasible(obstacle,pos);
 	}
 	
@@ -54,7 +54,7 @@ public class Offboard3CollisionCheck {
 
 	public Offboard3Collision check(RapidTrajectoryGenerator xyzPlanner, DataModel model, 
 			                              float time_section_start, Offboard3Current current,int planningSectionsIndex)  {
-		return check(xyzPlanner,new Sphere(model.slam.ox,model.slam.oy, model.slam.oz, MIN_DISTANCE_OBSTACLE),time_section_start,current,planningSectionsIndex);
+		return check(xyzPlanner,new Sphere(model.obs.x,model.obs.y, model.obs.z, MIN_DISTANCE_OBSTACLE),time_section_start,current,planningSectionsIndex);
 	}
 	
 

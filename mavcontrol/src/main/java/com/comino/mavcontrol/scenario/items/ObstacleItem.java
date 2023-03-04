@@ -1,9 +1,12 @@
 package com.comino.mavcontrol.scenario.items;
 
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavutils.MSPMathUtils;
 
+import georegression.struct.GeoTuple3D_F32;
 import georegression.struct.GeoTuple4D_F32;
+import georegression.struct.point.Vector3D_F32;
 import georegression.struct.point.Vector4D_F32;
 
 public class ObstacleItem extends AbstractScenarioItem {
@@ -12,7 +15,7 @@ public class ObstacleItem extends AbstractScenarioItem {
 	public static final int OBSTACLE_TYPE_BOX    = 2;
 
 	private final GeoTuple4D_F32<?> position = new Vector4D_F32();
-	private float size_m;
+	private final GeoTuple3D_F32<?> size     = new Vector3D_F32();
 	private int   obstacle_type;
 
 	public ObstacleItem(IMAVController control) {
@@ -27,38 +30,37 @@ public class ObstacleItem extends AbstractScenarioItem {
 		this.obstacle_type = obstacle_type;
 	}
 
-	public void setSize(float size_m) {
-		this.size_m = size_m;
+	public void setSize(float sx, float sy, float sz) {
+		this.size.setTo(sx,sy,sz);
 	}
 
 	@Override
 	public void execute() {
-		
-		if(size_m > 0) {
 
-		if(Float.isFinite(position.x))
-			model.slam.ox = position.x;
-		else
-			model.slam.ox = model.state.l_x;
+		if(MSP3DUtils.isFinite(size)) {
 
-		if(Float.isFinite(position.y))
-			model.slam.oy = position.y;
-		else
-			model.slam.oy = model.state.l_y;
+			if(Float.isFinite(position.x))
+				model.obs.x = position.x;
+			else
+				model.obs.x = model.state.l_x;
 
-		if(Float.isFinite(position.z))
-			model.slam.oz = position.z;
-		else
-			model.slam.oz = model.state.l_z;
-		
-		} else {
+			if(Float.isFinite(position.y))
+				model.obs.y = position.y;
+			else
+				model.obs.y = model.state.l_y;
+
+			if(Float.isFinite(position.z))
+				model.obs.z = position.z;
+			else
+				model.obs.z = model.state.l_z;
 			
-			model.slam.ox = Float.NaN;
-			model.slam.oy = Float.NaN;
-			model.slam.oz = Float.NaN;
-			
-		}
-		
+			model.obs.sx = size.x;
+			model.obs.sy = size.y;
+			model.obs.sz = size.z;
+
+		} else 
+			model.obs.clear();
+
 		completed();
 
 	}

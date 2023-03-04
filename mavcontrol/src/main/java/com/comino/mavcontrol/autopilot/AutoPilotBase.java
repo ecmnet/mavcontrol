@@ -45,7 +45,6 @@ import com.comino.mavcom.log.MSPLogger;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
-import com.comino.mavcom.model.segment.Vision;
 import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.status.StatusManager;
 import com.comino.mavcom.struct.Polar3D_F32;
@@ -64,7 +63,6 @@ import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
 
-import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F64;
 
 
@@ -260,13 +258,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected void transferObstacleToModel(Polar3D_F32 obstacle) {
 
 		if(obstacle!=null) {
-			model.slam.ox = obstacle.getX()+model.state.l_x;
-			model.slam.oy = obstacle.getY()+model.state.l_y;
-			model.slam.oz = obstacle.getZ()+model.state.l_z;
+			model.obs.x = obstacle.getX()+model.state.l_x;
+			model.obs.y = obstacle.getY()+model.state.l_y;
+			model.obs.z = obstacle.getZ()+model.state.l_z;
 			if(control.isSimulation())
 				model.slam.dm = obstacle.value;
 		} else {
-			model.slam.ox = 0; model.slam.ox = 0; model.slam.ox = 0;
+			model.obs.clear();
 			if(control.isSimulation())
 				model.slam.dm = Float.NaN;
 		}

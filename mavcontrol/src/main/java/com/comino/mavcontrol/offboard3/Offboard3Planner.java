@@ -224,7 +224,7 @@ public class Offboard3Planner {
 
 		plannedSectionCount = 0;
 
-		Sphere obstacle = new Sphere(model.slam.ox,model.slam.oy, model.slam.oz, 0.5f);
+		Sphere obstacle = new Sphere(model.obs.x,model.obs.y, model.obs.z, 0.5f);
 
 		plan.clearCostAndTime();
 
