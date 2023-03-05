@@ -160,12 +160,15 @@ public class Offboard3Planner {
 		return new_plan;	
 	}
 
-
 	public Offboard3Plan planDirectPath(GeoTuple4D_F32<?> pos_target) {
 		return planDirectPath(pos_target,false);
 	}
-
+	
 	public Offboard3Plan planDirectPath(GeoTuple4D_F32<?> pos_target, boolean replanning) {
+		return planDirectPath(pos_target,MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_velocity, replanning);
+	}
+
+	public Offboard3Plan planDirectPath(GeoTuple4D_F32<?> pos_target, float estimatedTime,boolean replanning) {
 
 
 		reset(); current.update();
@@ -176,8 +179,7 @@ public class Offboard3Planner {
 		}
 
 		Offboard3Plan new_plan = new Offboard3Plan();
-
-		new_plan.setEstimatedTime(MSP3DUtils.distance3D(pos_target, current.pos()) / max_xyz_velocity);
+		new_plan.setEstimatedTime(estimatedTime);
 
 		float max_speed_time = new_plan.getEstimatedTime() - ACCELERATION_PHASE_SECS - DECELERATION_PHASE_SECS;
 

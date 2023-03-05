@@ -30,6 +30,7 @@ import com.comino.mavcontrol.offboard3.states.Offboard3Collision;
 import com.comino.mavcontrol.offboard3.states.Offboard3Current;
 import com.comino.mavcontrol.offboard3.states.Offboard3State;
 import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
+import com.comino.mavcontrol.offboard3.target.Offboard3PosTarget;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
 import com.comino.mavutils.MSPMathUtils;
@@ -39,6 +40,8 @@ import com.comino.mavutils.workqueue.WorkQueue;
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Point3D_F64;
 import georegression.struct.point.Point4D_F32;
+import georegression.struct.point.Vector3D_F32;
+import georegression.struct.point.Vector4D_F32;
 
 
 public class Offboard3Manager {
@@ -58,6 +61,7 @@ public class Offboard3Manager {
 	private static final float MIN_YAW_PLANNING_DURATION        = 0.2f;                     // Minumum duration the planner ist used in [s]
 	private static final float YAW_PV							= 0.06f;                    // P factor for auto yaw rate control
 	private static final float MAX_XYZ_VEL                      = 1.0f;                     // Maxumum speed in [m/s]
+	private static final float EMERGENCY_STOP_TIME              = 0.5f;                     // A expected collision within this time leads to an immediate stop
 
 
 	private final Offboard3Worker   worker;
@@ -93,7 +97,7 @@ public class Offboard3Manager {
 		System.out.println("Acceptance radius: "+acceptance_radius+" m");
 
 		this.planner = new Offboard3Planner(control, acceptance_radius, max_xyz_vel);
-		
+
 	}
 
 
@@ -103,14 +107,14 @@ public class Offboard3Manager {
 			return;
 
 		this.acceptance_radius = RADIUS_ACCEPT;
-		
+
 		Offboard3Plan plan = planner.planDirectYaw(radians);
-		
+
 		if(plan.isEmpty() && action!=null) {
 			action.execute(model);
 			return;
 		}
-		
+
 		worker.setPlan(plan);	
 		worker.start(action);
 
@@ -125,9 +129,9 @@ public class Offboard3Manager {
 		float target = MSPMathUtils.normAngle(model.attitude.y+radians);
 
 		this.acceptance_radius = RADIUS_ACCEPT;
-		
+
 		Offboard3Plan plan = planner.planDirectYaw(target);
-		
+
 		if(plan.isEmpty() && action!=null) {
 			action.execute(model);
 			return;
@@ -142,7 +146,7 @@ public class Offboard3Manager {
 
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && !model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
 			return;
-		
+
 		if(plan.isEmpty() && action!=null) {
 			action.execute(model);
 			return;
@@ -175,7 +179,7 @@ public class Offboard3Manager {
 
 		Point4D_F32 p = new Point4D_F32(x,y,z,w);
 		Offboard3Plan plan = planner.planCircle(p, r, a);
-		
+
 		if(plan.isEmpty() && action!=null) {
 			action.execute(model);
 			return;
@@ -199,12 +203,12 @@ public class Offboard3Manager {
 		this.acceptance_radius = acceptance_radius_m;
 
 		Offboard3Plan plan = planner.planDirectPath(p);
-		
+
 		if((plan == null || plan.isEmpty()) && action!=null) {
 			action.execute(model);
 			return;
 		}
-		
+
 		worker.setPlan(plan);
 		worker.start(action);
 
@@ -254,6 +258,7 @@ public class Offboard3Manager {
 
 		// Collsion check
 		private final Offboard3CollisionCheck   collisionCheck;
+		private final Vector4D_F32              target_to_stop = new Vector4D_F32();
 
 		// Queue of plans
 		private final BlockingQueue<Offboard3Plan> planQueue = new ArrayBlockingQueue<Offboard3Plan>(1);
@@ -307,7 +312,7 @@ public class Offboard3Manager {
 		}
 
 		public void stopAndLoiter() {
-		
+
 			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE, (cmd,result) -> {
 				if(result == MAV_RESULT.MAV_RESULT_ACCEPTED) 
 					stop();	
@@ -379,8 +384,8 @@ public class Offboard3Manager {
 					stopAndLoiter();
 					return;
 				}
-				
-			//	control.writeLogMessage(new LogMessage("[msp] Next plan.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+
+				//	control.writeLogMessage(new LogMessage("[msp] Next plan.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
 				current_target = planNextSectionExecution(current);	
 				t_section_elapsed = 0;
@@ -452,10 +457,10 @@ public class Offboard3Manager {
 			if(!current_plan.isEmpty() && xyzExecutor.isPlanned() && t_section_elapsed >= xyzExecutor.getTotalTime()) {
 
 				// replace current by last planned state of previous section to avoid undefined acceleration
-//				if(t_section_elapsed > 0.01f)
-//					current.set(xyzExecutor, t_section_elapsed);
-				
-//				control.writeLogMessage(new LogMessage("[msp] Next section.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+				//				if(t_section_elapsed > 0.01f)
+				//					current.set(xyzExecutor, t_section_elapsed);
+
+				//				control.writeLogMessage(new LogMessage("[msp] Next section.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 
 				current_target = planNextSectionExecution(current);	
 				if(current_target == null) {
@@ -471,15 +476,27 @@ public class Offboard3Manager {
 
 			if(collision!=null) {
 
-				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP) && control.isSimulation()) {
-					//
-					float stop_time = 0.5f;
-					if(collision.getExpectedTimeOfCollision() < stop_time) {
-						control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(collision.getExpectedTimeOfCollision())+". Stopped.", 
-								MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
-						stopAndLoiter();
-						return;
-					}
+				float stop_time = collision.getExpectedTimeOfCollision() - t_section_elapsed;
+				if(stop_time < EMERGENCY_STOP_TIME) {
+					// Collision within 1 sec
+					control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(stop_time)+". Stopped.", 
+							MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
+					stopAndLoiter();
+					return;
+				} else {
+					// Collision expected later 
+					xyzExecutor.getPosition(stop_time-EMERGENCY_STOP_TIME, target_to_stop);
+					Offboard3Plan plan_to_stop = planner.planDirectPath(target_to_stop, collision.getExpectedTimeOfCollision(),true);
+					planQueue.clear(); planQueue.add(plan_to_stop);
+					control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(stop_time)+". Stopping.", 
+							MAV_SEVERITY.MAV_SEVERITY_CRITICAL));
+					reached = new ITargetReached() {
+						@Override
+						public void execute(DataModel m) {
+							stopAndLoiter();
+						}		
+					};
+					return;			
 				}
 			}
 
@@ -639,13 +656,13 @@ public class Offboard3Manager {
 
 			float estimated_yaw_duration = 0;
 
-//			control.writeLogMessage(new LogMessage("Next plan section",MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-//			System.err.println(current_state);
+			//			control.writeLogMessage(new LogMessage("Next plan section",MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+			//			System.err.println(current_state);
 
 			xyzExecutor.reset(); t_planned_xyz = 0;
 
 			xyzExecutor.setInitialState(current_state.pos(),current_state.vel(),current_state.acc());
-		
+
 			switch(target.getType()) {
 			case Offboard3AbstractTarget.TYPE_POS:
 				target.replaceNaNPositionBy(current_state.pos());

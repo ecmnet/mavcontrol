@@ -16,9 +16,10 @@ import georegression.struct.point.Point3D_F32;
 
 public class Offboard3CollisionCheck {
 
-	private static final float MIN_DISTANCE_OBSTACLE            = 0.50f;                     // Minimal distance to obstacle
+	private static final float MIN_DISTANCE_OBSTACLE            = 0.5f;                     // Minimal distance to obstacle
   
 	private final RapidCollsionDetection detector = new RapidCollsionDetection();
+	private final Sphere emergency_stop_obstacle = new Sphere(0,0,0, MIN_DISTANCE_OBSTACLE);
 
 	
 	public boolean isTargetFeasible(DataModel model,GeoTuple4D_F32<?> pos) {
@@ -54,7 +55,8 @@ public class Offboard3CollisionCheck {
 
 	public Offboard3Collision check(RapidTrajectoryGenerator xyzPlanner, DataModel model, 
 			                              float time_section_start, Offboard3Current current,int planningSectionsIndex)  {
-		return check(xyzPlanner,new Sphere(model.obs.x,model.obs.y, model.obs.z, MIN_DISTANCE_OBSTACLE),time_section_start,current,planningSectionsIndex);
+		emergency_stop_obstacle.getCenter().setTo(model.obs.x,model.obs.y,model.obs.z);
+		return check(xyzPlanner,emergency_stop_obstacle,time_section_start,current,planningSectionsIndex);
 	}
 	
 
