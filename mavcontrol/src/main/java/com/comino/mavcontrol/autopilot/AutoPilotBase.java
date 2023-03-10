@@ -60,7 +60,7 @@ import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavcontrol.scenario.ScenarioManager;
 import com.comino.mavmap.map.map3D.Map3DSpacialInfo;
 import com.comino.mavmap.map.map3D.impl.octomap.MAVOctoMap3D;
-import com.comino.mavmap.map.map3D.store.OctoMap3DStorage;
+import com.comino.mavmap.map.map3D.impl.octomap.store.OctoMap3DStorage;
 import com.comino.mavmap.test.MapTestFactory;
 import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
@@ -461,7 +461,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 			model.sys.setSensor(Status.MSP_GRID_AVAILABILITY, true);
 			
-			map.insertRandom(2);
 
 			try {
 
@@ -473,12 +472,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 					});
 					map.resetChangeDetection();
 
-					//				map.getDeletedEncoded().forEach((p) -> {
-					//					System.err.println(p);
-					//					model.grid.add(p);
-					//				});
-					//				map.clearDeletedEncoded();
-
 				}
 
 			} catch(ConcurrentModificationException c) { }
@@ -486,13 +479,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			while(model.grid.hasTransfers() && count++ < 100) {
 				if(model.grid.toArray(grid.data)) {
 					grid.tms = DataModel.getSynchronizedPX4Time_us();
-					grid.count = model.grid.getTransfers().size();
+					grid.count = map.getNumberOfNodes();
 					grid.resolution =map.getResolution();
 					control.sendMAVLinkMessage(grid);
 				}
 			}
-
-//			System.out.println(map.getNumberOfNodes());
 
 
 			map.removeOutdatedNodes(30000);
