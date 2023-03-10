@@ -66,7 +66,9 @@ import com.comino.mavcontrol.scenario.ScenarioManager;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 import com.comino.mavcontrol.scenario.parser.Scenario;
 import com.comino.mavcontrol.scenario.parser.ScenarioReader;
+import com.comino.mavmap.map.map3D.impl.octomap.MAVOctoMap3D;
 import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
+import com.comino.mavmap.test.MapTestFactory;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 @SuppressWarnings("unused")
@@ -325,7 +327,7 @@ public class MSPCommander  {
 
 	}
 
-	public LocalMap3D getMap() {
+	public MAVOctoMap3D getMap() {
 		return autopilot.getMap();
 	}
 

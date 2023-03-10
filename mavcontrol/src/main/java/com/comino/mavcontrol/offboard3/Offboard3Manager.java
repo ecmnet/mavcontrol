@@ -472,8 +472,10 @@ public class Offboard3Manager {
 			}
 
 
+			// Check collision
+			
 			Offboard3Collision collision = collisionCheck.check(xyzExecutor, model, t_section_elapsed, current,0);
-
+		
 			if(collision!=null) {
 
 				float stop_time = collision.getExpectedTimeOfCollision() - t_section_elapsed;

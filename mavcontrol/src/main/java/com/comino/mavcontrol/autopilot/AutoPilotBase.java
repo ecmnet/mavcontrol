@@ -33,6 +33,9 @@
 
 package com.comino.mavcontrol.autopilot;
 
+import java.io.IOException;
+import java.util.ConcurrentModificationException;
+
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
@@ -56,8 +59,8 @@ import com.comino.mavcontrol.ekf2utils.EKF2ResetCheck;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavcontrol.scenario.ScenarioManager;
 import com.comino.mavmap.map.map3D.Map3DSpacialInfo;
-import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
-import com.comino.mavmap.map.map3D.store.LocaMap3DStorage;
+import com.comino.mavmap.map.map3D.impl.octomap.MAVOctoMap3D;
+import com.comino.mavmap.map.map3D.store.OctoMap3DStorage;
 import com.comino.mavmap.test.MapTestFactory;
 import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
@@ -83,7 +86,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected DataModel                     model    = null;
 	protected MSPLogger                     logger   = null;
 	protected IMAVController                control  = null;
-	protected LocalMap3D				    map      = null;
+	protected MAVOctoMap3D				    map      = null;
 	protected PX4Parameters                 params   = null;
 	protected ScenarioManager     scenario_manager   = null;
 	protected Offboard3Manager    offboard_manager   = null;
@@ -144,10 +147,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.mapForget = config.getBoolProperty(MSPParams.AUTOPILOT_FORGET_MAP, "true");
 		System.out.println(instanceName+": Map forget enabled: "+mapForget);
 
-		Map3DSpacialInfo map_info = new Map3DSpacialInfo(0.10f,20.0f,20.0f,5.0f);
-		this.map      = new LocalMap3D(map_info,mapForget,publish_microgrid);
-		this.model.grid.setResolution(map_info.getCellSize());
-
+		this.map      = new MAVOctoMap3D();
 
 		this.flowCheck = config.getBoolProperty(MSPParams.AUTOPILOT_FLOW_CHECK, "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
@@ -187,8 +187,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
 			ekf2_reset_check.reset(true);
 			resetMap(); 
-			map.setOrigin(model.state.l_x, model.state.l_y, 0);
-
 		});
 
 	}
@@ -201,12 +199,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 			takeoff_handler.abort("Disarmed");
 			wq.removeTask("LP",future);
-		
 
-//
-//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
-//					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
-//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
+
+			//
+			//			control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_MODE,
+			//					MAV_MODE_FLAG.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED | MAV_MODE_FLAG.MAV_MODE_FLAG_SAFETY_ARMED,
+			//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
 
 		});
 
@@ -226,7 +224,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				System.out.println("[DEBUG] NavState 'LandMode' activated by PX4 on ground for unknown reasons: "+System.currentTimeMillis());
 			}
 		});
-
 	}
 
 
@@ -286,8 +283,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		if(!publish_microgrid)
 			return;
 
-		map.getMapItems().forEachRemaining((p) -> {
-			model.grid.add(map.getMapInfo().encodeMapPoint(p, p.probability));
+		map.getTreeEncoded().forEach((p) -> {
+			model.grid.add(p);
 		});
 	}
 
@@ -309,9 +306,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		case MSP_AUTOCONTROL_MODE.ABORT:
 			abort();
 			break;
-//		case MSP_AUTOCONTROL_ACTION.RTL:
-//			OffboardActionFactory.precision_landing_rotate();
-//			break;
+			//		case MSP_AUTOCONTROL_ACTION.RTL:
+			//			OffboardActionFactory.precision_landing_rotate();
+			//			break;
 		case MSP_AUTOCONTROL_ACTION.SAVE_MAP2D:
 			saveMap2D();
 			break;
@@ -324,16 +321,16 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
 			control.writeLogMessage(new LogMessage("[msp] Build virtual wall.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-			MapTestFactory.buildWall(map, model, 1.5f, 0.5f);
+			MapTestFactory.buildWall(map, model, 5f, 0);
 			break;
 		case MSP_AUTOCONTROL_ACTION.ROTATE:
 			OffboardActionFactory.turn_to(MSPMathUtils.toRad(param));
 			break;
-//		case MSP_AUTOCONTROL_ACTION.LAND:
-//			if(control.isSimulation())
-//				TestActionFactory.continuous_planning(control.getCurrentModel(),false);
-//			precisionLand(enable);
-//			break;
+			//		case MSP_AUTOCONTROL_ACTION.LAND:
+			//			if(control.isSimulation())
+			//				TestActionFactory.continuous_planning(control.getCurrentModel(),false);
+			//			precisionLand(enable);
+			//			break;
 		case MSP_AUTOCONTROL_MODE.OBSTACLE_STOP:
 			if(enable)
 				control.writeLogMessage(new LogMessage("[msp] Obstacle stop enabled.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
@@ -381,7 +378,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	// Standard setpoint setting
 
 
-	public LocalMap3D getMap() {
+	public MAVOctoMap3D getMap() {
 		return map;
 	}
 
@@ -416,27 +413,36 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		//	map.clear(model.state.l_x,model.state.l_y, model.state.l_z);
 		map.clear();
 		msg_msp_micro_grid grid = new msg_msp_micro_grid(2,1);
-		grid.count = 0;
-		grid.cx = (float)map.getOrigin().x;
-		grid.cy = (float)map.getOrigin().y;
-		grid.cz = (float)map.getOrigin().z;
+		grid.count = -1;
 		control.sendMAVLinkMessage(grid);
 
 	}
 
 	public void saveMap2D() {
-		LocaMap3DStorage store = new LocaMap3DStorage(map,model.state.g_lat, model.state.g_lon);
-		store.write();
-		logger.writeLocalMsg("[msp] Map for this home position stored.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+		//		LocaMap3DStorage store = new LocaMap3DStorage(map,model.state.g_lat, model.state.g_lon);
+		//		store.write();
+		//		logger.writeLocalMsg("[msp] Map for this home position stored.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 	}
 
 	public void loadMap2D() {
-		LocaMap3DStorage store = new LocaMap3DStorage(map, model.state.g_lat, model.state.g_lon);
-		if(store.locateAndRead()) {
-			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+
+
+		OctoMap3DStorage store = new OctoMap3DStorage(map);
+		try {
+			store.importOctomap("new_college.ot");
+			model.grid.count = map.getNumberOfNodes();
+
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-		else
-			logger.writeLocalMsg("[msp] No Map for this home position found.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+
+		//		LocaMap3DStorage store = new LocaMap3DStorage(map, model.state.g_lat, model.state.g_lon);
+		//		if(store.locateAndRead()) {
+		//			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+		//		}
+		//		else
+		//			logger.writeLocalMsg("[msp] No Map for this home position found.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
 	}
 
 	// put map transfer into the WQ
@@ -445,7 +451,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	private class MapToModelTransfer implements Runnable {
 
 		private final msg_msp_micro_grid  grid     = new msg_msp_micro_grid(2,1);
-		private long  map_tms = 0;
 
 		@Override
 		public void run() {
@@ -454,38 +459,43 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				return;
 			}
 
-			if(mapForget && MAP_RETENTION_TIME_MS > 0) {
-				if(!control.getStatusManager().get().isSensorAvailable(Status.MSP_SLAM_AVAILABILITY)) {
-					map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_NO_SLAM_MS  );
-				}
-				else
-					map.forget(System.currentTimeMillis() - MAP_RETENTION_TIME_MS  );
-			}
-
 			model.sys.setSensor(Status.MSP_GRID_AVAILABILITY, true);
+			
+			map.insertRandom(2);
 
+			try {
 
-			map.getLatestMapItems(map_tms, LocalMap3D.PROBABILITY_THRESHOLD).forEachRemaining((p) -> {			
-				model.grid.add(map.getMapInfo().encodeMapPoint(p, p.probability));
-			});
-			map_tms = System.currentTimeMillis()-10;
+				if(!model.grid.hasTransfers()) {
 
-			model.grid.count = map.size();
+					map.getChangedEncoded(true).forEach((p) -> {
+						//	System.out.println(p);
+						model.grid.add(p);
+					});
+					map.resetChangeDetection();
 
-			while(model.grid.hasTransfers()) {
+					//				map.getDeletedEncoded().forEach((p) -> {
+					//					System.err.println(p);
+					//					model.grid.add(p);
+					//				});
+					//				map.clearDeletedEncoded();
+
+				}
+
+			} catch(ConcurrentModificationException c) { }
+			int count = 0;
+			while(model.grid.hasTransfers() && count++ < 100) {
 				if(model.grid.toArray(grid.data)) {
-					grid.cx  = (float)map.getOrigin().x;
-					grid.cy  = (float)map.getOrigin().y;
-					grid.cz  = (float)map.getOrigin().z;
 					grid.tms = DataModel.getSynchronizedPX4Time_us();
-					grid.count = model.grid.count;
-					grid.resolution = model.grid.resolution;
+					grid.count = model.grid.getTransfers().size();
+					grid.resolution =map.getResolution();
 					control.sendMAVLinkMessage(grid);
 				}
 			}
 
+//			System.out.println(map.getNumberOfNodes());
 
-			// TODO: Transfer forget immediately
+
+			map.removeOutdatedNodes(30000);
 
 		}
 
