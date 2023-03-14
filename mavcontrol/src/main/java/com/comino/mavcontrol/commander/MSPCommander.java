@@ -88,6 +88,8 @@ public class MSPCommander  {
 
 	public MSPCommander(IMAVMSPController control, MSPConfig config) {
 
+		String autopilot_class = config.getProperty(MSPParams.AUTOPILOT_CLASS, "com.comino.mavcontrol.autopilot.SimplePlannerPilot");
+		this.autopilot =  AutoPilotBase.getInstance(autopilot_class,control,config);
 
 		this.scenarioManager = ScenarioManager.getInstance(control);
 		this.control = control;
@@ -104,11 +106,7 @@ public class MSPCommander  {
 
 		System.out.println("Commander initialized");
 
-		//String autopilot_class = config.getProperty(MSPParams.AUTOPILOT_CLASS, "com.comino.mavcontrol.autopilot.BreakingPilot");
-		String autopilot_class = config.getProperty(MSPParams.AUTOPILOT_CLASS, "com.comino.mavcontrol.autopilot.SimplePlannerPilot");
-
-		this.autopilot =  AutoPilotBase.getInstance(autopilot_class,control,config);
-
+		
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION, true);
 		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP,true); 
 
@@ -141,6 +139,7 @@ public class MSPCommander  {
 				// Load parameters if required
 				if(!params.isLoaded())
 					params.requestRefresh(true);
+				
 			}
 		});
 		

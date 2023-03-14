@@ -37,7 +37,7 @@ public class ScenarioManager {
 		this.control = control;
 		this.model   = control.getCurrentModel();
 
-		this.offboard = Offboard3Manager.getInstance(control);
+		this.offboard = Offboard3Manager.getInstance();
 		this.offboard.setTimeoutAction(() -> {
 			abort();
 		});

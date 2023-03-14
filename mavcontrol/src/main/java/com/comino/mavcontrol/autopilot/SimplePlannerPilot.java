@@ -77,6 +77,7 @@ import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcom.utils.SimpleLowPassFilter;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 
+import georegression.struct.point.Point4D_F32;
 import georegression.struct.point.Point4D_F64;
 
 
@@ -84,7 +85,7 @@ public class SimplePlannerPilot extends AutoPilotBase {
 
 	private final static float MIN_DISTANCE_TO_PERSON_M  = 1.5f;
 
-	private final Point4D_F64 current      = new Point4D_F64();
+	private final Point4D_F32 current      = new Point4D_F32();
 
 	private final Offboard3Manager offboard = Offboard3Manager.getInstance();
 	private final MessageBus       bus      = MessageBus.getInstance();
@@ -96,45 +97,45 @@ public class SimplePlannerPilot extends AutoPilotBase {
 		super(control,config);
 
 		// Subscribe to detected objects 
-		bus.subscribe(new ModelSubscriber<msp_msg_nn_object>(msp_msg_nn_object.class, (n) -> {
-			
-
-			if(n.tms == 0) {
-				model.obs.clear();
-				return;
-			}
-			
-			if(!MSP3DUtils.convertCurrentPosition(model, current))
-				return;
-
-			float distance = MSP3DUtils.distance3D(current, n.position);
-			
-			float angle = MSP3DUtils.angleXY((float)(n.position.x - current.x),(float)(n.position.y - current.y));
-			yaw_filter.add(angle);
-			
-            float angle_filtered = (float)yaw_filter.getMean();
-            
-        //    System.err.println(MSPMathUtils.fromRadSigned(angle_filtered)+" : "+MSPMathUtils.fromRadSigned(angle));
-
-
-			if(distance > MIN_DISTANCE_TO_PERSON_M || control.isSimulation()) {
-				
-				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT) && Math.abs(angle_filtered) > 0.1f)
-					offboard.rotate(angle_filtered, null);	 
-			}
-
-
-			// TODO: Replace the transfer by Message bus:
-			model.slam.dm = distance;
-			model.obs.x = (float)n.position.x;
-			model.obs.y = (float)n.position.y;
-			model.obs.z = (float)n.position.z;
-			model.obs.sx = 0.5f;
-			model.obs.sy = 0.5f;
-			model.obs.sz = 2.0f;
-
-
-		}));
+//		bus.subscribe(new ModelSubscriber<msp_msg_nn_object>(msp_msg_nn_object.class, (n) -> {
+//
+//
+//			if(n.tms == 0) {
+//				model.obs.clear();
+//				return;
+//			}
+//
+//			if(!MSP3DUtils.convertCurrentPosition(model, current))
+//				return;
+//
+//			float distance = MSP3DUtils.distance3D(current, n.position);
+//
+//			float angle = MSP3DUtils.angleXY((float)(n.position.x - current.x),(float)(n.position.y - current.y));
+//			yaw_filter.add(angle);
+//
+//			float angle_filtered = (float)yaw_filter.getMean();
+//
+//			//    System.err.println(MSPMathUtils.fromRadSigned(angle_filtered)+" : "+MSPMathUtils.fromRadSigned(angle));
+//
+//
+//			if(distance > MIN_DISTANCE_TO_PERSON_M || control.isSimulation()) {
+//
+//				if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.FOLLOW_OBJECT) && Math.abs(angle_filtered) > 0.1f)
+//					offboard.rotate(angle_filtered, null);	 
+//			}
+//
+//
+//			// TODO: Replace the transfer by Message bus:
+//			model.slam.dm = distance;
+//			model.obs.x = (float)n.position.x;
+//			model.obs.y = (float)n.position.y;
+//			model.obs.z = (float)n.position.z;
+//			model.obs.sx = 0.5f;
+//			model.obs.sy = 0.5f;
+//			model.obs.sz = 2.0f;
+//
+//
+//		}));
 
 
 		start(200);
@@ -142,16 +143,30 @@ public class SimplePlannerPilot extends AutoPilotBase {
 
 	public void run() {
 
+		model.sys.t_takeoff_ms = getTimeSinceTakeoff();
 
 		MSP3DUtils.convertCurrentPosition(model, current);
 
-		model.sys.t_takeoff_ms = getTimeSinceTakeoff();
+		// Emergency collision check
+		model.obs.x = model.obs.y = model.obs.z = 0;
+		long ben = System.nanoTime();
+		for(var node : map.getLeafsAtPosition(current, 0.5f, 0.25f)) {
+			if(node.getLogOdds() >= map.getTree().getOccupancyParameters().getOccupancyThreshold()) {
+				//							control.writeLogMessage(new LogMessage("[msp] Collsion Warning.", 
+				//									MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
+				model.obs.x = (float)node.getX();
+				model.obs.y = (float)node.getY();
+				model.obs.z = (float)node.getZ();
+				break;
+			}		
+		}
+		System.out.println((System.nanoTime()-ben)/1000L);
 
 	}
 
 	protected void takeoffCompleted() {
-		
-	
+
+
 
 	}
 

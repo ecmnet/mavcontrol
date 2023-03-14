@@ -33,6 +33,7 @@ import com.comino.mavcontrol.offboard3.target.Offboard3AbstractTarget;
 import com.comino.mavcontrol.offboard3.target.Offboard3PosTarget;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
+import com.comino.mavmap.map.map3D.impl.octomap.MAVOctoMap3D;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.MSPStringUtils;
 import com.comino.mavutils.workqueue.WorkQueue;
@@ -64,6 +65,7 @@ public class Offboard3Manager {
 	private static final float EMERGENCY_STOP_TIME              = 0.5f;                     // A expected collision within this time leads to an immediate stop
 
 
+	private final MAVOctoMap3D      map;
 	private final Offboard3Worker   worker;
 	private final Offboard3Planner  planner;
 	private final DataModel         model;
@@ -74,9 +76,9 @@ public class Offboard3Manager {
 	private float acceptance_yaw        = YAW_ACCEPT;
 	private float max_xyz_vel           = MAX_XYZ_VEL;
 
-	public static Offboard3Manager getInstance(IMAVController control) {
+	public static Offboard3Manager getInstance(IMAVController control,MAVOctoMap3D map) {
 		if(instance==null) 
-			instance = new Offboard3Manager(control);
+			instance = new Offboard3Manager(control,map);
 		return instance;
 	}
 
@@ -84,7 +86,8 @@ public class Offboard3Manager {
 		return instance;
 	}
 
-	private Offboard3Manager(IMAVController control) {
+	private Offboard3Manager(IMAVController control, MAVOctoMap3D map) {
+		this.map     = map;
 		this.model   = control.getCurrentModel();
 		this.worker  = new Offboard3Worker(control);
 		this.control = control;
@@ -501,9 +504,7 @@ public class Offboard3Manager {
 					return;			
 				}
 			}
-
-
-
+            
 			// check timeout
 			if(t_timeout > 0 && t_section_elapsed > t_timeout) {
 				model.slam.setFlag(Slam.OFFBOARD_FLAG_TIMEOUT, true);

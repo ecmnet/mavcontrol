@@ -33,7 +33,7 @@ public abstract class AbstractScenarioItem {
 
 		if(control!=null) {
 			this.model   = control.getCurrentModel();
-			this.offboard = Offboard3Manager.getInstance(control);
+			this.offboard = Offboard3Manager.getInstance();
 		} else {
 			this.model    = null;
 			this.offboard = null;
