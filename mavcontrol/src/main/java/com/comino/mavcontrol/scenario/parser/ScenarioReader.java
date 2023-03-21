@@ -20,6 +20,7 @@ import com.comino.mavcontrol.scenario.items.CircleItem;
 import com.comino.mavcontrol.scenario.items.DisarmingItem;
 import com.comino.mavcontrol.scenario.items.FiducialItem;
 import com.comino.mavcontrol.scenario.items.LogMessageItem;
+import com.comino.mavcontrol.scenario.items.MapItem;
 import com.comino.mavcontrol.scenario.items.MoveHomeItem;
 import com.comino.mavcontrol.scenario.items.MoveToItem;
 import com.comino.mavcontrol.scenario.items.ObstacleItem;
@@ -142,6 +143,10 @@ public class ScenarioReader {
 		AbstractScenarioItem item = null;
 
 		switch(step.getNodeName().toLowerCase()) {
+		case "load_map":
+			MapItem map = new MapItem(control);
+			item = map;
+			break;
 		case "search_object":
 			SearchObjectItem search = new SearchObjectItem(control);
 			item = search;

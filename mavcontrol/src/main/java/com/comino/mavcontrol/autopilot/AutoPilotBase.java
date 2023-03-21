@@ -70,6 +70,7 @@ import com.comino.mavmap.map.map3D.Map3DSpacialInfo;
 import com.comino.mavmap.map.map3D.impl.octomap.MAVOccupancyOcTreeNode;
 import com.comino.mavmap.map.map3D.impl.octomap.MAVOctoMap3D;
 import com.comino.mavmap.map.map3D.impl.octomap.store.OctoMap3DStorage;
+import com.comino.mavmap.map.map3D.impl.octomap.tools.MAVOctoMapTools;
 import com.comino.mavmap.test.MapTestFactory;
 import com.comino.mavodometry.estimators.ITargetListener;
 import com.comino.mavutils.MSPMathUtils;
@@ -145,6 +146,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		System.out.println(instanceName+" instantiated");
 		this.map      = new MAVOctoMap3D();
+
+		MAVOctoMapTools.warmup();
 
 		this.offboard_manager = Offboard3Manager.getInstance(control,map);
 		this.scenario_manager = ScenarioManager.getInstance(control);
@@ -335,7 +338,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			break;
 		case MSP_AUTOCONTROL_ACTION.DEBUG_MODE2:
 			control.writeLogMessage(new LogMessage("[msp] Build virtual wall.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
-			MapTestFactory.buildWall(map, model, 5f, 0);
+			MapTestFactory.buildWall(map, model,5f, 0);
 			break;
 		case MSP_AUTOCONTROL_ACTION.ROTATE:
 			OffboardActionFactory.turn_to(MSPMathUtils.toRad(param));
@@ -443,15 +446,15 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 		OctoMap3DStorage store = new OctoMap3DStorage(map, model.state.g_lat, model.state.g_lon);
-//				try {
-//				//		store.importOctomap("euroc_1.bt");
-//					store.importOctomap("new_college.bt");
-//					model.grid.count = map.getNumberOfNodes();
-//		
-//				} catch (IOException e) {
-//					// TODO Auto-generated catch block
-//					e.printStackTrace();
-//				}
+		//				try {
+		//				//		store.importOctomap("euroc_1.bt");
+		//					store.importOctomap("new_college.bt");
+		//					model.grid.count = map.getNumberOfNodes();
+		//		
+		//				} catch (IOException e) {
+		//					// TODO Auto-generated catch block
+		//					e.printStackTrace();
+		//				}
 
 		//store.readLegacyM3D("test.m3D");
 
@@ -471,24 +474,20 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	private class MapToModelTransfer implements Runnable {
 
 		private final msg_msp_micro_grid  grid     = new msg_msp_micro_grid(2,1);
-		private long tms = 0;
-		private long count;
-		
+
 		@Override
 		public void run() {
 
 			if(!publish_microgrid || !model.sys.isStatus(Status.MSP_GCL_CONNECTED)) {
 				return;
 			}
-			
+
 			model.sys.setSensor(Status.MSP_GRID_AVAILABILITY, true);
 
-			if((System.currentTimeMillis()-tms) > 1000) {
-				if(mapForget)
-				  map.removeOutdatedNodes(30000);
-				count = map.countOccupiedNodes();
-				tms = System.currentTimeMillis();
+			if(mapForget) {
+				map.removeOutdatedNodes(125,10000);
 			}
+			model.grid.count = map.getNumberOfNodes();
 
 			if(map.getTree().numberOfChangesDetected() == 0)
 				return;
@@ -499,8 +498,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 				model.grid.add(encodeKey(key));
 				map.getTree().getChangedKeys().remove(key);
 			});
-			
+
 			sendGridMessage();
+
 		}
 
 		private long encodeKey(OcTreeKeyReadOnly key) {
@@ -517,7 +517,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			while(model.grid.hasTransfers()) {
 				if(model.grid.toArray(grid.data)) {
 					grid.tms        = DataModel.getSynchronizedPX4Time_us();
-					grid.count      = count;
+					grid.count      = model.grid.count;
 					grid.resolution = map.getResolution();
 					control.sendMAVLinkMessage(grid);
 				}
