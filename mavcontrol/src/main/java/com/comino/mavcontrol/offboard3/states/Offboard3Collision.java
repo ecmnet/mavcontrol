@@ -17,9 +17,14 @@ public class Offboard3Collision extends Exception {
 	public Offboard3Collision() {
 		super();
 	}
+	
 
 	public Offboard3Collision(AbstractConvexObject obstacle,float time_of_collision,float total_time,Offboard3Current current,Offboard3State state_of_collision) {
 		this(obstacle,time_of_collision,total_time,current,state_of_collision,0);
+	}
+	
+	public Offboard3Collision(float time_of_collision, float total_time, Offboard3Current current,Offboard3State state_of_collision, int planning_section_index) {
+		this(null,time_of_collision,total_time,current,state_of_collision,planning_section_index);
 	}
 
 	public Offboard3Collision(AbstractConvexObject obstacle,float time_of_collision, float total_time, Offboard3Current current,Offboard3State state_of_collision, int planning_section_index) {

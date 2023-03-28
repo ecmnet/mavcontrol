@@ -13,6 +13,8 @@ import com.comino.mavcontrol.offboard3.target.Offboard3PosTarget;
 import com.comino.mavcontrol.offboard3.target.Offboard3PosVelTarget;
 import com.comino.mavcontrol.trajectory.minjerk.struct.AbstractConvexObject;
 import com.comino.mavcontrol.trajectory.minjerk.struct.Boundary;
+import com.comino.mavcontrol.trajectory.minjerk.struct.Sphere;
+import com.comino.mavmap.map.map3D.impl.octomap.MAVOccupancyOcTreeNode;
 import com.comino.mavutils.MSPStringUtils;
 
 import georegression.struct.GeoTuple3D_F32;
@@ -31,20 +33,24 @@ public class Offboard3SphereTrajectoryGenerator {
 	private final List<Offboard3Plan> candidates = new ArrayList<Offboard3Plan>(MAX_NUMBER_CANDIDATES);
 
 	private int no_valid, no_invalid;
+	
 
 	public Offboard3Plan getAvoidancePlan(Offboard3Planner planner, Offboard3Plan plan, Offboard3Collision col, float distance, float max_velocity ) {
 
 		no_valid = no_invalid = 0;	int cycles = 0;
 		candidates.clear();
-
+		
+		
 		float time     = plan.getTotalTimeUpTo(col.getPlanningSectionIndex()) + col.getExpectedTimeOfCollision();
 		//		float velocity = max_xyz_velocity * (col.getTotalTime() - time) / col.getTotalTime();
 		float velocity = max_velocity * (100.0f - SLOWDOWN_PERCENT ) / 100.0f;//MSP3DUtils.norm3D(col.getExpectedStateAtCollision().vel());
 
 		tmp.setTo(col.getCurrent().pos().x,col.getCurrent().pos().y,col.getCurrent().pos().z);
-		Boundary tangentPlane = col.getObstacle().getTangentPlane(tmp); 
+		Sphere sphere = new Sphere(tmp,0.3f);
+		
+		Boundary tangentPlane = sphere.getTangentPlane(tmp); 
 
-		GeoTuple3D_F32<?> center = col.getObstacle().getCenter();
+		GeoTuple3D_F32<?> center = sphere.getCenter();
 
 		long ts = System.nanoTime(); int i =0;
 		do {
@@ -133,7 +139,6 @@ public class Offboard3SphereTrajectoryGenerator {
 		return i;
 
 	}
-
-
+	
 
 }

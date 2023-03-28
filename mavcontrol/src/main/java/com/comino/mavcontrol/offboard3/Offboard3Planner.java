@@ -7,6 +7,9 @@ import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.offboard3.collision.Offboard3CollisionCheck;
+import com.comino.mavcontrol.offboard3.collision.Offboard3OctoMapCollisionCheck;
+import com.comino.mavcontrol.offboard3.generator.Offboard3OctomapTrajectoryGenerator;
 import com.comino.mavcontrol.offboard3.generator.Offboard3SphereTrajectoryGenerator;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
 import com.comino.mavcontrol.offboard3.states.Offboard3Collision;
@@ -19,6 +22,7 @@ import com.comino.mavcontrol.offboard3.target.Offboard3YawTarget;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavcontrol.trajectory.minjerk.SingleAxisTrajectory;
 import com.comino.mavcontrol.trajectory.minjerk.struct.Sphere;
+import com.comino.mavmap.map.map3D.impl.octomap.MAVOctoMap3D;
 import com.comino.mavutils.MSPMathUtils;
 import com.comino.mavutils.MSPStringUtils;
 
@@ -43,18 +47,20 @@ public class Offboard3Planner {
 	private final RapidTrajectoryGenerator  xyzPlanner = new RapidTrajectoryGenerator(new Point3D_F64(0,0,0));
 
 	// Gnerator for avoidance plans
-	private final Offboard3SphereTrajectoryGenerator avoidancePlanGenerator;
+	private final Offboard3OctomapTrajectoryGenerator avoidancePlanGenerator;
 
 	// Current state
 	private final Offboard3Current            current;
 	private final Offboard3Current            new_current_state = new Offboard3Current();
 
 	// Collsion check
-	private final Offboard3CollisionCheck     collisionCheck;
+//	private final Offboard3CollisionCheck     collisionCheck;
+	private final Offboard3OctoMapCollisionCheck     collisionCheck;
 
 	// DataModel && Controller
 	private final DataModel                    model;
 	private final IMAVController               control;
+	private final MAVOctoMap3D                 map;
 
 	// Admins
 	private int plannedSectionCount = 0;
@@ -64,16 +70,19 @@ public class Offboard3Planner {
 	private float max_xyz_velocity;
 
 
-	public Offboard3Planner(IMAVController control, float acceptance_radius, float max_xyz_velocity) {
+	public Offboard3Planner(IMAVController control, MAVOctoMap3D map,float acceptance_radius, float max_xyz_velocity) {
 
 		this.current = new Offboard3Current(control.getCurrentModel());  
 		this.control = control;
+		this.map     = map;
 		this.model   = control.getCurrentModel();
 		this.max_xyz_velocity = max_xyz_velocity;
 		this.acceptance_radius = acceptance_radius;
 
-		this.collisionCheck         = new Offboard3CollisionCheck();
-		this.avoidancePlanGenerator = new Offboard3SphereTrajectoryGenerator();
+//		this.collisionCheck         = new Offboard3CollisionCheck();
+		this.avoidancePlanGenerator = new Offboard3OctomapTrajectoryGenerator();
+		
+		this.collisionCheck         = new Offboard3OctoMapCollisionCheck(map);
 
 	}
 
@@ -173,7 +182,8 @@ public class Offboard3Planner {
 
 		reset(); current.update();
 
-		if(!collisionCheck.isTargetFeasible(model, pos_target)) {
+//		if(!collisionCheck.isTargetFeasible(model, pos_target)) {
+		if(!collisionCheck.isTargetFeasible(pos_target)) {
 			control.writeLogMessage(new LogMessage("[msp] Target not feasible.", MAV_SEVERITY.MAV_SEVERITY_ERROR));
 			return null;
 		}
@@ -226,7 +236,7 @@ public class Offboard3Planner {
 
 		plannedSectionCount = 0;
 
-		Sphere obstacle = new Sphere(model.obs.x,model.obs.y, model.obs.z, 0.5f);
+	//	Sphere obstacle = new Sphere(model.obs.x,model.obs.y, model.obs.z, 0.5f);
 
 		plan.clearCostAndTime();
 
@@ -246,9 +256,11 @@ public class Offboard3Planner {
 				return null;
 
 			if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.COLLISION_PREVENTION)) {
-				collision = collisionCheck.check(xyzPlanner, obstacle , 0, initial_state, section.getIndex());
-				if(collision!=null)
+//				collision = collisionCheck.check(xyzPlanner, obstacle , 0, initial_state, section.getIndex());
+				collision = collisionCheck.check(xyzPlanner , 0, initial_state, section.getIndex());
+				if(collision!=null) {
 					return collision;
+				}
 			}
 		}
 		return null;
@@ -375,11 +387,8 @@ public class Offboard3Planner {
 
 		control.writeLogMessage(new LogMessage("[msp] Replanning performed.", MAV_SEVERITY.MAV_SEVERITY_WARNING));
 
-		if(!col.getObstacle().isValid())
-			return null;
 
-
-		Offboard3Plan new_plan = avoidancePlanGenerator.getAvoidancePlan(this, plan, col, distance, max_xyz_velocity);
+		Offboard3Plan new_plan = avoidancePlanGenerator.getAvoidancePlan(map, this, plan, col, distance, max_xyz_velocity);
 		if(new_plan!=null)
 			model.slam.setInfoPoint(new_plan.getFirst().pos());
 

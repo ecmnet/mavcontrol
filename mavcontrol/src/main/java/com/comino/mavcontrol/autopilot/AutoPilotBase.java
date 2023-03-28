@@ -446,23 +446,25 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 		OctoMap3DStorage store = new OctoMap3DStorage(map, model.state.g_lat, model.state.g_lon);
-		//				try {
-		//				//		store.importOctomap("euroc_1.bt");
-		//					store.importOctomap("new_college.bt");
-		//					model.grid.count = map.getNumberOfNodes();
-		//		
-		//				} catch (IOException e) {
-		//					// TODO Auto-generated catch block
-		//					e.printStackTrace();
-		//				}
-
-		//store.readLegacyM3D("test.m3D");
+//						try {
+//		//		store.importOctomap("euroc_1.bt");
+//							store.importOctomap("octomap.bt");
+//		//					model.grid.count = map.getNumberOfNodes();
+//		//		
+//						} catch (IOException e) {
+//							// TODO Auto-generated catch block
+//							e.printStackTrace();
+//						}
+//
+//		//store.readLegacyM3D("test.m3D");
 
 		if(store.locateAndRead()) {
+			map.disableRemoveOutdated();
 			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 		}
-		else
+		else {
 			logger.writeLocalMsg("[msp] No Map for this home position found.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+		}
 
 
 
@@ -485,7 +487,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			model.sys.setSensor(Status.MSP_GRID_AVAILABILITY, true);
 
 			if(mapForget) {
-				map.removeOutdatedNodes(125,10000);
+				map.removeOutdatedNodes(125,30000);
 			}
 			model.grid.count = map.getNumberOfNodes();
 

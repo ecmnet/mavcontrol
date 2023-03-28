@@ -25,6 +25,7 @@ import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavcontrol.offboard3.action.ITargetReached;
 import com.comino.mavcontrol.offboard3.action.ITimeout;
+import com.comino.mavcontrol.offboard3.collision.Offboard3CollisionCheck;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
 import com.comino.mavcontrol.offboard3.states.Offboard3Collision;
 import com.comino.mavcontrol.offboard3.states.Offboard3Current;
@@ -99,7 +100,7 @@ public class Offboard3Manager {
 		acceptance_radius = config.getFloatProperty(MSPParams.AUTOPILOT_RADIUS_ACCEPT, String.valueOf(RADIUS_ACCEPT));
 		System.out.println("Acceptance radius: "+acceptance_radius+" m");
 
-		this.planner = new Offboard3Planner(control, acceptance_radius, max_xyz_vel);
+		this.planner = new Offboard3Planner(control, map, acceptance_radius, max_xyz_vel);
 
 	}
 
@@ -227,11 +228,14 @@ public class Offboard3Manager {
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
 			return;
 		worker.stopAndLoiter();
-
 	}
 
 	public boolean isPlanned() {
 		return worker.isPlanned();
+	}
+	
+	public void getProjectedPositionAt(float time, GeoTuple4D_F32<?> pos) {
+		worker.getProjectedPositionAt(time, pos);
 	}
 
 
@@ -361,6 +365,18 @@ public class Offboard3Manager {
 		public void setTimeoutAction(ITimeout timeout) {
 			this.timeout = timeout;
 		}
+		
+		public void getProjectedPositionAt(float time, GeoTuple4D_F32<?> pos) {
+			if(!xyzExecutor.isPlanned()) {
+				// Later: if not planned return current position
+				pos.x = 0;
+				pos.y = 0;
+				pos.z = 0;
+				return;
+			}
+			// get projected position at current time + time
+			xyzExecutor.getPosition(t_section_elapsed + time, pos);
+		}
 
 		@Override
 		public void run() {
@@ -414,6 +430,12 @@ public class Offboard3Manager {
 					return;
 				}
 
+			}
+			
+			if(current_target == null) {
+				control.writeLogMessage(new LogMessage("[msp] No target. Stopped.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
+				stopAndLoiter();
+				return;
 			}
 
 			if(current_target.isPositionFinite() && MSP3DUtils.distance3DSQ(current.pos(), current_target.pos())< acceptance_radius*acceptance_radius) {
@@ -481,28 +503,28 @@ public class Offboard3Manager {
 		
 			if(collision!=null) {
 
-				float stop_time = collision.getExpectedTimeOfCollision() - t_section_elapsed;
-				if(stop_time < EMERGENCY_STOP_TIME) {
-					// Collision within 1 sec
-					control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(stop_time)+". Stopped.", 
-							MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
-					stopAndLoiter();
-					return;
-				} else {
-					// Collision expected later 
-					xyzExecutor.getPosition(stop_time-EMERGENCY_STOP_TIME, target_to_stop);
-					Offboard3Plan plan_to_stop = planner.planDirectPath(target_to_stop, collision.getExpectedTimeOfCollision(),true);
-					planQueue.clear(); planQueue.add(plan_to_stop);
-					control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(stop_time)+". Stopping.", 
-							MAV_SEVERITY.MAV_SEVERITY_CRITICAL));
-					reached = new ITargetReached() {
-						@Override
-						public void execute(DataModel m) {
-							stopAndLoiter();
-						}		
-					};
-					return;			
-				}
+//				float stop_time = collision.getExpectedTimeOfCollision() - t_section_elapsed;
+//				if(stop_time < EMERGENCY_STOP_TIME) {
+//					// Collision within 1 sec
+//					control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(stop_time)+". Stopped.", 
+//							MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
+//					stopAndLoiter();
+//					return;
+//				} else {
+//					// Collision expected later 
+//					xyzExecutor.getPosition(stop_time-EMERGENCY_STOP_TIME, target_to_stop);
+//					Offboard3Plan plan_to_stop = planner.planDirectPath(target_to_stop, collision.getExpectedTimeOfCollision(),true);
+//					planQueue.clear(); planQueue.add(plan_to_stop);
+//					control.writeLogMessage(new LogMessage("[msp] Collison within "+ MSPStringUtils.getInstance().t_format(stop_time)+". Stopping.", 
+//							MAV_SEVERITY.MAV_SEVERITY_CRITICAL));
+//					reached = new ITargetReached() {
+//						@Override
+//						public void execute(DataModel m) {
+//							stopAndLoiter();
+//						}		
+//					};
+//					return;			
+//				}
 			}
             
 			// check timeout
