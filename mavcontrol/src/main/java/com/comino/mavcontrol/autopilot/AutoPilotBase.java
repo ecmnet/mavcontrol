@@ -243,13 +243,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 
 	protected void takeoffCompletedAction() {
-		model.sys.setAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP, true);
 
 	}
 
 	protected void start(int cycle_ms) {
 
-		wq.addCyclicTask("NP", cycle_ms, this);
+		
+		//wq.addCyclicTask("NP", cycle_ms, this);
 
 		safetycheck_handler.start();
 

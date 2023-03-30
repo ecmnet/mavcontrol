@@ -171,15 +171,22 @@ public class SimplePlannerPilot extends AutoPilotBase {
 	// Note: Octree access always in own Thread due to performance: Do not put into WQ!
 
 	private class EmergencyCollisionCheck implements Runnable {
+		
+		private final long                 MESSAGE_FREQ_MS             = 1000;   // Do not rise message again within (ms)
+		private final float                MIN_DISTANCE                = 0.5f;   // Minimum distance of nearest obstacle to rise collsion
+		private final float                BOUNDING_BOX_SIDE_LENGTH    = 2.0f;   // Total side length of bounding box
+		private final float                PROJECTION_LOOKAHEAD_SECS   = 1.0f;   // Time to look ahead (projected position
 
 		private final MAVSimpleBoundingBox boundingBox;
 		private final Vector3D_F32         obstacle_position;
+//		private final Vector3D_F32         velocity_vector;
 		private final Point4D_F32 		   projected;
 
 		public EmergencyCollisionCheck() {
 			this.boundingBox        = new MAVSimpleBoundingBox(0.2f,16);
 			this.projected          = new Point4D_F32();
 			this.obstacle_position  = new Vector3D_F32();
+//			this.velocity_vector    = new Vector3D_F32();
 		}
 
 		@Override
@@ -190,21 +197,24 @@ public class SimplePlannerPilot extends AutoPilotBase {
 			while(true) {
 				LockSupport.parkNanos(100_000_000);
 
-				// Emergency collision check
+				// perform emergency collision check
 
 				// get projected position at t+1.0sec
 				// TODO: time as a constant; maybe cycle slower, but dt increased
 				// TODO: Time should be velocity dependent in order to allow breaking
+                // TODO: Increase bounding box with velocity
+				
+//				MSP3DUtils.convertCurrentSpeed(model, velocity_vector);
+//				float velocity = velocity_vector.norm();
 
-
-				offboard.getProjectedPositionAt(1.0f, projected);
+				offboard.getProjectedPositionAt(PROJECTION_LOOKAHEAD_SECS, projected);
 
 				model.obs.x = model.obs.y = model.obs.z = Float.NaN;
 
 				long tms = System.nanoTime(); 
 				int count=0;
 
-				boundingBox.set(projected,2.0f);
+				boundingBox.set(projected,BOUNDING_BOX_SIDE_LENGTH);
 
 				OcTreeIterable<MAVOccupancyOcTreeNode> nodes = 
 						OcTreeIteratorFactory.createLeafBoundingBoxIteratable(map.getRoot(),boundingBox);
@@ -227,13 +237,12 @@ public class SimplePlannerPilot extends AutoPilotBase {
 					}		
 				}
 
-				// TODO: Where does this constant of 0.5m come from? 
-				if(min_distance < 0.5) {
+				if(min_distance < MIN_DISTANCE) {
 					if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
-						logger.writeLocalMsg("[msp] Emergency stop.",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY,1000);
+						logger.writeLocalMsg("[msp] Emergency stop.",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY,MESSAGE_FREQ_MS);
 						offboard.abort();
 					} else {
-						logger.writeLocalMsg("[msp] Collision warning.",MAV_SEVERITY.MAV_SEVERITY_WARNING,1000);
+						logger.writeLocalMsg("[msp] Collision warning.",MAV_SEVERITY.MAV_SEVERITY_WARNING,MESSAGE_FREQ_MS);
 					}
 				}
 
