@@ -89,9 +89,9 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected static final int   CERTAINITY_THRESHOLD          = 100;
 	protected static final float WINDOWSIZE       	           = 3.0f;
 
-	protected static final float MAX_REL_DELTA_HEIGHT          = 0.10f;
-	protected static final long  MAP_RETENTION_TIME_MS         = 3000;
-	protected static final long  MAP_RETENTION_TIME_NO_SLAM_MS = 30000;
+//	protected static final float MAX_REL_DELTA_HEIGHT          = 0.10f;
+//	protected static final long  MAP_RETENTION_TIME_MS         = 3000;
+//	protected static final long  MAP_RETENTION_TIME_NO_SLAM_MS = 30000;
 
 	private static AutoPilotBase  autopilot    = null;
 
@@ -471,7 +471,12 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	}
 
 	// put map transfer into the WQ
-	// TODO: Move this to dispatcher
+	// TODO: Move this to own class MAPPER which
+	//   - Does Map transfer
+	//   - eventually has a long term map with rough resolution (e.g. 1m) for global planning
+	//     => two options: Parallel update or update only forgotten data from short term map
+	//   - Supports pointcloud insert
+	//   - Provides short term and long term map to Control
 
 	private class MapToModelTransfer implements Runnable {
 
