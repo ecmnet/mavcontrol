@@ -251,7 +251,7 @@ public class MSPCommander  {
 					case MSP_CMD.MSP_CMD_MICROSLAM:
 						switch((int)cmd.param1) {
 						case MSP_COMPONENT_CTRL.RESET:
-							autopilot.resetMap(); break;
+							autopilot.getMapper().resetMap(); break;
 						}
 						break;
 					case MSP_CMD.MSP_CMD_CHECK_READY:
@@ -327,7 +327,7 @@ public class MSPCommander  {
 	}
 
 	public MAVOctoMap3D getMap() {
-		return autopilot.getMap();
+		return autopilot.getMapper().getShorTermMap();
 	}
 
 	public long getTimeSinceTakeoff() {

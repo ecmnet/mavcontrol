@@ -18,7 +18,7 @@ public class MapItem extends AbstractScenarioItem {
 	@Override
 	public void execute() {
 		
-		AutoPilotBase.getInstance().loadMap2D();
+		AutoPilotBase.getInstance().getMapper().loadMap2D();
 		
 		completed();
 	}

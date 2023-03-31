@@ -217,12 +217,12 @@ public class SimplePlannerPilot extends AutoPilotBase {
 				boundingBox.set(projected,BOUNDING_BOX_SIDE_LENGTH);
 
 				OcTreeIterable<MAVOccupancyOcTreeNode> nodes = 
-						OcTreeIteratorFactory.createLeafBoundingBoxIteratable(map.getRoot(),boundingBox);
+						OcTreeIteratorFactory.createLeafBoundingBoxIteratable(mapper.getShorTermMap().getRoot(),boundingBox);
 
 				// searching for the minimum distance
 				min_distance = Float.MAX_VALUE;
 				for(var node : nodes) {
-					if(map.isNodeOccupied(node)) {
+					if(mapper.getShorTermMap().isNodeOccupied(node)) {
 
 						node.getCenter(obstacle_position);
 						distance = (float)MSP3DUtils.distance3D(projected, obstacle_position);
@@ -247,7 +247,7 @@ public class SimplePlannerPilot extends AutoPilotBase {
 				}
 
 				if(control.isSimulation() && count > 0)
-					System.out.println("LeafSearch time (us): "+((System.nanoTime()-tms)/1000L)+" Nodes checked: "+count+" / "+map.getNumberOfNodes());
+					System.out.println("LeafSearch time (us): "+((System.nanoTime()-tms)/1000L)+" Nodes checked: "+count+" / "+mapper.getShorTermMap().getNumberOfNodes());
 			}
 		}
 	}
