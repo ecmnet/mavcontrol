@@ -1,5 +1,40 @@
+/****************************************************************************
+ *
+ *   Copyright (c) 2023 Eike Mansfeld ecm@gmx.de. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ ****************************************************************************/
+
 package com.comino.mavcontrol.mapper;
 
+import java.util.Arrays;
+import java.util.Map.Entry;
 import java.util.stream.Stream;
 
 import org.mavlink.messages.MAV_SEVERITY;
@@ -13,6 +48,7 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavmap.map.map3D.impl.octomap.MAVOccupancyOcTreeNode;
 import com.comino.mavmap.map.map3D.impl.octomap.MAVOctoMap3D;
+import com.comino.mavmap.map.map3D.impl.octomap.rule.MAVOccupancyUpdateRule;
 import com.comino.mavmap.map.map3D.impl.octomap.store.OctoMap3DStorage;
 import com.comino.mavutils.workqueue.WorkQueue;
 
@@ -22,14 +58,14 @@ import us.ihmc.jOctoMap.tools.OccupancyTools;
 /*
  * Map handling
  * Ideas:
+ * 
  *  - short term long term maps
  *     - short term map: Collision Avoidance, short term planning, lasts about 5 secs
- *     - long term map: Global plan, remains 
+ *     - long term map : Global plan, remains 
  *  - visualize both in MAVGCL
  *  
- *  - Question: Collision check here ?
- *  
  */
+
 public class MAVOctoMapMapper {
 
 	private final WorkQueue wq;
@@ -40,7 +76,6 @@ public class MAVOctoMapMapper {
 	private final DataModel         model;
 	private final MSPLogger         logger;
 
-	private boolean			        mapForget         = false;
 	private boolean                 publish_microgrid = true;
 
 	public MAVOctoMapMapper(IMAVController control,MSPConfig config) {
@@ -56,9 +91,8 @@ public class MAVOctoMapMapper {
 
 		this.setupConfig(config);
 
-
 		if(publish_microgrid)
-			wq.addCyclicTask("NP",20, new MapToModelTransfer());
+			wq.addCyclicTask("NP",25, new MapToModelTransfer());
 
 	}
 
@@ -69,7 +103,7 @@ public class MAVOctoMapMapper {
 	public void resetMap() {
 		logger.writeLocalMsg("[msp] resetting maps",MAV_SEVERITY.MAV_SEVERITY_NOTICE);
 		short_term_map.clear();
-		short_term_map.enableRemoveOutdated();
+//		short_term_map.enableRemoveOutdated();
 		msg_msp_micro_grid grid = new msg_msp_micro_grid(2,1);
 		grid.count = -1;
 		control.sendMAVLinkMessage(grid);
@@ -98,7 +132,7 @@ public class MAVOctoMapMapper {
 		//		//store.readLegacyM3D("test.m3D");
 
 		if(store.locateAndRead()) {
-			short_term_map.disableRemoveOutdated();
+		//	short_term_map.disableRemoveOutdated();
 			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
 		}
 		else {
@@ -126,13 +160,14 @@ public class MAVOctoMapMapper {
 		this.publish_microgrid = config.getBoolProperty(MSPParams.PUBLISH_MICROGRID, "true");
 		System.out.println("[map] Publishing microGrid enabled: "+publish_microgrid);
 
-		this.mapForget = config.getBoolProperty(MSPParams.AUTOPILOT_FORGET_MAP, "true");
+		boolean mapForget = config.getBoolProperty(MSPParams.AUTOPILOT_FORGET_MAP, "true");
 		System.out.println("[map] Map forget enabled: "+mapForget);
+		short_term_map.enableRemoveOutdated(mapForget);
 
 	}
 
 	/*
-	 * Transfer short term map to MAVGCL
+	 * Transfer map to MAVGCL
 	 */
 	private class MapToModelTransfer implements Runnable {
 
@@ -146,24 +181,51 @@ public class MAVOctoMapMapper {
 			}
 
 			model.sys.setSensor(Status.MSP_GRID_AVAILABILITY, true);
+			
+			short_term_map.removeOutdatedNodes(45_000_000_000L);
 
-			if(mapForget) {
-				short_term_map.removeOutdatedNodes(125,30000);
-			}
 			model.grid.count = short_term_map.getNumberOfNodes();
 
-			if(short_term_map.getTree().numberOfChangesDetected() == 0)
+			if(short_term_map.getTree().numberOfChangesDetected() == 0) {
+					Arrays.fill(grid.data,0);
+					grid.tms        = DataModel.getSynchronizedPX4Time_us();
+					grid.count      = model.grid.count;
+					grid.resolution = short_term_map.getResolution();
+					control.sendMAVLinkMessage(grid);
 				return;
-
-			Stream<OcTreeKeyReadOnly> stream = short_term_map.getTree().getChangedKeys().keySet().stream().limit(125);
-
-			stream.forEach((key) ->  {
-				model.grid.add(encodeKey(key));
-				short_term_map.getTree().getChangedKeys().remove(key);
+			}
+			
+			
+			Stream<Entry<OcTreeKeyReadOnly,Byte>> deleted = short_term_map.getTree().getChangedKeys().entrySet().stream()
+					.filter((e) -> { return e.getValue() == MAVOccupancyUpdateRule.DELETED;  }).limit(50);
+			
+			deleted.forEach((k) -> {
+				model.grid.add(encodeKey(k.getKey()));
+				short_term_map.getTree().getChangedKeys().remove(k.getKey());
 			});
-
+			
 			sendGridMessage();
-
+			
+			Stream<Entry<OcTreeKeyReadOnly,Byte>> updated = short_term_map.getTree().getChangedKeys().entrySet().stream()
+					.filter((e) -> { return e.getValue() != MAVOccupancyUpdateRule.DELETED;  }).limit(125);
+			
+			updated.forEach((k) -> {
+				model.grid.add(encodeKey(k.getKey()));
+				short_term_map.getTree().getChangedKeys().remove(k.getKey());
+			});
+			
+			sendGridMessage();
+			
+			
+			
+			
+//			Stream<OcTreeKeyReadOnly> stream = short_term_map.getTree().getChangedKeys().keySet().stream().limit(200);
+//
+//			stream.forEach((k) -> {
+//				model.grid.add(encodeKey(k));
+//				short_term_map.getTree().getChangedKeys().remove(k);
+//			});
+//			sendGridMessage();
 		}
 
 		private long encodeKey(OcTreeKeyReadOnly key) {

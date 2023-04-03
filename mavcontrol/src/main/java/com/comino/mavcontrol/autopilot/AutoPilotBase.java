@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2017,2023 Eike Mansfeld ecm@gmx.de. All rights reserved.
+ *   Copyright (c) 2023 Eike Mansfeld ecm@gmx.de. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -88,11 +88,8 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 	protected boolean                      isRunning = false;
 
-
-
 	//	private Future<?> future;
 	private int future;
-
 
 
 	public static AutoPilotBase getInstance(String clazz, IMAVController control,MSPConfig config) {
@@ -118,8 +115,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 
 		System.out.println(instanceName+" instantiated");
 		this.mapper      = new MAVOctoMapMapper(control, config);
-
-		MAVOctoMapTools.warmup();
 
 		this.offboard_manager = Offboard3Manager.getInstance(control,mapper.getShorTermMap());
 		this.scenario_manager = ScenarioManager.getInstance(control);
@@ -168,17 +163,13 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		registerArm();
 	}
 
-
 	protected void registerArm() {
 
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS, Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
 			ekf2_reset_check.reset(true);
 			mapper.resetMap();
 		});
-
 	}
-
-
 
 	protected void registerDisarm() {
 
@@ -194,7 +185,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			//					MAV_CUST_MODE.PX4_CUSTOM_MAIN_MODE_MANUAL, 0 );
 
 		});
-
 	}
 
 	protected void registerLanding() {
@@ -299,20 +289,14 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 			}
 			//	countDownAndTakeoff(5,enable);
 			break;
-
-
-
 		case MSP_AUTOCONTROL_MODE.SITL_MODE1:
 			if(control.isSimulation())
 				TestActionFactory.continuous_planning(control.getCurrentModel(),enable);
 			break;
-
 		case MSP_AUTOCONTROL_ACTION.SITL_ACTION1:
 			if(control.isSimulation())
 				TestActionFactory.setRandomObstacle();
 			break;
-
-
 		case MSP_AUTOCONTROL_ACTION.SITL_ACTION2:
 			if(control.isSimulation())
 				TestActionFactory.test_circle(control,true);

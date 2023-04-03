@@ -368,10 +368,8 @@ public class Offboard3Manager {
 		
 		public void getProjectedPositionAt(float time, GeoTuple4D_F32<?> pos) {
 			if(!xyzExecutor.isPlanned()) {
-				// Later: if not planned return current position
-				pos.x = 0;
-				pos.y = 0;
-				pos.z = 0;
+				// get current if no plan available
+				MSP3DUtils.convertCurrentPosition(model, pos);
 				return;
 			}
 			// get projected position at current time + time

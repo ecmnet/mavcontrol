@@ -73,6 +73,7 @@ import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavmap.map.map3D.impl.octomap.MAVOccupancyOcTreeNode;
@@ -174,7 +175,8 @@ public class SimplePlannerPilot extends AutoPilotBase {
 		
 		private final long                 MESSAGE_FREQ_MS             = 1000;   // Do not rise message again within (ms)
 		private final float                MIN_DISTANCE                = 0.5f;   // Minimum distance of nearest obstacle to rise collsion
-		private final float                BOUNDING_BOX_SIDE_LENGTH    = 2.0f;   // Total side length of bounding box
+		private final float                BOUNDING_BOX_SIDE_LENGTH    = 1.2f;   // Total side length of bounding box
+		private final float                BOUNDING_BOX_HEIGHT         = 0.6f;   // Total height of bounding box
 		private final float                PROJECTION_LOOKAHEAD_SECS   = 1.0f;   // Time to look ahead (projected position
 
 		private final MAVSimpleBoundingBox boundingBox;
@@ -211,10 +213,9 @@ public class SimplePlannerPilot extends AutoPilotBase {
 
 				model.obs.x = model.obs.y = model.obs.z = Float.NaN;
 
-				long tms = System.nanoTime(); 
-				int count=0;
+//				long tms = System.nanoTime(); 
 
-				boundingBox.set(projected,BOUNDING_BOX_SIDE_LENGTH);
+				boundingBox.set(projected,BOUNDING_BOX_SIDE_LENGTH, BOUNDING_BOX_HEIGHT);
 
 				OcTreeIterable<MAVOccupancyOcTreeNode> nodes = 
 						OcTreeIteratorFactory.createLeafBoundingBoxIteratable(mapper.getShorTermMap().getRoot(),boundingBox);
@@ -233,11 +234,10 @@ public class SimplePlannerPilot extends AutoPilotBase {
 							model.obs.z =  obstacle_position.z;
 							model.slam.di = min_distance;
 						}
-						count++;
 					}		
 				}
 
-				if(min_distance < MIN_DISTANCE) {
+				if(min_distance < MIN_DISTANCE && model.sys.isStatus(Status.MSP_ARMED)) {
 					if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
 						logger.writeLocalMsg("[msp] Emergency stop.",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY,MESSAGE_FREQ_MS);
 						offboard.abort();
@@ -246,8 +246,8 @@ public class SimplePlannerPilot extends AutoPilotBase {
 					}
 				}
 
-				if(control.isSimulation() && count > 0)
-					System.out.println("LeafSearch time (us): "+((System.nanoTime()-tms)/1000L)+" Nodes checked: "+count+" / "+mapper.getShorTermMap().getNumberOfNodes());
+//				if(control.isSimulation() && count > 0)
+//					System.out.println("LeafSearch time (us): "+((System.nanoTime()-tms)/1000L)+" Nodes checked: "+count+" / "+mapper.getShorTermMap().getNumberOfNodes());
 			}
 		}
 	}

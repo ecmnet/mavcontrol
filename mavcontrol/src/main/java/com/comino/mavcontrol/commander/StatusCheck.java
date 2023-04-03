@@ -105,32 +105,32 @@ public class StatusCheck implements Runnable {
 		}
 
 
-		if (model.gps.fixtype > 2 ) {
+		if (hasGPS() && model.gps.fixtype > 2 ) {
 
 			if(!model.sys.isStatus(Status.MSP_GPOS_VALID)) {
 				if(logging)
-					control.writeLogMessage(new LogMessage("[msp] No global position.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
-				is_ready = false;
+					control.writeLogMessage(new LogMessage("[msp] No global position.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+				is_ready = true;
 			}
 
 			if (model.est.posVertAccuracy > 1.0f) {
 				if(logging)
-					control.writeLogMessage(new LogMessage("[msp] GPS vertical accurracy.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					control.writeLogMessage(new LogMessage("[msp] GPS vertical accurracy.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
 				is_ready = false;
 			}
 
 			if (model.est.posHorizAccuracy > 0.8f) {
 				if(logging)
-					control.writeLogMessage(new LogMessage("[msp] GPS horizontal accurracy.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+					control.writeLogMessage(new LogMessage("[msp] GPS horizontal accurracy.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
 				is_ready = false;
 			}
 
 		} else {
 
 			if(model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY)) {
-				if(logging &&  params.getParam("SYS_HAS_GPS")!=null && params.getParam("SYS_HAS_GPS").value == 1)
+				if(logging)
 					control.writeLogMessage(new LogMessage("[msp] GPS data not available.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
-				is_ready = false;
+				is_ready = true;
 			}
 		}
 
@@ -175,10 +175,10 @@ public class StatusCheck implements Runnable {
 			control.writeLogMessage(new LogMessage("[msp] Takeoff altitude > 2.0m.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
 		}
 
-		if (model.gps.fixtype > 2 &&  params.getParam("SYS_HAS_GPS")!=null && params.getParam("SYS_HAS_GPS").value == 0) {
-			control.writeLogMessage(new LogMessage("[msp] GPS is disabled. Enable before flight.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
-			is_ok = false;
-		}
+//		if (model.gps.fixtype > 2 &&  params.getParam("SYS_HAS_GPS")!=null && params.getParam("SYS_HAS_GPS").value == 0) {
+//			control.writeLogMessage(new LogMessage("[msp] GPS is disabled. Enable before flight.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
+//			is_ok = true;
+//		}
 
 
 		return is_ok;
@@ -191,7 +191,9 @@ public class StatusCheck implements Runnable {
 			model.sys.setStatus(Status.MSP_READY_FOR_FLIGHT, checkFlightReadiness(false));
 	}
 
-
+    private boolean hasGPS() {
+    	return params.getParam("SYS_HAS_GPS")!=null && params.getParam("SYS_HAS_GPS").value == 1;
+    }
 
 
 
