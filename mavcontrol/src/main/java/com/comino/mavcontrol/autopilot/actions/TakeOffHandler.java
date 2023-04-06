@@ -36,12 +36,14 @@ package com.comino.mavcontrol.autopilot.actions;
 
 import org.mavlink.messages.ESTIMATOR_STATUS_FLAGS;
 import org.mavlink.messages.MAV_CMD;
+import org.mavlink.messages.MAV_MODE_FLAG;
 import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.log.MSPLogger;
+import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
@@ -175,6 +177,7 @@ public class TakeOffHandler {
 					if(aborted!=null) aborted.run();
 				}
 				else {
+					
 					tms_takeoff_plan = System.currentTimeMillis() + count_down_ms;
 					visx = model.vision.x;
 					visy = model.vision.y;
