@@ -40,7 +40,7 @@ public class ArmingItem extends AbstractScenarioItem {
 					abort();
 				}
 				else {
-					wait(1000);
+					wait(500);
 					completed();
 				}
 			},1 );
