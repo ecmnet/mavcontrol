@@ -175,8 +175,8 @@ public class SimplePlannerPilot extends AutoPilotBase {
 		
 		private final long                 MESSAGE_FREQ_MS             = 1000;   // Do not rise message again within (ms)
 		private final float                MIN_DISTANCE                = 0.5f;   // Minimum distance of nearest obstacle to rise collsion
-		private final float                BOUNDING_BOX_SIDE_LENGTH    = 1.2f;   // Total side length of bounding box
-		private final float                BOUNDING_BOX_HEIGHT         = 0.6f;   // Total height of bounding box
+		private final float                BOUNDING_BOX_SIDE_LENGTH    = 1.6f;   // Total side length of bounding box
+		private final float                BOUNDING_BOX_HEIGHT         = 0.8f;   // Total height of bounding box
 		private final float                PROJECTION_LOOKAHEAD_SECS   = 1.0f;   // Time to look ahead (projected position
 
 		private final MAVSimpleBoundingBox boundingBox;
@@ -208,6 +208,9 @@ public class SimplePlannerPilot extends AutoPilotBase {
 				
 //				MSP3DUtils.convertCurrentSpeed(model, velocity_vector);
 //				float velocity = velocity_vector.norm();
+				
+				if(mapper.getShorTermMap().getNumberOfNodes()<1)
+					continue;
 
 				offboard.getProjectedPositionAt(PROJECTION_LOOKAHEAD_SECS, projected);
 
