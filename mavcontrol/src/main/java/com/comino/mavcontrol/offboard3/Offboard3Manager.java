@@ -438,6 +438,7 @@ public class Offboard3Manager {
 
 			if(current_target.isPositionFinite() && MSP3DUtils.distance3DSQ(current.pos(), current_target.pos())< acceptance_radius*acceptance_radius) {
 				if(reached!=null && planQueue.isEmpty() && current_plan.isEmpty()) {
+					control.writeLogMessage(new LogMessage("[msp] Reached.", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 					ITargetReached action = reached; reached = null;
 					action.execute(model);
 					if(reached != null)

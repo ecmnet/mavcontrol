@@ -40,6 +40,8 @@ import java.util.LinkedList;
 import org.mavlink.messages.IMAVLinkMessageID;
 import org.mavlink.messages.MAV_BATTERY_CHARGE_STATE;
 import org.mavlink.messages.MAV_CMD;
+import org.mavlink.messages.MAV_MODE_FLAG;
+import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
@@ -53,6 +55,7 @@ import com.comino.mavcom.config.MSPParams;
 import com.comino.mavcom.control.IMAVMSPController;
 import com.comino.mavcom.log.MSPLogger;
 import com.comino.mavcom.mavlink.IMAVLinkListener;
+import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
@@ -149,6 +152,7 @@ public class MSPCommander  {
 			
 			model.vision.setStatus(Vision.FIDUCIAL_LOCKED, false);
 			model.vision.setStatus(Vision.FIDUCIAL_ENABLED, false);
+			
 
 		});
 
