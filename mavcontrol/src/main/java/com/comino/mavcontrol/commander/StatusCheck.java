@@ -105,12 +105,12 @@ public class StatusCheck implements Runnable {
 		}
 
 
-		if (hasGPS() && model.gps.fixtype > 2 ) {
+		if (hasGPS()) {
 
 			if(!model.sys.isStatus(Status.MSP_GPOS_VALID)) {
 				if(logging)
 					control.writeLogMessage(new LogMessage("[msp] No global position.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
-				is_ready = true;
+				is_ready = false;
 			}
 
 			if (model.est.posVertAccuracy > 1.0f) {
@@ -125,12 +125,10 @@ public class StatusCheck implements Runnable {
 				is_ready = false;
 			}
 
-		} else {
-
-			if(model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY)) {
+			if(model.sys.isSensorAvailable(Status.MSP_GPS_AVAILABILITY) && model.gps.fixtype < 2) {
 				if(logging)
 					control.writeLogMessage(new LogMessage("[msp] GPS data not available.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
-				is_ready = true;
+				is_ready = false;
 			}
 		}
 
