@@ -185,7 +185,7 @@ public class SimplePlannerPilot extends AutoPilotBase {
 		private final Point4D_F32 		   projected;
 
 		public EmergencyCollisionCheck() {
-			this.boundingBox        = new MAVSimpleBoundingBox(0.2f,16);
+			this.boundingBox        = new MAVSimpleBoundingBox(mapper.getShorTermMap().getResolution(),16);
 			this.projected          = new Point4D_F32();
 			this.obstacle_position  = new Vector3D_F32();
 //			this.velocity_vector    = new Vector3D_F32();
@@ -208,7 +208,7 @@ public class SimplePlannerPilot extends AutoPilotBase {
 				
 //				MSP3DUtils.convertCurrentSpeed(model, velocity_vector);
 //				float velocity = velocity_vector.norm();
-				
+			
 				if(mapper.getShorTermMap().getNumberOfNodes()<1)
 					continue;
 

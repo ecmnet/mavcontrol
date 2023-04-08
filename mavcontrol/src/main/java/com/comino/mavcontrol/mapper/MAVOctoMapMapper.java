@@ -33,6 +33,7 @@
 
 package com.comino.mavcontrol.mapper;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map.Entry;
 import java.util.stream.Stream;
@@ -77,6 +78,7 @@ public class MAVOctoMapMapper {
 	private final MSPLogger         logger;
 
 	private boolean                 publish_microgrid = true;
+	private long                    time_to_forget;
 
 	public MAVOctoMapMapper(IMAVController control,MSPConfig config) {
 		super();
@@ -86,7 +88,7 @@ public class MAVOctoMapMapper {
 		this.control = control;
 		this.model   = control.getCurrentModel();
 
-		this.short_term_map  = new MAVOctoMap3D(0.2f,true);
+		this.short_term_map  = new MAVOctoMap3D(0.20f,true);
 		//		this.long_term_map   = new MAVOctoMap3D(1.0f,false);
 
 		this.setupConfig(config);
@@ -103,7 +105,7 @@ public class MAVOctoMapMapper {
 	public void resetMap() {
 		logger.writeLocalMsg("[msp] resetting maps",MAV_SEVERITY.MAV_SEVERITY_NOTICE);
 		short_term_map.clear();
-//		short_term_map.enableRemoveOutdated();
+		//		short_term_map.enableRemoveOutdated();
 		msg_msp_micro_grid grid = new msg_msp_micro_grid(2,1);
 		grid.count = -1;
 		control.sendMAVLinkMessage(grid);
@@ -119,25 +121,25 @@ public class MAVOctoMapMapper {
 
 
 		OctoMap3DStorage store = new OctoMap3DStorage(short_term_map, model.state.g_lat, model.state.g_lon);
-		//						try {
-		//		//		store.importOctomap("euroc_1.bt");
-		//							store.importOctomap("octomap.bt");
-		//		//					model.grid.count = map.getNumberOfNodes();
-		//		//		
-		//						} catch (IOException e) {
-		//							// TODO Auto-generated catch block
-		//							e.printStackTrace();
-		//						}
+		try {
+			//		//		store.importOctomap("euroc_1.bt");
+			store.importOctomap("octomap.bt");
+			model.grid.count = short_term_map.getNumberOfNodes();
+			//		//		
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		//
 		//		//store.readLegacyM3D("test.m3D");
 
-		if(store.locateAndRead()) {
-		//	short_term_map.disableRemoveOutdated();
-			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-		}
-		else {
-			logger.writeLocalMsg("[msp] No Map for this home position found.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-		}
+		//		if(store.locateAndRead()) {
+		//		//	short_term_map.disableRemoveOutdated();
+		//			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+		//		}
+		//		else {
+		//			logger.writeLocalMsg("[msp] No Map for this home position found.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+		//		}
 	}
 
 	public void invalidate_map_transfer() {
@@ -160,10 +162,13 @@ public class MAVOctoMapMapper {
 		this.publish_microgrid = config.getBoolProperty(MSPParams.PUBLISH_MICROGRID, "true");
 		System.out.println("[map] Publishing microGrid enabled: "+publish_microgrid);
 
-		boolean mapForget = config.getBoolProperty(MSPParams.AUTOPILOT_FORGET_MAP, "true");
-		System.out.println("[map] Map forget enabled: "+mapForget);
-		short_term_map.enableRemoveOutdated(mapForget);
-
+		time_to_forget= config.getIntProperty(MSPParams.AUTOPILOT_FORGET_MAP_MS, "1000");
+		if(time_to_forget > 0) {
+			System.out.println("[map] Map forget enabled: "+time_to_forget+" ms");
+			short_term_map.enableRemoveOutdated(true);
+		} else {
+			short_term_map.enableRemoveOutdated(false);
+		}
 	}
 
 	/*
@@ -181,51 +186,43 @@ public class MAVOctoMapMapper {
 			}
 
 			model.sys.setSensor(Status.MSP_GRID_AVAILABILITY, true);
-			
-			short_term_map.removeOutdatedNodes(45_000_000_000L);
+
+			short_term_map.removeOutdatedNodes(time_to_forget);
 
 			model.grid.count = short_term_map.getNumberOfNodes();
 
 			if(short_term_map.getTree().numberOfChangesDetected() == 0) {
-					Arrays.fill(grid.data,0);
-					grid.tms        = DataModel.getSynchronizedPX4Time_us();
-					grid.count      = model.grid.count;
-					grid.resolution = short_term_map.getResolution();
-					control.sendMAVLinkMessage(grid);
+				Arrays.fill(grid.data,0);
+				grid.tms        = DataModel.getSynchronizedPX4Time_us();
+				grid.count      = model.grid.count;
+				grid.resolution = short_term_map.getResolution();
+				control.sendMAVLinkMessage(grid);
 				return;
 			}
-			
-			
+
+
 			Stream<Entry<OcTreeKeyReadOnly,Byte>> deleted = short_term_map.getTree().getChangedKeys().entrySet().stream()
 					.filter((e) -> { return e.getValue() == MAVOccupancyUpdateRule.DELETED;  }).limit(50);
-			
+
 			deleted.forEach((k) -> {
 				model.grid.add(encodeKey(k.getKey()));
 				short_term_map.getTree().getChangedKeys().remove(k.getKey());
+				short_term_map.removeOutdatedNodes(20_000L);
 			});
-			
+
 			sendGridMessage();
-			
+
 			Stream<Entry<OcTreeKeyReadOnly,Byte>> updated = short_term_map.getTree().getChangedKeys().entrySet().stream()
-					.filter((e) -> { return e.getValue() != MAVOccupancyUpdateRule.DELETED;  }).limit(125);
-			
+					.filter((e) -> { return e.getValue() != MAVOccupancyUpdateRule.DELETED;  }).limit(75);
+
 			updated.forEach((k) -> {
 				model.grid.add(encodeKey(k.getKey()));
 				short_term_map.getTree().getChangedKeys().remove(k.getKey());
+				short_term_map.removeOutdatedNodes(20_000L);
 			});
-			
+
 			sendGridMessage();
-			
-			
-			
-			
-//			Stream<OcTreeKeyReadOnly> stream = short_term_map.getTree().getChangedKeys().keySet().stream().limit(200);
-//
-//			stream.forEach((k) -> {
-//				model.grid.add(encodeKey(k));
-//				short_term_map.getTree().getChangedKeys().remove(k);
-//			});
-//			sendGridMessage();
+
 		}
 
 		private long encodeKey(OcTreeKeyReadOnly key) {

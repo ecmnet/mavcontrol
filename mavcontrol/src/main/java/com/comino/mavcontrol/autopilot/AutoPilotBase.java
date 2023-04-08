@@ -82,9 +82,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected SafetyCheckHandler safetycheck_handler = null;
 	protected EKF2ResetCheck        ekf2_reset_check = null;
 
-	protected boolean			           mapForget = false;
 	protected boolean                      flowCheck = false;
-	protected boolean              publish_microgrid = true;
 
 	protected boolean                      isRunning = false;
 
@@ -124,12 +122,6 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.params           = PX4Parameters.getInstance();
 
 		this.ekf2_reset_check = new EKF2ResetCheck(control);
-
-		this.publish_microgrid = config.getBoolProperty(MSPParams.PUBLISH_MICROGRID, "true");
-		System.out.println("[vis] Publishing microGrid enabled: "+publish_microgrid);
-
-		this.mapForget = config.getBoolProperty(MSPParams.AUTOPILOT_FORGET_MAP, "true");
-		System.out.println(instanceName+": Map forget enabled: "+mapForget);
 
 		this.flowCheck = config.getBoolProperty(MSPParams.AUTOPILOT_FLOW_CHECK, "true") & !control.isSimulation();
 		System.out.println(instanceName+": FlowCheck enabled: "+flowCheck);
