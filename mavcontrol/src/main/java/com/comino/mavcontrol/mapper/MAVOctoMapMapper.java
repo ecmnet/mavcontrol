@@ -94,7 +94,7 @@ public class MAVOctoMapMapper {
 		this.setupConfig(config);
 
 		if(publish_microgrid)
-			wq.addCyclicTask("NP",25, new MapToModelTransfer());
+			wq.addCyclicTask("NP",20, new MapToModelTransfer());
 
 	}
 
@@ -121,25 +121,25 @@ public class MAVOctoMapMapper {
 
 
 		OctoMap3DStorage store = new OctoMap3DStorage(short_term_map, model.state.g_lat, model.state.g_lon);
-		try {
-			//		//		store.importOctomap("euroc_1.bt");
-			store.importOctomap("octomap.bt");
-			model.grid.count = short_term_map.getNumberOfNodes();
-			//		//		
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		//		try {
+		//			//		//		store.importOctomap("euroc_1.bt");
+		//			store.importOctomap("octomap.bt");
+		//			model.grid.count = short_term_map.getNumberOfNodes();
+		//			//		//		
+		//		} catch (IOException e) {
+		//			// TODO Auto-generated catch block
+		//			e.printStackTrace();
+		//		}
 		//
 		//		//store.readLegacyM3D("test.m3D");
 
-		//		if(store.locateAndRead()) {
-		//		//	short_term_map.disableRemoveOutdated();
-		//			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-		//		}
-		//		else {
-		//			logger.writeLocalMsg("[msp] No Map for this home position found.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
-		//		}
+		if(store.locateAndRead()) {
+			//	short_term_map.disableRemoveOutdated();
+			logger.writeLocalMsg("[msp] Map for this home position loaded.",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
+		}
+		else {
+			logger.writeLocalMsg("[msp] No Map for this home position found.",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+		}
 	}
 
 	public void invalidate_map_transfer() {
@@ -202,26 +202,26 @@ public class MAVOctoMapMapper {
 
 
 			Stream<Entry<OcTreeKeyReadOnly,Byte>> deleted = short_term_map.getTree().getChangedKeys().entrySet().stream()
-					.filter((e) -> { return e.getValue() == MAVOccupancyUpdateRule.DELETED;  }).limit(50);
+					.filter((e) -> { return e.getValue() == MAVOccupancyUpdateRule.DELETED;  }).limit(100);
 
 			deleted.forEach((k) -> {
 				model.grid.add(encodeKey(k.getKey()));
 				short_term_map.getTree().getChangedKeys().remove(k.getKey());
-				short_term_map.removeOutdatedNodes(20_000L);
 			});
 
-			sendGridMessage();
+			if(model.grid.hasTransfers())
+				sendGridMessage();
 
 			Stream<Entry<OcTreeKeyReadOnly,Byte>> updated = short_term_map.getTree().getChangedKeys().entrySet().stream()
-					.filter((e) -> { return e.getValue() != MAVOccupancyUpdateRule.DELETED;  }).limit(75);
+					.filter((e) -> { return e.getValue() != MAVOccupancyUpdateRule.DELETED;  }).limit(25);
 
 			updated.forEach((k) -> {
 				model.grid.add(encodeKey(k.getKey()));
 				short_term_map.getTree().getChangedKeys().remove(k.getKey());
-				short_term_map.removeOutdatedNodes(20_000L);
 			});
 
-			sendGridMessage();
+			if(model.grid.hasTransfers())
+				sendGridMessage();
 
 		}
 
