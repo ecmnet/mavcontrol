@@ -131,7 +131,7 @@ public abstract class Offboard3AbstractTarget extends Offboard3State {
 
 
 	public void determineTargetVelocity(GeoTuple4D_F32<?> p_current) {
-
+		
 		vel.setTo(pos.x-p_current.x, pos.y-p_current.y, pos.z-p_current.z, 0);
 		MSP3DUtils.replaceNaN3D(vel, null_v);
 

@@ -25,17 +25,17 @@ public class Offboard3Current extends Offboard3State {
 		update();
 	}
 
-	public GeoTuple4D_F32<?> sep() {
-		return current_pos_setpoint;
-	}
-
-	public GeoTuple4D_F32<?> sev() {
-		return current_vel_setpoint;
-	}
-	
-	public GeoTuple3D_F32<?> sea() {
-		return current_acc_setpoint;
-	}
+//	public GeoTuple4D_F32<?> sep() {
+//		return current_pos_setpoint;
+//	}
+//
+//	public GeoTuple4D_F32<?> sev() {
+//		return current_vel_setpoint;
+//	}
+//	
+//	public GeoTuple3D_F32<?> sea() {
+//		return current_acc_setpoint;
+//	}
 
 
 	public void update() {
@@ -44,7 +44,9 @@ public class Offboard3Current extends Offboard3State {
 			
 			pos.setTo(model.state.l_x,  model.state.l_y,  model.state.l_z,  model.attitude.y);
 			vel.setTo(model.state.l_vx, model.state.l_vy, model.state.l_vz, model.attitude.yr);
-			acc.setTo(model.target_state.l_ax, model.target_state.l_ay, model.target_state.l_az);
+			acc.setTo(0,0,0);
+			
+			maskZero(vel,0.1f);
 		
 			current_pos_setpoint.setTo(model.target_state.l_x,  model.target_state.l_y,  model.target_state.l_z,  model.attitude.sy);
 			current_vel_setpoint.setTo(model.target_state.l_vx, model.target_state.l_vy, model.target_state.l_vz, model.attitude.syr);
@@ -54,6 +56,17 @@ public class Offboard3Current extends Offboard3State {
 		} else {
 			System.err.println("Current state not updated. Model is NULL");
 		}
-
+	}
+	
+	private void maskZero(GeoTuple4D_F32<?> in, float limit) {
+		if(Math.abs(in.x) < limit) in.x = 0f;
+		if(Math.abs(in.y) < limit) in.y = 0f;
+		if(Math.abs(in.z) < limit) in.z = 0f;
+	}
+	
+	private void maskZero(GeoTuple3D_F32<?> in, float limit) {
+		if(Math.abs(in.x) < limit) in.x = 0f;
+		if(Math.abs(in.y) < limit) in.y = 0f;
+		if(Math.abs(in.z) < limit) in.z = 0f;
 	}
 }

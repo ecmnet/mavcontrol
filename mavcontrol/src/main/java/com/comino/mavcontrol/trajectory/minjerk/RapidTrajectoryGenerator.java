@@ -80,10 +80,6 @@ public class RapidTrajectoryGenerator {
 	private final Point3D_F64 _tmp1 = new Point3D_F64();
 	private final Point3D_F64 _tmp2 = new Point3D_F64();
 
-	static {
-		warmup();
-	}
-
 
 	public RapidTrajectoryGenerator() {
 		super();
@@ -208,6 +204,10 @@ public class RapidTrajectoryGenerator {
 			if(_axis[i]!=null) _axis[i].reset();
 		}
 		_tf = 0;
+	}
+	
+	public SingleAxisTrajectory getAxis(int idx) {
+		return _axis[idx];
 	}
 
 	public double getCost() {
@@ -673,21 +673,44 @@ public class RapidTrajectoryGenerator {
 		for(int i=0;i<3;i++)
 			_axis[i].set(planner._axis[i]);
 	}
-
-
-	private static void warmup() {
-
+	
+	public static void main(String[] args)  {
+		
+		Vector4D_F32 out = new Vector4D_F32(0,0,0,0);
+		
 		RapidTrajectoryGenerator g = new RapidTrajectoryGenerator();
-		g._tf = 5.0; Point3D_F64 p = new Point3D_F64(); Vector4D_F32 v = new Vector4D_F32();
-		for(int i = 0; i< 50_000; i++) {
-			v.setTo((float)Math.random(),(float)Math.random(),(float)Math.random(),Float.NaN);
-			g.setInitialState(v, v);
-			g.generate(5.0);
-			g.getBodyRates(2.0, TIME_STEP, p);
-			g.checkInputFeasibility(MIN_ACC, MAX_ACC, MAX_BODY_RATE, TIME_STEP);
-			g.checkPositionFeasibility(p,p);
+		
+		Vector4D_F32 ip = new Vector4D_F32(0,0,-1.5f,0); 
+		Vector4D_F32 iv = new Vector4D_F32(0,0,0,0);
+		g.setInitialState(ip, iv);
+		
+	//	Vector4D_F32 gp = new Vector4D_F32(0,0,-1.5f,0); 
+		Vector4D_F32 gv = new Vector4D_F32(1,1,0,0);
+		
+		g.setGoalVelocity(gv);
+		g.generate(220);
+		
+		for(int i=0;i<20;i++) {
+			g.getPosition(i, out); 
+			System.err.println(out);
 		}
-
+		
 	}
+
+
+//	private static void warmup() {
+//
+//		RapidTrajectoryGenerator g = new RapidTrajectoryGenerator();
+//		g._tf = 5.0; Point3D_F64 p = new Point3D_F64(); Vector4D_F32 v = new Vector4D_F32();
+//		for(int i = 0; i< 50_000; i++) {
+//			v.setTo((float)Math.random(),(float)Math.random(),(float)Math.random(),Float.NaN);
+//			g.setInitialState(v, v);
+//			g.generate(5.0);
+//			g.getBodyRates(2.0, TIME_STEP, p);
+//			g.checkInputFeasibility(MIN_ACC, MAX_ACC, MAX_BODY_RATE, TIME_STEP);
+//			g.checkPositionFeasibility(p,p);
+//		}
+//
+//	}
 
 }
