@@ -317,7 +317,9 @@ public class Offboard3Manager {
 			this.t_section_elapsed_last = System.nanoTime();
 
 			isRunning = true; 
-			offboard_worker = wq.addCyclicTask("HP", UPDATE_RATE, this);
+			
+			if(!wq.isInQueue("HP", offboard_worker))
+			   offboard_worker = wq.addCyclicTask("HP", UPDATE_RATE, this);
 		}
 
 		public void stopAndLoiter() {

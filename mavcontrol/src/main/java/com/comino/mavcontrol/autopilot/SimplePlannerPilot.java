@@ -218,36 +218,36 @@ public class SimplePlannerPilot extends AutoPilotBase {
 
 //				long tms = System.nanoTime(); 
 
-				boundingBox.set(projected,BOUNDING_BOX_SIDE_LENGTH, BOUNDING_BOX_HEIGHT);
-
-				OcTreeIterable<MAVOccupancyOcTreeNode> nodes = 
-						OcTreeIteratorFactory.createLeafBoundingBoxIteratable(mapper.getShorTermMap().getRoot(),boundingBox);
-
-				// searching for the minimum distance
-				min_distance = Float.MAX_VALUE;
-				for(var node : nodes) {
-					if(mapper.getShorTermMap().isNodeOccupied(node)) {
-
-						node.getCenter(obstacle_position);
-						distance = (float)MSP3DUtils.distance3D(projected, obstacle_position);
-						if(distance < min_distance) {
-							min_distance = distance;
-							model.obs.x =  obstacle_position.x;
-							model.obs.y =  obstacle_position.y;
-							model.obs.z =  obstacle_position.z;
-							model.slam.di = min_distance;
-						}
-					}		
-				}
-
-				if(min_distance < MIN_DISTANCE && model.sys.isStatus(Status.MSP_ARMED)) {
-					if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
-						logger.writeLocalMsg("[msp] Emergency stop.",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY,MESSAGE_FREQ_MS);
-						offboard.abort();
-					} else {
-						logger.writeLocalMsg("[msp] Collision warning.",MAV_SEVERITY.MAV_SEVERITY_WARNING,MESSAGE_FREQ_MS);
-					}
-				}
+//				boundingBox.set(projected,BOUNDING_BOX_SIDE_LENGTH, BOUNDING_BOX_HEIGHT);
+//
+//				OcTreeIterable<MAVOccupancyOcTreeNode> nodes = 
+//						OcTreeIteratorFactory.createLeafBoundingBoxIteratable(mapper.getShorTermMap().getRoot(),boundingBox);
+//
+//				// searching for the minimum distance
+//				min_distance = Float.MAX_VALUE;
+//				for(var node : nodes) {
+//					if(mapper.getShorTermMap().isNodeOccupied(node)) {
+//
+//						node.getCenter(obstacle_position);
+//						distance = (float)MSP3DUtils.distance3D(projected, obstacle_position);
+//						if(distance < min_distance) {
+//							min_distance = distance;
+//							model.obs.x =  obstacle_position.x;
+//							model.obs.y =  obstacle_position.y;
+//							model.obs.z =  obstacle_position.z;
+//							model.slam.di = min_distance;
+//						}
+//					}		
+//				}
+//
+//				if(min_distance < MIN_DISTANCE && model.sys.isStatus(Status.MSP_ARMED)) {
+//					if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
+//						logger.writeLocalMsg("[msp] Emergency stop.",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY,MESSAGE_FREQ_MS);
+//						offboard.abort();
+//					} else {
+//						logger.writeLocalMsg("[msp] Collision warning.",MAV_SEVERITY.MAV_SEVERITY_WARNING,MESSAGE_FREQ_MS);
+//					}
+//				}
 
 //				if(control.isSimulation() && count > 0)
 //					System.out.println("LeafSearch time (us): "+((System.nanoTime()-tms)/1000L)+" Nodes checked: "+count+" / "+mapper.getShorTermMap().getNumberOfNodes());

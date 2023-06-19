@@ -88,7 +88,7 @@ public class MAVOctoMapMapper {
 		this.control = control;
 		this.model   = control.getCurrentModel();
 
-		this.short_term_map  = new MAVOctoMap3D(0.20f,true);
+		this.short_term_map  = new MAVOctoMap3D(0.2f,true);
 		//		this.long_term_map   = new MAVOctoMap3D(1.0f,false);
 
 		this.setupConfig(config);
@@ -162,7 +162,7 @@ public class MAVOctoMapMapper {
 		this.publish_microgrid = config.getBoolProperty(MSPParams.PUBLISH_MICROGRID, "true");
 		System.out.println("[map] Publishing microGrid enabled: "+publish_microgrid);
 
-		time_to_forget= config.getIntProperty(MSPParams.AUTOPILOT_FORGET_MAP_MS, "1000");
+		time_to_forget= config.getIntProperty(MSPParams.AUTOPILOT_FORGET_MAP_MS, "100");
 		if(time_to_forget > 0) {
 			System.out.println("[map] Map forget enabled: "+time_to_forget+" ms");
 			short_term_map.enableRemoveOutdated(true);
