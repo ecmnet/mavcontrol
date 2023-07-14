@@ -33,9 +33,9 @@
 
 package com.comino.mavcontrol.mapper;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map.Entry;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.mavlink.messages.MAV_SEVERITY;
@@ -51,6 +51,7 @@ import com.comino.mavmap.map.map3D.impl.octomap.MAVOccupancyOcTreeNode;
 import com.comino.mavmap.map.map3D.impl.octomap.MAVOctoMap3D;
 import com.comino.mavmap.map.map3D.impl.octomap.rule.MAVOccupancyUpdateRule;
 import com.comino.mavmap.map.map3D.impl.octomap.store.OctoMap3DStorage;
+import com.comino.mavutils.legacy.ExecutorService;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 import us.ihmc.jOctoMap.key.OcTreeKeyReadOnly;
@@ -72,7 +73,6 @@ public class MAVOctoMapMapper {
 	private final WorkQueue wq;
 
 	private final MAVOctoMap3D      short_term_map;
-	//	private final MAVOctoMap3D      long_term_map;
 	private final IMAVController    control;
 	private final DataModel         model;
 	private final MSPLogger         logger;
@@ -89,7 +89,6 @@ public class MAVOctoMapMapper {
 		this.model   = control.getCurrentModel();
 
 		this.short_term_map  = new MAVOctoMap3D(0.2f,true);
-		//		this.long_term_map   = new MAVOctoMap3D(1.0f,false);
 
 		this.setupConfig(config);
 
@@ -209,9 +208,6 @@ public class MAVOctoMapMapper {
 				short_term_map.getTree().getChangedKeys().remove(k.getKey());
 			});
 
-			if(model.grid.hasTransfers())
-				sendGridMessage();
-
 			Stream<Entry<OcTreeKeyReadOnly,Byte>> updated = short_term_map.getTree().getChangedKeys().entrySet().stream()
 					.filter((e) -> { return e.getValue() != MAVOccupancyUpdateRule.DELETED;  }).limit(25);
 
@@ -219,9 +215,6 @@ public class MAVOctoMapMapper {
 				model.grid.add(encodeKey(k.getKey()));
 				short_term_map.getTree().getChangedKeys().remove(k.getKey());
 			});
-
-			if(model.grid.hasTransfers())
-				sendGridMessage();
 
 		}
 
@@ -235,17 +228,7 @@ public class MAVOctoMapMapper {
 				return short_term_map.encode(key,0);
 		}
 
-		private void sendGridMessage() {
-			while(model.grid.hasTransfers()) {
-				if(model.grid.toArray(grid.data)) {
-					grid.tms        = DataModel.getSynchronizedPX4Time_us();
-					grid.count      = model.grid.count;
-					grid.resolution = short_term_map.getResolution();
-					control.sendMAVLinkMessage(grid);
-				}
-			}	
-		}
-
+	
 	}
 
 }

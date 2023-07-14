@@ -260,11 +260,13 @@ public class ScenarioReader {
 				for(int j=0;j<params.getLength();j++) {
 					Node param = params.item(j);
 					switch(param.getNodeName().toLowerCase()) {
-					case "angle":
+					case "absolute":
+						rotate.setPositionType(AbstractScenarioItem.POS_TYPE_ABSOLUTE);
 						rotate.setYaw(parseFloatAttribute(param,"a"));
 						break;
-					case "delay":
-						rotate.setDelay((int)parseFloatAttribute(param,"d"));
+					case "relative":
+						rotate.setPositionType(AbstractScenarioItem.POS_TYPE_RELATIVE);
+						rotate.setYaw(parseFloatAttribute(param,"a"));
 						break;
 					}
 				}

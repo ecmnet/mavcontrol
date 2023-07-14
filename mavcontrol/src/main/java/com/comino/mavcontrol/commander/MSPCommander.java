@@ -40,14 +40,13 @@ import java.util.LinkedList;
 import org.mavlink.messages.IMAVLinkMessageID;
 import org.mavlink.messages.MAV_BATTERY_CHARGE_STATE;
 import org.mavlink.messages.MAV_CMD;
-import org.mavlink.messages.MAV_MODE_FLAG;
-import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
 import org.mavlink.messages.MSP_CMD;
 import org.mavlink.messages.MSP_COMPONENT_CTRL;
 import org.mavlink.messages.lquac.msg_msp_command;
+import org.mavlink.messages.lquac.msg_set_gps_global_origin;
 import org.mavlink.messages.lquac.msg_set_home_position;
 
 import com.comino.mavcom.config.MSPConfig;
@@ -55,7 +54,6 @@ import com.comino.mavcom.config.MSPParams;
 import com.comino.mavcom.control.IMAVMSPController;
 import com.comino.mavcom.log.MSPLogger;
 import com.comino.mavcom.mavlink.IMAVLinkListener;
-import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
@@ -70,8 +68,6 @@ import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 import com.comino.mavcontrol.scenario.parser.Scenario;
 import com.comino.mavcontrol.scenario.parser.ScenarioReader;
 import com.comino.mavmap.map.map3D.impl.octomap.MAVOctoMap3D;
-import com.comino.mavmap.map.map3D.impl.octree.LocalMap3D;
-import com.comino.mavmap.test.MapTestFactory;
 import com.comino.mavutils.workqueue.WorkQueue;
 
 @SuppressWarnings("unused")
@@ -292,7 +288,7 @@ public class MSPCommander  {
 	}
 
 
-	private void setGlobalOrigin(double lat, double lon, double altitude) {
+	public void setGlobalOrigin(double lat, double lon, double altitude) {
 
 		if((params.getParam("SYS_HAS_GPS")!=null && params.getParam("SYS_HAS_GPS").value == 1) || model.sys.isStatus(Status.MSP_GPOS_VALID))
 			return;
@@ -305,6 +301,7 @@ public class MSPCommander  {
 		}
 
 		final msg_set_home_position  home = new msg_set_home_position(1,1);
+		
 		home.target_system = 1;
 		home.latitude = (long)(lat * 1e7);
 		home.longitude = (long)(lon * 1e7);
@@ -313,19 +310,20 @@ public class MSPCommander  {
 		else
 			home.altitude = (int)(altitude * 1000);
 		home.time_usec = DataModel.getSynchronizedPX4Time_us();
+		
 		control.sendMAVLinkMessage(home);
-		//		
-		//		final msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,1);
-		//		gor.target_system = 1;
-		//		gor.latitude = (long)(lat * 1e7);
-		//		gor.longitude = (long)(lon * 1e7);
-		//		if(altitude < 0)
-		//			gor.altitude = (int)(model.hud.ap * 1000f);
-		//		else
-		//			gor.altitude = (int)(altitude * 1000);
-		//		gor.time_usec = DataModel.getSynchronizedPX4Time_us();
-		//
-		//		control.sendMAVLinkMessage(gor);
+				
+				final msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,1);
+				gor.target_system = 1;
+				gor.latitude = (long)(lat * 1e7);
+				gor.longitude = (long)(lon * 1e7);
+				if(altitude < 0)
+					gor.altitude = (int)(model.hud.ap * 1000f);
+				else
+					gor.altitude = (int)(altitude * 1000);
+				gor.time_usec = DataModel.getSynchronizedPX4Time_us();
+		
+				control.sendMAVLinkMessage(gor);
 		logger.writeLocalMsg("[msp] Setting reference position",MAV_SEVERITY.MAV_SEVERITY_INFO);
 
 	}
