@@ -8,6 +8,7 @@ import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard3.collision.Offboard3CollisionCheck;
+import com.comino.mavcontrol.offboard3.collision.Offboard3EDF2DCollisionCheck;
 import com.comino.mavcontrol.offboard3.collision.Offboard3OctoMapCollisionCheck;
 import com.comino.mavcontrol.offboard3.generator.Offboard3OctomapTrajectoryGenerator;
 import com.comino.mavcontrol.offboard3.generator.Offboard3SphereTrajectoryGenerator;
@@ -55,7 +56,7 @@ public class Offboard3Planner {
 
 	// Collsion check
 	//	private final Offboard3CollisionCheck     collisionCheck;
-	private final Offboard3OctoMapCollisionCheck     collisionCheck;
+	private final Offboard3EDF2DCollisionCheck     collisionCheck;
 
 	// DataModel && Controller
 	private final DataModel                    model;
@@ -68,6 +69,9 @@ public class Offboard3Planner {
 	// Planning parameters
 	private float acceptance_radius;
 	private float max_xyz_velocity;
+	
+	// Test
+	//private final Offboard3EDFMinimumPlanner edf_planner;
 
 
 	public Offboard3Planner(IMAVController control, MAVOctoMap3D map,float acceptance_radius, float max_xyz_velocity) {
@@ -78,11 +82,13 @@ public class Offboard3Planner {
 		this.model   = control.getCurrentModel();
 		this.max_xyz_velocity = max_xyz_velocity;
 		this.acceptance_radius = acceptance_radius;
+		
+	//	this.edf_planner = new Offboard3EDFMinimumPlanner(control,map,acceptance_radius, max_xyz_velocity);
 
 		//		this.collisionCheck         = new Offboard3CollisionCheck();
 		this.avoidancePlanGenerator = new Offboard3OctomapTrajectoryGenerator();
 
-		this.collisionCheck         = new Offboard3OctoMapCollisionCheck(map);
+		this.collisionCheck         = new Offboard3EDF2DCollisionCheck(map);
 
 	}
 
@@ -181,6 +187,7 @@ public class Offboard3Planner {
 
 
 		reset(); current.update();
+		
 
 		//		if(!collisionCheck.isTargetFeasible(model, pos_target)) {
 		if(!collisionCheck.isTargetFeasible(pos_target)) {
@@ -204,6 +211,8 @@ public class Offboard3Planner {
 		}
 		
 		Offboard3Collision collision = planPath(new_plan, current);
+		
+	//	edf_planner.planDirectPath(pos_target, 1.0f);
 
 		if(collision != null) {
 
@@ -231,6 +240,9 @@ public class Offboard3Planner {
 	}
 
 	public Offboard3Collision planPath(Offboard3Plan plan, Offboard3Current initial_state) {
+		
+		map.updateESDF(initial_state.pos());
+		
 
 		Offboard3State nextPlannedCurrentState = initial_state; 
 		Offboard3Collision collision;

@@ -77,7 +77,9 @@ import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.utils.MSP3DUtils;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavmap.map.map3D.impl.octomap.MAVOccupancyOcTreeNode;
+import com.comino.mavmap.map.map3D.impl.octomap.MAVOctoMap3D;
 import com.comino.mavmap.map.map3D.impl.octomap.boundingbox.MAVSimpleBoundingBox;
+import com.comino.mavmap.map.map3D.impl.octomap.esdf.D2.DynamicESDF2D;
 
 import georegression.struct.point.Point4D_F32;
 import georegression.struct.point.Vector3D_F32;
@@ -175,72 +177,34 @@ public class SimplePlannerPilot extends AutoPilotBase {
 		
 		private final long                 MESSAGE_FREQ_MS             = 1000;   // Do not rise message again within (ms)
 		private final float                MIN_DISTANCE                = 0.5f;   // Minimum distance of nearest obstacle to rise collsion
-		private final float                BOUNDING_BOX_SIDE_LENGTH    = 1.6f;   // Total side length of bounding box
-		private final float                BOUNDING_BOX_HEIGHT         = 0.8f;   // Total height of bounding box
-		private final float                PROJECTION_LOOKAHEAD_SECS   = 1.0f;   // Time to look ahead (projected position
+		private final float                PROJECTION_LOOKAHEAD_SECS   = 0.5f;   // Time to look ahead (projected position
+		
+		private final Point4D_F32 projected;
+		private final Point4D_F32 current;
+		private final MAVOctoMap3D map;
 
-		private final MAVSimpleBoundingBox boundingBox;
-		private final Vector3D_F32         obstacle_position;
-//		private final Vector3D_F32         velocity_vector;
-		private final Point4D_F32 		   projected;
 
 		public EmergencyCollisionCheck() {
-			this.boundingBox        = new MAVSimpleBoundingBox(mapper.getShorTermMap().getResolution(),16);
+			this.map                = mapper.getShorTermMap();
 			this.projected          = new Point4D_F32();
-			this.obstacle_position  = new Vector3D_F32();
-//			this.velocity_vector    = new Vector3D_F32();
+			this.current            = new Point4D_F32();
 		}
 
 		@Override
 		public void run() {
 
-			float distance = 0, min_distance = 0;
+			double distance = 0;
 
 			while(true) {
 				LockSupport.parkNanos(100_000_000);
-
-				// perform emergency collision check
-
-				// get projected position at t+1.0sec
-				// TODO: time as a constant; maybe cycle slower, but dt increased
-				// TODO: Time should be velocity dependent in order to allow breaking
-                // TODO: Increase bounding box with velocity
-				
-//				MSP3DUtils.convertCurrentSpeed(model, velocity_vector);
-//				float velocity = velocity_vector.norm();
-			
-				if(mapper.getShorTermMap().getNumberOfNodes()<1)
-					continue;
-
-				offboard.getProjectedPositionAt(PROJECTION_LOOKAHEAD_SECS, projected);
-
-				model.obs.x = model.obs.y = model.obs.z = Float.NaN;
-
-//				long tms = System.nanoTime(); 
-
-//				boundingBox.set(projected,BOUNDING_BOX_SIDE_LENGTH, BOUNDING_BOX_HEIGHT);
-//
-//				OcTreeIterable<MAVOccupancyOcTreeNode> nodes = 
-//						OcTreeIteratorFactory.createLeafBoundingBoxIteratable(mapper.getShorTermMap().getRoot(),boundingBox);
-//
-//				// searching for the minimum distance
-//				min_distance = Float.MAX_VALUE;
-//				for(var node : nodes) {
-//					if(mapper.getShorTermMap().isNodeOccupied(node)) {
-//
-//						node.getCenter(obstacle_position);
-//						distance = (float)MSP3DUtils.distance3D(projected, obstacle_position);
-//						if(distance < min_distance) {
-//							min_distance = distance;
-//							model.obs.x =  obstacle_position.x;
-//							model.obs.y =  obstacle_position.y;
-//							model.obs.z =  obstacle_position.z;
-//							model.slam.di = min_distance;
-//						}
-//					}		
-//				}
-//
-//				if(min_distance < MIN_DISTANCE && model.sys.isStatus(Status.MSP_ARMED)) {
+		
+//				offboard.getCurrentPositionAt(current);
+//				map.updateESDF(current);
+//				
+//				offboard.getProjectedPositionAt(PROJECTION_LOOKAHEAD_SECS, projected);
+//				distance = map.getLocalEDF2D().getDistanceAt(projected);
+//				
+//				if(distance < MIN_DISTANCE && model.sys.isStatus(Status.MSP_ARMED)) {
 //					if(model.sys.isAutopilotMode(MSP_AUTOCONTROL_MODE.OBSTACLE_STOP)) {
 //						logger.writeLocalMsg("[msp] Emergency stop.",MAV_SEVERITY.MAV_SEVERITY_EMERGENCY,MESSAGE_FREQ_MS);
 //						offboard.abort();
@@ -249,8 +213,6 @@ public class SimplePlannerPilot extends AutoPilotBase {
 //					}
 //				}
 
-//				if(control.isSimulation() && count > 0)
-//					System.out.println("LeafSearch time (us): "+((System.nanoTime()-tms)/1000L)+" Nodes checked: "+count+" / "+mapper.getShorTermMap().getNumberOfNodes());
 			}
 		}
 	}

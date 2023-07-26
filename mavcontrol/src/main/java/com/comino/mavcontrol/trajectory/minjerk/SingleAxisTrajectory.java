@@ -112,13 +112,13 @@ public class SingleAxisTrajectory {
 	}
 
 	public void setGoalPosition(double posf)    
-	{_posGoalDefined = true; _pf = posf; }
+	{ if(Double.isFinite(posf)) { _posGoalDefined = true; _pf = posf; } }
 
 	public void setGoalVelocity(double velf)    
-	{_velGoalDefined = true; _vf = velf; }
+	{ if(Double.isFinite(velf)) { _velGoalDefined = true; _vf = velf; } }
 
 	public void setGoalAcceleration(double accf)
-	{_accGoalDefined = true; _af = accf; }
+	{ if(Double.isFinite(accf)) {  _accGoalDefined = true; _af = accf; } }
 
 	public void reset() {
 		_isPlanned = false;

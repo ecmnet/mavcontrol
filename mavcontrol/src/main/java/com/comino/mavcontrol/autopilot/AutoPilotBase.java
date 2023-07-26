@@ -301,6 +301,10 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	public MAVOctoMapMapper getMapper() {
 		return mapper;
 	}
+	
+	public Offboard3Manager getOffboardManager() {
+		return offboard_manager;
+	}
 
 
 	@Override

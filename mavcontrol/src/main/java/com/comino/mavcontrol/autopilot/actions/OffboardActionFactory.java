@@ -18,7 +18,7 @@ public class OffboardActionFactory {
 
 	public static boolean turn_to(float heading) {
 
-		final Offboard3Manager offboard = Offboard3Manager.getInstance();
+		final Offboard3Manager offboard = AutoPilotBase.getInstance().getOffboardManager();
 		if(offboard!=null) {
 			offboard.rotate(heading,null);
 			return true;
@@ -41,7 +41,7 @@ public class OffboardActionFactory {
 
 		final IMAVController control = AutoPilotBase.getInstance().getControl();
 		final DataModel m  = control.getCurrentModel();
-		final Offboard3Manager offboard = Offboard3Manager.getInstance();
+		final Offboard3Manager offboard =  AutoPilotBase.getInstance().getOffboardManager();
 		final MSPLogger logger = MSPLogger.getInstance();
 
 		if(!m.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {
