@@ -26,6 +26,7 @@ import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavcontrol.offboard3.action.ITargetReached;
 import com.comino.mavcontrol.offboard3.action.ITimeout;
 import com.comino.mavcontrol.offboard3.collision.Offboard3CollisionCheck;
+import com.comino.mavcontrol.offboard3.collision.Offboard3OctoMapCollisionCheck;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
 import com.comino.mavcontrol.offboard3.states.Offboard3Collision;
 import com.comino.mavcontrol.offboard3.states.Offboard3Current;
@@ -50,7 +51,7 @@ public class Offboard3Manager {
 
 	private static Offboard3Manager instance;
 
-	private static final int   UPDATE_RATE                 	    = 20;					    // Offboard update rate in [ms]
+	private static final int   UPDATE_RATE                 	    = 50;					    // Offboard update rate in [ms]
 	private static final float DEFAULT_TIMEOUT                	= 5.0f;				        // Default timeout 1s
 
 	private static final float RADIUS_ACCEPT                    = 0.1f;                     // Acceptance radius in [m]
@@ -266,8 +267,8 @@ public class Offboard3Manager {
 		private final Offboard3Current current;
 
 		// Collsion check
-		private final Offboard3CollisionCheck   collisionCheck;
-		private final Vector4D_F32              target_to_stop = new Vector4D_F32();
+		private final Offboard3OctoMapCollisionCheck   collisionCheck;
+		private final Vector4D_F32                     target_to_stop = new Vector4D_F32();
 
 		// Queue of plans
 		private final BlockingQueue<Offboard3Plan> planQueue = new ArrayBlockingQueue<Offboard3Plan>(1);
@@ -292,7 +293,7 @@ public class Offboard3Manager {
 			this.control = control;
 			this.model   = control.getCurrentModel();
 			this.current = new Offboard3Current(model);
-			this.collisionCheck = new Offboard3CollisionCheck();
+			this.collisionCheck = new Offboard3OctoMapCollisionCheck(map);
 
 		}
 
@@ -318,8 +319,8 @@ public class Offboard3Manager {
 
 			isRunning = true; 
 			
-			if(!wq.isInQueue("HP", offboard_worker))
-			   offboard_worker = wq.addCyclicTask("HP", UPDATE_RATE, this);
+			if(!wq.isInQueue("NP", offboard_worker))
+			   offboard_worker = wq.addCyclicTask("NP", UPDATE_RATE, this);
 		}
 
 		public void stopAndLoiter() {
@@ -336,7 +337,7 @@ public class Offboard3Manager {
 		public void stop() {
 			this.isRunning       = false;
 			this.offboardEnabled = false;
-			wq.removeTask("HP", offboard_worker);
+			wq.removeTask("NP", offboard_worker);
 			this.offboard_worker = 0;
 			reset(); 
 			model.slam.clearFlags();		
@@ -368,6 +369,10 @@ public class Offboard3Manager {
 
 		public void setTimeoutAction(ITimeout timeout) {
 			this.timeout = timeout;
+		}
+		
+		public void getCurrentPositionAt(GeoTuple4D_F32<?> pos) {
+			pos.setTo(current.pos().x, current.pos().y,current.pos().z, current.pos().w);
 		}
 		
 		public void getProjectedPositionAt(float time, GeoTuple4D_F32<?> pos) {
@@ -498,14 +503,12 @@ public class Offboard3Manager {
 				}	
 				t_section_elapsed = current_target.getElapsedTime();		
 			}
-
-
-			// Check collision
 			
-			Offboard3Collision collision = collisionCheck.check(xyzExecutor, model, t_section_elapsed, current,0);
-		
-			if(collision!=null) {
-
+			
+//			Offboard3Collision collision = collisionCheck.check(xyzExecutor, t_section_elapsed, current,0);
+//		
+//			if(collision!=null) {
+//
 //				float stop_time = collision.getExpectedTimeOfCollision() - t_section_elapsed;
 //				if(stop_time < EMERGENCY_STOP_TIME) {
 //					// Collision within 1 sec
@@ -528,7 +531,7 @@ public class Offboard3Manager {
 //					};
 //					return;			
 //				}
-			}
+//			}
             
 			// check timeout
 			if(t_timeout > 0 && t_section_elapsed > t_timeout) {
