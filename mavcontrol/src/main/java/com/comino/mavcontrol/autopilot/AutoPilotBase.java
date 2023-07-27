@@ -46,6 +46,7 @@ import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.status.StatusManager;
+import com.comino.mavcontrol.IOffboardControl;
 import com.comino.mavcontrol.autopilot.actions.OffboardActionFactory;
 import com.comino.mavcontrol.autopilot.actions.TakeOffHandler;
 import com.comino.mavcontrol.autopilot.actions.TestActionFactory;
@@ -75,7 +76,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 	protected MAVOctoMapMapper              mapper   = null;
 	protected PX4Parameters                 params   = null;
 	protected ScenarioManager     scenario_manager   = null;
-	protected Offboard3Manager    offboard_manager   = null;
+	protected IOffboardControl    offboard_manager   = null;
 
 
 	protected TakeOffHandler         takeoff_handler = null;
@@ -115,7 +116,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		this.mapper      = new MAVOctoMapMapper(control, config);
 
 		this.offboard_manager = Offboard3Manager.getInstance(control,mapper.getShorTermMap());
-		this.scenario_manager = ScenarioManager.getInstance(control);
+		this.scenario_manager = ScenarioManager.getInstance(control,offboard_manager);
 		this.control          = control;
 		this.model            = control.getCurrentModel();
 		this.logger           = MSPLogger.getInstance();
@@ -302,7 +303,7 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		return mapper;
 	}
 	
-	public Offboard3Manager getOffboardManager() {
+	public IOffboardControl getOffboardManager() {
 		return offboard_manager;
 	}
 

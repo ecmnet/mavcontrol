@@ -1,6 +1,7 @@
 package com.comino.mavcontrol.scenario.items;
 
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcontrol.IOffboardControl;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.GeoTuple4D_F32;
@@ -13,8 +14,8 @@ public class MoveToItem extends AbstractScenarioItem {
 	private float acceptance_radius_m = Float.NaN;
 
 
-	public MoveToItem(IMAVController control) {
-		super(control);
+	public MoveToItem(IMAVController control,IOffboardControl offboard) {
+		super(control,offboard);
 	}
 
 	public void setPositionLocal(float x, float y, float z, float w_deg) {

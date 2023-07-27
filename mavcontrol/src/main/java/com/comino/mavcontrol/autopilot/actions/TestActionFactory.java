@@ -8,6 +8,7 @@ import com.comino.mavcom.messaging.msgs.msp_msg_nn_object;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.IOffboardControl;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
@@ -77,8 +78,8 @@ public class TestActionFactory {
 	
 	
 	public static void test_circle(IMAVController control,boolean enable) {
-		final Offboard3Manager offboard = Offboard3Manager.getInstance();
-		offboard.circle(1, 1, Float.NaN, Float.NaN, 2.0f, MSPMathUtils.toRad(90), null);
+		final IOffboardControl offboard = AutoPilotBase.getInstance().getOffboardManager();
+	//	offboard.circle(1, 1, Float.NaN, Float.NaN, 2.0f, MSPMathUtils.toRad(90), null);
 			
 	}
 
@@ -120,7 +121,7 @@ public class TestActionFactory {
 	}
 
 	public static void turnTest() {
-		final Offboard3Manager offboard = Offboard3Manager.getInstance();
+		final IOffboardControl offboard = AutoPilotBase.getInstance().getOffboardManager();
 		if(offboard!=null) {
 			offboard.rotate((float)(Math.random()*2*Math.PI),null);
 		}
@@ -128,7 +129,7 @@ public class TestActionFactory {
 	
 	public static void accTest() {
 		
-		final Offboard3Manager offboard = Offboard3Manager.getInstance();
+		final IOffboardControl offboard = AutoPilotBase.getInstance().getOffboardManager();
 		final Offboard3Plan plan = new Offboard3Plan();
 		
 		//final Vector4D_F32 v = new Vector4D_F32(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
@@ -166,7 +167,7 @@ public class TestActionFactory {
 	public static void continuous_planning(DataModel model,boolean enable) {
 
 		final WorkQueue  wq = WorkQueue.getInstance();
-		final Offboard3Manager offboard = Offboard3Manager.getInstance();
+		final IOffboardControl offboard = AutoPilotBase.getInstance().getOffboardManager();
 
 		if(enable && ( model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) || model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))) {
 

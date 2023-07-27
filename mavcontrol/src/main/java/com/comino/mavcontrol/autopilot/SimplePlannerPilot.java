@@ -75,6 +75,7 @@ import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.IOffboardControl;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavmap.map.map3D.impl.octomap.MAVOccupancyOcTreeNode;
 import com.comino.mavmap.map.map3D.impl.octomap.MAVOctoMap3D;
@@ -90,9 +91,6 @@ import us.ihmc.jOctoMap.iterators.OcTreeIteratorFactory;
 public class SimplePlannerPilot extends AutoPilotBase {
 
 	//	private final static float MIN_DISTANCE_TO_PERSON_M  = 1.5f;
-
-
-	private final Offboard3Manager offboard = Offboard3Manager.getInstance();
 	//	private final MessageBus       bus      = MessageBus.getInstance();
 
 

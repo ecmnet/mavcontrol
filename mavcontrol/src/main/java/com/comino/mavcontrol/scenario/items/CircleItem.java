@@ -4,6 +4,7 @@ import org.mavlink.messages.MAV_SEVERITY;
 
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.segment.LogMessage;
+import com.comino.mavcontrol.IOffboardControl;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.GeoTuple4D_F32;
@@ -11,14 +12,16 @@ import georegression.struct.point.Vector4D_F32;
 
 public class CircleItem extends AbstractScenarioItem {
 
+	public CircleItem(IMAVController control, IOffboardControl offboard) {
+		super(control, offboard);
+		// TODO Auto-generated constructor stub
+	}
+
 	private final GeoTuple4D_F32<?> center = new Vector4D_F32();
 	private float radius = 0;
 	private float angle  = 0;
 
-	public CircleItem(IMAVController control) {
-		super(control);
-	}
-
+	
 	public void setPositionLocal(float x, float y, float z, float w_deg) {
 		center.setTo(x,y,z,MSPMathUtils.toRad(w_deg));
 	}
@@ -44,7 +47,7 @@ public class CircleItem extends AbstractScenarioItem {
 			return;
 		}
 
-		offboard.circle(center.x, center.y, center.z, center.w, radius, angle, (m) -> completed());
+//		offboard.circle(center.x, center.y, center.z, center.w, radius, angle, (m) -> completed());
 
 	}
 

@@ -9,12 +9,13 @@ import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavcontrol.IOffboardControl;
 
 public class ArmingItem extends AbstractScenarioItem {
 
 
-	public ArmingItem(IMAVController control) {
-		super(control);
+	public ArmingItem(IMAVController control, IOffboardControl offboard) {
+		super(control, offboard);
 	}
 
 	@Override

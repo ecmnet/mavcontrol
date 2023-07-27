@@ -5,6 +5,7 @@ import org.mavlink.messages.MAV_SEVERITY;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
+import com.comino.mavcontrol.IOffboardControl;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 
 import georegression.struct.GeoTuple4D_F32;
@@ -16,7 +17,7 @@ public abstract class AbstractScenarioItem {
 
 	protected final IMAVController     control;
 	protected final DataModel          model;
-	protected final Offboard3Manager   offboard;
+	protected final IOffboardControl   offboard;
 	
 	protected     int     delay_ms = 0;
 	protected     int     pos_type = POS_TYPE_ABSOLUTE;
@@ -27,13 +28,13 @@ public abstract class AbstractScenarioItem {
 	
 	private       Object  owner;
 
-	public AbstractScenarioItem(IMAVController control) {
+	public AbstractScenarioItem(IMAVController control, IOffboardControl offboard) {
 
 		this.control = control;
 
 		if(control!=null) {
 			this.model   = control.getCurrentModel();
-			this.offboard = Offboard3Manager.getInstance();
+			this.offboard = offboard;
 		} else {
 			this.model    = null;
 			this.offboard = null;

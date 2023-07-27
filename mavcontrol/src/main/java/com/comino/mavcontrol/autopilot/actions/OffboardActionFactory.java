@@ -10,6 +10,7 @@ import com.comino.mavcom.log.MSPLogger;
 import com.comino.mavcom.mavlink.MAV_CUST_MODE;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.Vision;
+import com.comino.mavcontrol.IOffboardControl;
 import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 
@@ -18,7 +19,7 @@ public class OffboardActionFactory {
 
 	public static boolean turn_to(float heading) {
 
-		final Offboard3Manager offboard = AutoPilotBase.getInstance().getOffboardManager();
+		final IOffboardControl offboard = AutoPilotBase.getInstance().getOffboardManager();
 		if(offboard!=null) {
 			offboard.rotate(heading,null);
 			return true;
@@ -28,7 +29,7 @@ public class OffboardActionFactory {
 
 	public static boolean move_to(float x, float y,float z) {
 
-		final Offboard3Manager offboard = Offboard3Manager.getInstance();
+		final IOffboardControl offboard = AutoPilotBase.getInstance().getOffboardManager();
 		if(offboard!=null) {
 			offboard.moveTo(x,y,z,Float.NaN);
 			return true;
@@ -41,7 +42,7 @@ public class OffboardActionFactory {
 
 		final IMAVController control = AutoPilotBase.getInstance().getControl();
 		final DataModel m  = control.getCurrentModel();
-		final Offboard3Manager offboard =  AutoPilotBase.getInstance().getOffboardManager();
+		final IOffboardControl offboard =  AutoPilotBase.getInstance().getOffboardManager();
 		final MSPLogger logger = MSPLogger.getInstance();
 
 		if(!m.vision.isStatus(Vision.FIDUCIAL_LOCKED)) {

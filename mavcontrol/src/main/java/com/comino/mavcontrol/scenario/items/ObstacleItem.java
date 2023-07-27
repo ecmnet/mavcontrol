@@ -2,6 +2,7 @@ package com.comino.mavcontrol.scenario.items;
 
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.IOffboardControl;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.GeoTuple3D_F32;
@@ -18,8 +19,8 @@ public class ObstacleItem extends AbstractScenarioItem {
 	private final GeoTuple3D_F32<?> size     = new Vector3D_F32();
 	private int   obstacle_type;
 
-	public ObstacleItem(IMAVController control) {
-		super(control);
+	public ObstacleItem(IMAVController control,IOffboardControl offboard) {
+		super(control, offboard);
 	}
 
 	public void setPositionLocal(float x, float y, float z, float w_deg) {

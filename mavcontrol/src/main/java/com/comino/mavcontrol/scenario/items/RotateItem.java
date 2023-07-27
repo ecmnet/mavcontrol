@@ -1,14 +1,15 @@
 package com.comino.mavcontrol.scenario.items;
 
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcontrol.IOffboardControl;
 import com.comino.mavutils.MSPMathUtils;
 
 public class RotateItem extends AbstractScenarioItem {
 
 	private float yaw_rad = Float.NaN;
 
-	public RotateItem(IMAVController control) {
-		super(control);
+	public RotateItem(IMAVController control,IOffboardControl offboard) {
+		super(control,offboard);
 	}
 
 	public void setYaw(float yaw_degree) {

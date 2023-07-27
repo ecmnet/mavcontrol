@@ -90,7 +90,7 @@ public class MSPCommander  {
 		String autopilot_class = config.getProperty(MSPParams.AUTOPILOT_CLASS, "com.comino.mavcontrol.autopilot.SimplePlannerPilot");
 		this.autopilot =  AutoPilotBase.getInstance(autopilot_class,control,config);
 
-		this.scenarioManager = ScenarioManager.getInstance(control);
+		this.scenarioManager = ScenarioManager.getInstance(control,autopilot.getOffboardManager());
 		this.control = control;
 		this.model   = control.getCurrentModel();
 		this.logger  = MSPLogger.getInstance();
@@ -272,7 +272,7 @@ public class MSPCommander  {
 		switch(mode) {
 		case MSP_AUTOCONTROL_ACTION.RTL:
 			scenarioManager.setMaxVelocity(1.5f);
-			scenarioManager.addItems(ScenarioFactory.createRTLScenario(control).getList());
+			scenarioManager.addItems(ScenarioFactory.createRTLScenario(control,autopilot.getOffboardManager()).getList());
 			scenarioManager.start();
 			break;
 		case MSP_AUTOCONTROL_ACTION.LAND:
@@ -391,7 +391,7 @@ public class MSPCommander  {
 			return;
 		}
 
-		ScenarioReader reader = new ScenarioReader(control);
+		ScenarioReader reader = new ScenarioReader(control,autopilot.getOffboardManager());
 		Scenario scenario = reader.readScenario(filename);
 
 		LinkedList<AbstractScenarioItem> list = scenario.getList();

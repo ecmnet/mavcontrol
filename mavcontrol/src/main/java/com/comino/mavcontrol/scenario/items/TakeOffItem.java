@@ -5,6 +5,7 @@ import org.mavlink.messages.MAV_SEVERITY;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavcontrol.IOffboardControl;
 import com.comino.mavcontrol.autopilot.actions.TakeOffHandler;
 
 public class TakeOffItem extends AbstractScenarioItem {
@@ -13,8 +14,8 @@ public class TakeOffItem extends AbstractScenarioItem {
 
 	private float altitude_m = Float.NaN;
 
-	public TakeOffItem(IMAVController control) {
-		super(control);
+	public TakeOffItem(IMAVController control,IOffboardControl offboard) {
+		super(control,offboard);
 		this.takeoff_handler = new TakeOffHandler(control,() -> completed(), () -> abort());
 	}
 

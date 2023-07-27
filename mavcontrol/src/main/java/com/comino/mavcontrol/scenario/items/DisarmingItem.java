@@ -7,12 +7,15 @@ import org.mavlink.messages.MAV_SEVERITY;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Status;
+import com.comino.mavcontrol.IOffboardControl;
 
 public class DisarmingItem extends AbstractScenarioItem {
 
 
-	public DisarmingItem(IMAVController control) {
-		super(control);
+
+	public DisarmingItem(IMAVController control, IOffboardControl offboard) {
+		super(control, offboard);
+		// TODO Auto-generated constructor stub
 	}
 
 	@Override

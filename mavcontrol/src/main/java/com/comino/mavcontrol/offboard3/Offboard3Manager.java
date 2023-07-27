@@ -22,6 +22,7 @@ import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Slam;
 import com.comino.mavcom.model.segment.Status;
 import com.comino.mavcom.utils.MSP3DUtils;
+import com.comino.mavcontrol.IOffboardControl;
 import com.comino.mavcontrol.controllib.impl.YawSpeedControl;
 import com.comino.mavcontrol.offboard3.action.ITargetReached;
 import com.comino.mavcontrol.offboard3.action.ITimeout;
@@ -47,7 +48,7 @@ import georegression.struct.point.Vector3D_F32;
 import georegression.struct.point.Vector4D_F32;
 
 
-public class Offboard3Manager {
+public class Offboard3Manager implements IOffboardControl {
 
 	private static Offboard3Manager instance;
 
@@ -78,7 +79,7 @@ public class Offboard3Manager {
 	private float acceptance_yaw        = YAW_ACCEPT;
 	private float max_xyz_vel           = MAX_XYZ_VEL;
 
-	public static Offboard3Manager getInstance(IMAVController control,MAVOctoMap3D map) {
+	public static IOffboardControl getInstance(IMAVController control,MAVOctoMap3D map) {
 		if(instance==null) 
 			instance = new Offboard3Manager(control,map);
 		return instance;
@@ -106,6 +107,7 @@ public class Offboard3Manager {
 	}
 
 
+	@Override
 	public void rotate(float radians, ITargetReached action) {
 
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && !model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
@@ -126,6 +128,7 @@ public class Offboard3Manager {
 
 	}
 
+	@Override
 	public void rotateBy(float radians, ITargetReached action) {
 
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && !model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
@@ -147,6 +150,7 @@ public class Offboard3Manager {
 
 	}
 
+	@Override
 	public void executePlan(Offboard3Plan plan, ITargetReached action) {
 
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && !model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
@@ -162,12 +166,14 @@ public class Offboard3Manager {
 
 	}
 
+	@Override
 	public void setMaxVelocity(float velocity_max_ms) {
 		this.max_xyz_vel = velocity_max_ms;
 		this.planner.setMaxVelocity(velocity_max_ms);
 		control.writeLogMessage(new LogMessage("[msp] Set maximum velocity to "+max_xyz_vel+" m/s", MAV_SEVERITY.MAV_SEVERITY_DEBUG));
 	}
 
+	@Override
 	public void setTimeoutAction(ITimeout timeout) {
 		worker.setTimeoutAction(timeout);
 	}
@@ -194,10 +200,12 @@ public class Offboard3Manager {
 		worker.start(action);
 	}
 
+	@Override
 	public void moveTo(float x, float y, float z, float w, ITargetReached action) {
 		moveTo(x,y,z,w,action,RADIUS_ACCEPT);
 	}
 
+	@Override
 	public void moveTo(float x, float y, float z, float w, ITargetReached action, float acceptance_radius_m) {
 
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_AUTO_LOITER) && !model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD)) {
@@ -222,10 +230,12 @@ public class Offboard3Manager {
 		return;
 	}
 
+	@Override
 	public void moveTo(float x, float y, float z, float w) {
 		moveTo(x,y,z,w,null);
 	}
 
+	@Override
 	public void abort() {
 
 		if(!model.sys.isNavState(Status.NAVIGATION_STATE_OFFBOARD))
@@ -233,10 +243,12 @@ public class Offboard3Manager {
 		worker.stopAndLoiter();
 	}
 
+	@Override
 	public boolean isPlanned() {
 		return worker.isPlanned();
 	}
 	
+	@Override
 	public void getProjectedPositionAt(float time, GeoTuple4D_F32<?> pos) {
 		worker.getProjectedPositionAt(time, pos);
 	}

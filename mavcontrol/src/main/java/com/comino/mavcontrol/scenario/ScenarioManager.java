@@ -9,6 +9,8 @@ import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
 import com.comino.mavcom.model.segment.Slam;
+import com.comino.mavcontrol.IOffboardControl;
+import com.comino.mavcontrol.autopilot.AutoPilotBase;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 
@@ -20,24 +22,24 @@ public class ScenarioManager {
 
 	private final  ScenarioWorker    	scenarioWorker         = new ScenarioWorker();
 	private final  IMAVController 		control;
-	private final  Offboard3Manager   	offboard;
+	private final  IOffboardControl   	offboard;
 	private        Thread         		scenarioWorkerThread;
 	private final  DataModel            model;
 
 	private boolean isRunning = false;
 
 
-	public static ScenarioManager getInstance(IMAVController control) {
+	public static ScenarioManager getInstance(IMAVController control,IOffboardControl offboard) {
 		if(instance == null)
-			instance = new ScenarioManager(control);
+			instance = new ScenarioManager(control,offboard);
 		return instance;
 	}
 
-	private ScenarioManager(IMAVController control) {
+	private ScenarioManager(IMAVController control,IOffboardControl offboard) {
 		this.control = control;
 		this.model   = control.getCurrentModel();
+		this.offboard = offboard;
 
-		this.offboard = Offboard3Manager.getInstance();
 		this.offboard.setTimeoutAction(() -> {
 			abort();
 		});

@@ -3,6 +3,7 @@ package com.comino.mavcontrol.scenario.items;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.param.PX4Parameters;
 import com.comino.mavcom.param.ParameterAttributes;
+import com.comino.mavcontrol.IOffboardControl;
 
 import georegression.struct.GeoTuple4D_F32;
 import georegression.struct.point.Vector4D_F32;
@@ -15,8 +16,8 @@ public class MoveHomeItem extends AbstractScenarioItem {
 	private GeoTuple4D_F32<?> position = new Vector4D_F32();
 
 
-	public MoveHomeItem(IMAVController control) {
-		super(control);
+	public MoveHomeItem(IMAVController control,IOffboardControl offboard) {
+		super(control,offboard);
 		final PX4Parameters params = PX4Parameters.getInstance();
 		ParameterAttributes takeoff_alt_param = params.getParam("MIS_TAKEOFF_ALT");
 		position.setTo(0, 0, -(float)takeoff_alt_param.value, Float.NaN );

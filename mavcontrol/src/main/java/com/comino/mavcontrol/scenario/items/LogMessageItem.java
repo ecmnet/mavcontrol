@@ -4,14 +4,15 @@ import org.mavlink.messages.MAV_SEVERITY;
 
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.segment.LogMessage;
+import com.comino.mavcontrol.IOffboardControl;
 
 public class LogMessageItem extends AbstractScenarioItem {
 	
 	private String message;
 	private char   type;
 
-	public LogMessageItem(IMAVController control) {
-		super(control);
+	public LogMessageItem(IMAVController control,IOffboardControl offboard) {
+		super(control,offboard);
 	}
 	
 	public void setMessage(String text, char type) {

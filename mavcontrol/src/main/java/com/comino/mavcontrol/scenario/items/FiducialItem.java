@@ -4,6 +4,7 @@ import org.mavlink.messages.lquac.msg_msp_vision;
 
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.segment.Vision;
+import com.comino.mavcontrol.IOffboardControl;
 import com.comino.mavutils.MSPMathUtils;
 
 import georegression.struct.GeoTuple4D_F32;
@@ -15,8 +16,8 @@ public class FiducialItem extends AbstractScenarioItem {
 	
 	private final static msg_msp_vision msg = new msg_msp_vision(2,1);
 
-	public FiducialItem(IMAVController control) {
-		super(control);
+	public FiducialItem(IMAVController control, IOffboardControl offboard) {
+		super(control,offboard);
 		fiducial_position.setTo(Float.NaN,Float.NaN,Float.NaN,Float.NaN);
 	}
 

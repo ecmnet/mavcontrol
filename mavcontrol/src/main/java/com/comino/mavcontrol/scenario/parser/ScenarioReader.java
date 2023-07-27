@@ -14,6 +14,7 @@ import org.w3c.dom.NodeList;
 import com.comino.mavcom.config.MSPConfig;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.segment.LogMessage;
+import com.comino.mavcontrol.IOffboardControl;
 import com.comino.mavcontrol.scenario.items.AbstractScenarioItem;
 import com.comino.mavcontrol.scenario.items.ArmingItem;
 import com.comino.mavcontrol.scenario.items.CircleItem;
@@ -33,9 +34,11 @@ import com.comino.mavcontrol.scenario.items.TakeOffItem;
 public class ScenarioReader {
 
 	private final IMAVController control;
+	private final IOffboardControl offboard;
 
-	public ScenarioReader(IMAVController control) {
+	public ScenarioReader(IMAVController control, IOffboardControl offboard) {
 		this.control = control;
+		this.offboard = offboard;
 	}
 
 
@@ -144,25 +147,25 @@ public class ScenarioReader {
 
 		switch(step.getNodeName().toLowerCase()) {
 		case "load_map":
-			MapItem map = new MapItem(control);
+			MapItem map = new MapItem(control,offboard);
 			item = map;
 			break;
 		case "search_object":
-			SearchObjectItem search = new SearchObjectItem(control);
+			SearchObjectItem search = new SearchObjectItem(control,offboard);
 			item = search;
 			break;	
 		case "log_message":
-			LogMessageItem log = new LogMessageItem(control);
+			LogMessageItem log = new LogMessageItem(control,offboard);
 			log.setMessage(step.getAttributes().getNamedItem("m").getNodeValue(), 
 					step.getAttributes().getNamedItem("t").getNodeValue().charAt(0));
 			item = log;
 			break;	
 		case "arm":
-			ArmingItem arming = new ArmingItem(control);
+			ArmingItem arming = new ArmingItem(control,offboard);
 			item = arming;
 			break;	
 		case "movehome":
-			MoveHomeItem home = new MoveHomeItem(control);
+			MoveHomeItem home = new MoveHomeItem(control,offboard);
 			if(step.hasChildNodes()) {
 				NodeList params = step.getChildNodes();
 				for(int j=0;j<params.getLength();j++) {
@@ -177,11 +180,11 @@ public class ScenarioReader {
 			item = home;
 			break;	
 		case "disarm":
-			DisarmingItem disarming = new DisarmingItem(control);
+			DisarmingItem disarming = new DisarmingItem(control,offboard);
 			item = disarming;
 			break;			
 		case "takeoff":
-			TakeOffItem takeoff = new TakeOffItem(control);
+			TakeOffItem takeoff = new TakeOffItem(control,offboard);
 			if(step.hasChildNodes()) {
 				NodeList params = step.getChildNodes();
 				for(int j=0;j<params.getLength();j++) {
@@ -198,7 +201,7 @@ public class ScenarioReader {
 			item = takeoff;
 			break;
 		case "circle":
-			CircleItem circle = new CircleItem(control);
+			CircleItem circle = new CircleItem(control,offboard);
 			if(step.hasChildNodes()) {
 				NodeList params = step.getChildNodes();
 				for(int j=0;j<params.getLength();j++) {
@@ -218,7 +221,7 @@ public class ScenarioReader {
 			}
 			break;
 		case "moveto":
-			MoveToItem moveto = new MoveToItem(control);
+			MoveToItem moveto = new MoveToItem(control,offboard);
 			if(step.hasChildNodes()) {
 				NodeList params = step.getChildNodes();
 				for(int j=0;j<params.getLength();j++) {
@@ -239,7 +242,7 @@ public class ScenarioReader {
 			}
 			break;
 		case "pause":
-			PauseItem pause = new PauseItem(control);
+			PauseItem pause = new PauseItem(control,offboard);
 			if(step.hasChildNodes()) {
 				NodeList params = step.getChildNodes();
 				for(int j=0;j<params.getLength();j++) {
@@ -254,7 +257,7 @@ public class ScenarioReader {
 			}
 			break;
 		case "rotate":
-			RotateItem rotate = new RotateItem(control);
+			RotateItem rotate = new RotateItem(control,offboard);
 			if(step.hasChildNodes()) {
 				NodeList params = step.getChildNodes();
 				for(int j=0;j<params.getLength();j++) {
@@ -274,12 +277,12 @@ public class ScenarioReader {
 			}
 			break;
 		case "precision_land":
-			PrecisionLandItem precision_land = new PrecisionLandItem(control);
+			PrecisionLandItem precision_land = new PrecisionLandItem(control,offboard);
 			item = precision_land;
 			break;
 
 		case "obstacle":
-			ObstacleItem obstacle = new ObstacleItem(control);
+			ObstacleItem obstacle = new ObstacleItem(control,offboard);
 			if(step.hasChildNodes()) {
 				NodeList params = step.getChildNodes();
 				for(int j=0;j<params.getLength();j++) {
@@ -301,7 +304,7 @@ public class ScenarioReader {
 			item = obstacle;
 			break;
 		case "fiducial":
-			FiducialItem fiducial = new FiducialItem(control);
+			FiducialItem fiducial = new FiducialItem(control,offboard);
 			if(step.hasChildNodes()) {
 				NodeList params = step.getChildNodes();
 				for(int j=0;j<params.getLength();j++) {

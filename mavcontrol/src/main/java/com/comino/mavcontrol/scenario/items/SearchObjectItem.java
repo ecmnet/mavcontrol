@@ -1,6 +1,7 @@
 package com.comino.mavcontrol.scenario.items;
 
 import com.comino.mavcom.control.IMAVController;
+import com.comino.mavcontrol.IOffboardControl;
 
 public class SearchObjectItem extends AbstractScenarioItem {
 	
@@ -8,8 +9,8 @@ public class SearchObjectItem extends AbstractScenarioItem {
 
 	private String objectType;
 
-	public SearchObjectItem(IMAVController control) {
-		super(control);
+	public SearchObjectItem(IMAVController control,IOffboardControl offboard) {
+		super(control,offboard);
 	}
 	
 	public void setObjectType(String objectType) {
