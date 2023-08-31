@@ -40,6 +40,7 @@ import java.util.LinkedList;
 import org.mavlink.messages.IMAVLinkMessageID;
 import org.mavlink.messages.MAV_BATTERY_CHARGE_STATE;
 import org.mavlink.messages.MAV_CMD;
+import org.mavlink.messages.MAV_RESULT;
 import org.mavlink.messages.MAV_SEVERITY;
 import org.mavlink.messages.MSP_AUTOCONTROL_ACTION;
 import org.mavlink.messages.MSP_AUTOCONTROL_MODE;
@@ -162,24 +163,26 @@ public class MSPCommander  {
 				if(control.isSimulation()) {
 					params.sendParameter("COM_RC_OVERRIDE", 0);
 					params.sendParameter("COM_RCL_EXCEPT", 7);
-					params.sendParameter("MPC_XY_VEL_P_ACC", 4.5f);
+				//	params.sendParameter("MPC_XY_VEL_P_ACC", 4.5f);
 					params.sendParameter("MIS_TAKEOFF_ALT", 1.5f);
 					//	}
 
 					// Autotune params
-					params.sendParameter("MC_ROLL_P", 5.92f);
-					params.sendParameter("MC_ROLLRATE_P", 0.170f);
-					params.sendParameter("MC_ROLLRATE_I", 0.217f);
-					params.sendParameter("MC_ROLLRATE_D", 0.0036f);
-
-					params.sendParameter("MC_PITCH_P", 5.72f);
-					params.sendParameter("MC_PITCHRATE_P", 0.162f);
-					params.sendParameter("MC_PITCHRATE_I", 0.228f);
-					params.sendParameter("MC_PITCHRATE_D", 0.0037f);
-
-					params.sendParameter("MC_YAW_P", 5.0f);
-					params.sendParameter("MC_YAWRATE_P", 0.17f);
-					params.sendParameter("MC_YAWRATE_I", 0.17f);
+//					params.sendParameter("MC_ROLL_P", 5.92f);
+//					params.sendParameter("MC_ROLLRATE_P", 0.170f);
+//					params.sendParameter("MC_ROLLRATE_I", 0.217f);
+//					params.sendParameter("MC_ROLLRATE_D", 0.0036f);
+//					params.sendParameter("MC_ROLLRATE_K", 1.0f);
+//
+//					params.sendParameter("MC_PITCH_P", 5.72f);
+//					params.sendParameter("MC_PITCHRATE_P", 0.162f);
+//					params.sendParameter("MC_PITCHRATE_I", 0.228f);
+//					params.sendParameter("MC_PITCHRATE_D", 0.0037f);
+//					params.sendParameter("MC_PITCHRATE_K", 1.0f);
+//
+//					params.sendParameter("MC_YAW_P", 5.0f);
+//					params.sendParameter("MC_YAWRATE_P", 0.17f);
+//					params.sendParameter("MC_YAWRATE_I", 0.17f);
 
 				}
 
@@ -293,38 +296,14 @@ public class MSPCommander  {
 		if((params.getParam("SYS_HAS_GPS")!=null && params.getParam("SYS_HAS_GPS").value == 1) || model.sys.isStatus(Status.MSP_GPOS_VALID))
 			return;
 
-		// Note: In SITL Set global origin causes BARO failure 
-		// TODO: To be investigated in PX4
-		if(control.isSimulation()) {
-			logger.writeLocalMsg("[msp] Global origin not set (SITL)",MAV_SEVERITY.MAV_SEVERITY_DEBUG);
-			return;
-		}
 
-		final msg_set_home_position  home = new msg_set_home_position(1,1);
-		
-		home.target_system = 1;
-		home.latitude = (long)(lat * 1e7);
-		home.longitude = (long)(lon * 1e7);
-		if(altitude < 0)
-			home.altitude = (int)(model.hud.ap * 1000f);
-		else
-			home.altitude = (int)(altitude * 1000);
-		home.time_usec = DataModel.getSynchronizedPX4Time_us();
-		
-		control.sendMAVLinkMessage(home);
-				
-				final msg_set_gps_global_origin gor = new msg_set_gps_global_origin(1,1);
-				gor.target_system = 1;
-				gor.latitude = (long)(lat * 1e7);
-				gor.longitude = (long)(lon * 1e7);
-				if(altitude < 0)
-					gor.altitude = (int)(model.hud.ap * 1000f);
-				else
-					gor.altitude = (int)(altitude * 1000);
-				gor.time_usec = DataModel.getSynchronizedPX4Time_us();
-		
-				control.sendMAVLinkMessage(gor);
-		logger.writeLocalMsg("[msp] Setting reference position",MAV_SEVERITY.MAV_SEVERITY_INFO);
+		control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_DO_SET_HOME, (cmd,result) -> {
+			if(result != MAV_RESULT.MAV_RESULT_ACCEPTED) 
+				logger.writeLocalMsg("[msp] Home position not set",MAV_SEVERITY.MAV_SEVERITY_WARNING);
+			else
+				logger.writeLocalMsg("[msp] Setting home position successful",MAV_SEVERITY.MAV_SEVERITY_INFO);
+			
+		}, 0,0,0,Float.NaN,(float)lat,(float)lon,(float) altitude );
 
 	}
 
