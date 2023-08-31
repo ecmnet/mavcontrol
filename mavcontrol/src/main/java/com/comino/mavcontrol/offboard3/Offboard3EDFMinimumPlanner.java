@@ -5,7 +5,7 @@ import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcontrol.offboard3.plan.Offboard3Plan;
 import com.comino.mavcontrol.offboard3.states.Offboard3Current;
-import com.comino.mavcontrol.offboard3.utils.MAVTrajectoryBrentOptimizer;
+import com.comino.mavcontrol.offboard4.utils.MAVTrajectoryBrentOptimizer;
 import com.comino.mavcontrol.trajectory.minjerk.RapidTrajectoryGenerator;
 import com.comino.mavmap.map.map3D.impl.octomap.MAVOctoMap3D;
 
@@ -23,7 +23,7 @@ public class Offboard3EDFMinimumPlanner {
 
 		this.model      = control.getCurrentModel();
 		this.current    = new Offboard3Current(model);  
-		this.optimizer  = new MAVTrajectoryBrentOptimizer(current,map.getLocalEDF2D());
+		this.optimizer  = new MAVTrajectoryBrentOptimizer(map.getLocalEDF2D());
 
 	}
 	
@@ -33,7 +33,7 @@ public class Offboard3EDFMinimumPlanner {
 		pos_target.z = model.state.l_z;
 		pos_target.w = 0;
 		
-		RapidTrajectoryGenerator traj = optimizer.optimize(pos_target, pos_target.copy(), time);
+		RapidTrajectoryGenerator traj = optimizer.optimize(current,pos_target, pos_target.copy(), time);
 		traj.getPosition(time, p);
 		model.obs.x = p.x;
 		model.obs.y = p.y;
@@ -41,12 +41,5 @@ public class Offboard3EDFMinimumPlanner {
 		return traj;
 		
 	}
-	
-	
-   
-	
-	
-	
-
 
 }

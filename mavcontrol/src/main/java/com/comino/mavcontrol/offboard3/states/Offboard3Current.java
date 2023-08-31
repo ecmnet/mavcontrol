@@ -25,17 +25,17 @@ public class Offboard3Current extends Offboard3State {
 		update();
 	}
 
-//	public GeoTuple4D_F32<?> sep() {
-//		return current_pos_setpoint;
-//	}
-//
-//	public GeoTuple4D_F32<?> sev() {
-//		return current_vel_setpoint;
-//	}
-//	
-//	public GeoTuple3D_F32<?> sea() {
-//		return current_acc_setpoint;
-//	}
+	public GeoTuple4D_F32<?> sep() {
+		return current_pos_setpoint;
+	}
+
+	public GeoTuple4D_F32<?> sev() {
+		return current_vel_setpoint;
+	}
+	
+	public GeoTuple3D_F32<?> sea() {
+		return current_acc_setpoint;
+	}
 
 
 	public void update() {

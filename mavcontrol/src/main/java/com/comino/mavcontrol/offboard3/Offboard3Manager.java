@@ -103,6 +103,7 @@ public class Offboard3Manager implements IOffboardControl {
 		System.out.println("Acceptance radius: "+acceptance_radius+" m");
 
 		this.planner = new Offboard3Planner(control, map, acceptance_radius, max_xyz_vel);
+		System.out.println("Offboard3Manager instantiated");
 
 	}
 

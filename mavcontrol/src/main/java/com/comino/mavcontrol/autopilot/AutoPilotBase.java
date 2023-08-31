@@ -54,6 +54,7 @@ import com.comino.mavcontrol.autopilot.safety.SafetyCheckHandler;
 import com.comino.mavcontrol.ekf2utils.EKF2ResetCheck;
 import com.comino.mavcontrol.mapper.MAVOctoMapMapper;
 import com.comino.mavcontrol.offboard3.Offboard3Manager;
+import com.comino.mavcontrol.offboard4.Offboard4Manager;
 import com.comino.mavcontrol.scenario.ScenarioManager;
 import com.comino.mavmap.map.map3D.impl.octomap.tools.MAVOctoMapTools;
 import com.comino.mavmap.test.MapTestFactory;
@@ -115,7 +116,11 @@ public abstract class AutoPilotBase implements Runnable, ITargetListener {
 		System.out.println(instanceName+" instantiated");
 		this.mapper      = new MAVOctoMapMapper(control, config);
 
-		this.offboard_manager = Offboard3Manager.getInstance(control,mapper.getShorTermMap());
+		
+	//	this.offboard_manager = Offboard3Manager.getInstance(control,mapper.getShorTermMap());
+		this.offboard_manager = Offboard4Manager.getInstance(control,mapper.getShorTermMap());
+		
+		
 		this.scenario_manager = ScenarioManager.getInstance(control,offboard_manager);
 		this.control          = control;
 		this.model            = control.getCurrentModel();
