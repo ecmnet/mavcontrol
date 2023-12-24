@@ -3,6 +3,8 @@ package com.comino.mavcontrol.commander;
 import org.mavlink.messages.MAV_CMD;
 import org.mavlink.messages.MAV_SEVERITY;
 
+import com.comino.mavcom.config.MSPConfig;
+import com.comino.mavcom.config.MSPParams;
 import com.comino.mavcom.control.IMAVController;
 import com.comino.mavcom.model.DataModel;
 import com.comino.mavcom.model.segment.LogMessage;
@@ -19,6 +21,8 @@ public class StatusCheck implements Runnable {
 
 	private final WorkQueue wq = WorkQueue.getInstance();
 	private final PX4Parameters params;
+	private final MSPConfig  config;
+	private boolean enabled = false;
 
 
 	private boolean isRunning = false;
@@ -30,10 +34,23 @@ public class StatusCheck implements Runnable {
 		super();
 		this.model   = control.getCurrentModel();
 		this.control = control;
-		this.params = PX4Parameters.getInstance();
+		this.params  = PX4Parameters.getInstance();
+		this.config  = MSPConfig.getInstance( );
+		this.enabled = config.getBoolProperty(MSPParams.AUTOPILOT_HEALTH_CHECK, "false");
+		
+		if(!enabled) {
+				System.out.println("Health check disabled");
+		}
 
 		control.getStatusManager().addListener(StatusManager.TYPE_MSP_STATUS,Status.MSP_ARMED, StatusManager.EDGE_RISING, (n) -> {
 
+			if(!enabled) {
+				control.writeLogMessage(new LogMessage("[msp] Status checks skipped.",MAV_SEVERITY.MAV_SEVERITY_INFO));
+				if (model.sys.isStatus(Status.MSP_ACTIVE)) 
+				  model.sys.setStatus(Status.MSP_READY_FOR_FLIGHT, true);
+				return;
+			}
+			
 			if(!checkFlightReadiness(true)) {
 				control.sendMAVLinkCmd(MAV_CMD.MAV_CMD_COMPONENT_ARM_DISARM,0 );
 				control.writeLogMessage(new LogMessage("[msp] Disarmed. PreFlight health check failed", MAV_SEVERITY.MAV_SEVERITY_EMERGENCY));
@@ -45,7 +62,6 @@ public class StatusCheck implements Runnable {
 	public void start() {
 		if (isRunning)
 			return;
-		System.out.println("StatsCheck started...");
 		worker_id = wq.addCyclicTask("LP", 200, this);
 		isRunning = true;
 	}
@@ -56,7 +72,6 @@ public class StatusCheck implements Runnable {
 			wq.removeTask("LP", worker_id);
 		}
 	}
-
 
 	public boolean checkFlightReadiness(boolean logging) {
 
@@ -93,7 +108,7 @@ public class StatusCheck implements Runnable {
 
 			if (!model.sys.isSensorAvailable(Status.MSP_LIDAR_AVAILABILITY)) {
 				if(logging)
-					control.writeLogMessage(new LogMessage("[msp] Distance sensor not available.",MAV_SEVERITY.MAV_SEVERITY_ERROR));
+					control.writeLogMessage(new LogMessage("[msp] Distance sensor not available.",MAV_SEVERITY.MAV_SEVERITY_WARNING));
 				is_ready = false;
 			}
 
@@ -185,8 +200,12 @@ public class StatusCheck implements Runnable {
 
 	@Override
 	public void run() {
-		if (model.sys.isStatus(Status.MSP_ACTIVE))
-			model.sys.setStatus(Status.MSP_READY_FOR_FLIGHT, checkFlightReadiness(false));
+		if (model.sys.isStatus(Status.MSP_ACTIVE)) {
+			if(enabled)
+			  model.sys.setStatus(Status.MSP_READY_FOR_FLIGHT, checkFlightReadiness(false));
+			else
+			 model.sys.setStatus(Status.MSP_READY_FOR_FLIGHT, true);
+		}
 	}
 
     private boolean hasGPS() {
